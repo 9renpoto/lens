@@ -10,6 +10,7 @@ defmodule Lens.MixProject do
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [coveralls: :test, "coveralls.lcov": :test],
+      dialyzer: [plt_add_apps: [:ex_unit, :mix]],
       aliases: aliases(),
       deps: deps()
     ]
@@ -18,7 +19,7 @@ defmodule Lens.MixProject do
   def application do
     [
       mod: {Lens.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:inets, :logger, :runtime_tools]
     ]
   end
 
@@ -29,6 +30,7 @@ defmodule Lens.MixProject do
     [
       {:bandit, "~> 1.6"},
       {:castore, "~> 1.0", only: :test},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.12"},
       {:excoveralls, "~> 0.18", only: :test},
       {:jason, "~> 1.4"},

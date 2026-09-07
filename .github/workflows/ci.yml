@@ -41,9 +41,14 @@ jobs:
         with:
           elixir-version: "1.18.3"
           otp-version: "27.3.4"
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: _build/test/dialyxir_*.plt*
+          key: dialyzer-${{ runner.os }}-otp-27.3.4-elixir-1.18.3-${{ hashFiles('mix.exs', 'mix.lock') }}
       - run: mix deps.get
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
+      - run: mix dialyzer
       - run: mix coveralls.lcov
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:

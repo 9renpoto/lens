@@ -1,6 +1,17 @@
 defmodule Lens.Ingestion.Parser do
   alias Lens.Ingestion.Normalizer
 
+  @typedoc "A feed entry normalized before persistence."
+  @type entry :: %{
+          source_entry_id: String.t() | nil,
+          canonical_url: String.t() | nil,
+          title: String.t() | nil,
+          content: String.t() | nil,
+          author: String.t() | nil,
+          published_at: DateTime.t() | nil
+        }
+
+  @spec parse(binary(), String.t()) :: {:ok, [entry()]} | {:error, String.t()}
   def parse(xml, endpoint_url) when is_binary(xml) do
     with {:ok, root} <- Saxy.SimpleForm.parse_string(xml, cdata_as_characters: true),
          {:ok, kind} <- feed_kind(root) do

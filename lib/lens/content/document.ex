@@ -5,6 +5,16 @@ defmodule Lens.Content.Document do
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
+
+  @typedoc "Canonical normalized content, independent of the source that observed it."
+  @type t :: %__MODULE__{
+          id: binary() | nil,
+          identity_key: String.t() | nil,
+          canonical_url: String.t() | nil,
+          content: String.t() | nil,
+          content_hash: String.t() | nil
+        }
+
   schema "documents" do
     field(:identity_key, :string)
     field(:canonical_url, :string)
