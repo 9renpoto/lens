@@ -1,21 +1,14 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Lens has not released a stable version. Security fixes are made on `main` until
+the first release and are provided on a best-effort basis.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Reporting a vulnerability
 
-## Reporting a Vulnerability
+Please report vulnerabilities privately through [GitHub Security Advisories](https://github.com/9renpoto/lens/security/advisories/new). Do not open a public issue.
 
-Use this section to tell people how to report a vulnerability.
-
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+We will acknowledge a report within seven days and provide a status update when
+we have assessed it. Please include affected versions, a reproduction, and any
+suggested mitigation.
