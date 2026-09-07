@@ -1,0 +1,50 @@
+name: Elixir CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    # ubuntu-slim is unprivileged and cannot host the PostgreSQL service container.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lens_test
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lens_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      MIX_ENV: test
+      POSTGRES_HOST: localhost
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lens_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: erlef/setup-beam@0f75c29430f34bb5af4cce5e3b7f6a8860fca236 # v1.19.0
+        with:
+          elixir-version: "1.18.3"
+          otp-version: "27.3.4"
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix compile --warnings-as-errors
+      - run: mix coveralls.lcov
+      - uses: codecov/codecov-action@a99c28d3f0da835de33ff2feb2e15691c7b9641f # v7.0.0
+        with:
+          files: cover/lcov.info
+          fail_ci_if_error: true
+          use_oidc: true

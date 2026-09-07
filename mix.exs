@@ -8,6 +8,8 @@ defmodule Lens.MixProject do
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [coveralls: :test, "coveralls.lcov": :test],
       aliases: aliases(),
       deps: deps()
     ]
@@ -26,7 +28,9 @@ defmodule Lens.MixProject do
   defp deps do
     [
       {:bandit, "~> 1.6"},
+      {:castore, "~> 1.0", only: :test},
       {:ecto_sql, "~> 3.12"},
+      {:excoveralls, "~> 0.18", only: :test},
       {:jason, "~> 1.4"},
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.6"},
