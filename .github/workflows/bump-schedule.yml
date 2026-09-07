@@ -1,0 +1,17 @@
+name: Bump version (cron)
+
+on:
+  schedule:
+    - cron: "15 3 * * TUE"
+
+permissions:
+  contents: read
+
+jobs:
+  scheduled_bump:
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/bump.yml
+    with:
+      semver: minor

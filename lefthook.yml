@@ -1,0 +1,8 @@
+pre-commit:
+  commands:
+    gitleaks:
+      run: gitleaks protect --staged --redact
+    typos:
+      run: typos
+    zizmor:
+      run: zizmor .
