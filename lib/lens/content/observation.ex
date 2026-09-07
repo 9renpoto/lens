@@ -8,6 +8,16 @@ defmodule Lens.Content.Observation do
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
+
+  @typedoc "A successful observation of a document from one source."
+  @type t :: %__MODULE__{
+          id: binary() | nil,
+          source_id: binary() | nil,
+          document_id: binary() | nil,
+          observed_at: DateTime.t() | nil,
+          content_hash: String.t() | nil
+        }
+
   schema "observations" do
     field(:observed_at, :utc_datetime_usec)
     field(:content_hash, :string)

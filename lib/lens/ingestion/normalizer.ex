@@ -2,6 +2,7 @@ defmodule Lens.Ingestion.Normalizer do
   @block_tags ~r/<\/?(?:address|article|blockquote|br|div|h[1-6]|li|p|pre|section|tr)[^>]*>/i
   @tags ~r/<[^>]*>/
 
+  @spec text(String.t() | nil) :: String.t() | nil
   def text(nil), do: nil
 
   def text(value) when is_binary(value) do
@@ -19,6 +20,7 @@ defmodule Lens.Ingestion.Normalizer do
     |> blank_to_nil()
   end
 
+  @spec resolve_url(String.t() | nil, String.t()) :: String.t() | nil
   def resolve_url(nil, _base_url), do: nil
 
   def resolve_url(value, base_url) when is_binary(value) and is_binary(base_url) do
@@ -30,6 +32,7 @@ defmodule Lens.Ingestion.Normalizer do
     ArgumentError -> nil
   end
 
+  @spec date(String.t() | nil) :: DateTime.t() | nil
   def date(nil), do: nil
 
   def date(value) when is_binary(value) do

@@ -5,6 +5,26 @@ defmodule Lens.Ingestion.Fetcher do
   @default_max_bytes 5_000_000
   @default_max_redirects 3
 
+  @typedoc "A normalized HTTP header name and value."
+  @type header :: {String.t(), String.t()}
+
+  @typedoc "The bounded request passed to an optional test transport."
+  @type request :: %{
+          required(:url) => String.t(),
+          required(:headers) => [header()],
+          required(:timeout) => pos_integer(),
+          required(:max_bytes) => pos_integer(),
+          required(:max_redirects) => non_neg_integer()
+        }
+
+  @type response :: %{
+          required(:status) => pos_integer(),
+          required(:headers) => map(),
+          required(:body) => binary()
+        }
+  @type result :: {:ok, response()} | {:not_modified, map()} | {:error, String.t()}
+
+  @spec fetch(Source.t(), keyword()) :: result()
   def fetch(%Source{} = source, options \\ []) do
     request = %{
       url: source.endpoint_url,

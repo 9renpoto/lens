@@ -9,6 +9,16 @@ defmodule Lens.Content.Source do
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
+
+  @typedoc "A configured endpoint and its ingestion state."
+  @type t :: %__MODULE__{
+          id: binary() | nil,
+          source_type: String.t() | nil,
+          endpoint_url: String.t() | nil,
+          etag: String.t() | nil,
+          last_modified: String.t() | nil
+        }
+
   schema "sources" do
     field(:source_type, :string)
     field(:endpoint_url, :string)

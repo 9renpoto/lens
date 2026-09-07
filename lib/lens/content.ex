@@ -4,26 +4,39 @@ defmodule Lens.Content do
   alias Lens.Content.{Document, Identity, Observation, Source}
   alias Lens.Repo
 
+  @type attributes :: %{optional(atom() | String.t()) => term()}
+  @type source_id :: binary()
+  @type observation_result ::
+          {:ok, %{document: Document.t(), observation: Observation.t()}}
+          | {:error, %Ecto.Changeset{}}
+
+  @spec list_sources() :: [Source.t()]
   def list_sources, do: Repo.all(from(source in Source, order_by: [asc: source.inserted_at]))
 
+  @spec get_source!(source_id()) :: Source.t()
   def get_source!(id), do: Repo.get!(Source, id)
 
+  @spec create_source(attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def create_source(attrs) do
     %Source{}
     |> Source.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_source(Source.t(), attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def update_source(%Source{} = source, attrs) do
     source
     |> Source.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec change_source(Source.t(), attributes()) :: %Ecto.Changeset{}
   def change_source(%Source{} = source, attrs \\ %{}), do: Source.changeset(source, attrs)
 
+  @spec get_document!(binary()) :: Document.t()
   def get_document!(id), do: Repo.get!(Document, id)
 
+  @spec list_observations(Document.t()) :: [Observation.t()]
   def list_observations(%Document{id: document_id}) do
     Repo.all(
       from(observation in Observation,
@@ -33,6 +46,8 @@ defmodule Lens.Content do
     )
   end
 
+  @spec observe_document(Source.t() | source_id(), attributes(), keyword()) ::
+          observation_result()
   def observe_document(source_or_id, attrs, options \\ [])
 
   def observe_document(%Source{id: source_id}, attrs, options) do

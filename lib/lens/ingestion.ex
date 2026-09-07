@@ -5,6 +5,10 @@ defmodule Lens.Ingestion do
 
   @default_max_entries 1_000
 
+  @type source_id :: binary()
+  @type options :: keyword()
+
+  @spec ingest(Source.t() | source_id(), options()) :: Result.t()
   def ingest(source_or_id, options \\ [])
 
   def ingest(source_id, options) when is_binary(source_id) do
