@@ -34,7 +34,9 @@ defmodule Lens.MixProject do
       {:jason, "~> 1.4"},
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.6"},
-      {:postgrex, "~> 0.21"}
+      {:postgrex, "~> 0.21"},
+      {:req, "~> 0.7"},
+      {:saxy, "~> 1.6"}
     ]
   end
 
