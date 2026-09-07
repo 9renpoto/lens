@@ -35,7 +35,9 @@ jobs:
       POSTGRES_DB: lens_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: erlef/setup-beam@0f75c29430f34bb5af4cce5e3b7f6a8860fca236 # v1.19.0
+        with:
+          persist-credentials: false
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           elixir-version: "1.18.3"
           otp-version: "27.3.4"
@@ -43,7 +45,7 @@ jobs:
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
       - run: mix coveralls.lcov
-      - uses: codecov/codecov-action@a99c28d3f0da835de33ff2feb2e15691c7b9641f # v7.0.0
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: cover/lcov.info
           fail_ci_if_error: true
