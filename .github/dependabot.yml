@@ -1,5 +1,13 @@
 version: 2
 updates:
+  - package-ecosystem: mix
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    labels:
+      - "Type: Maintenance"
   - package-ecosystem: docker
     directory: "/.devcontainer"
     schedule:

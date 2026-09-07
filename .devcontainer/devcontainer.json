@@ -1,6 +1,6 @@
 {
 	"name": "Devcontainer",
-	"image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+	"image": "elixir:1.18.3-slim",
 	"features": {
 		"ghcr.io/devcontainers-extra/features/lefthook-asdf:1": {
 			"version": "latest"
@@ -8,8 +8,7 @@
 		"ghcr.io/michidk/devcontainers-features/typos:1": {},
 		"ghcr.io/jsburckhardt/devcontainer-features/zizmor:1": {}
 	},
-	"customizations": {
-	},
-	"postCreateCommand": "lefthook install",
-	"remoteUser": "vscode"
+	"forwardPorts": [4000],
+	"postCreateCommand": "mix local.hex --force && mix local.rebar --force && mix deps.get && lefthook install",
+	"remoteUser": "root"
 }
