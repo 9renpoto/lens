@@ -190,6 +190,44 @@ defmodule Lens.ContentTest do
     end
   end
 
+  describe "scheduled sources" do
+    test "claims a due source once and schedules its next fetch" do
+      now = ~U[2026-09-08 00:00:00Z]
+      source = source_fixture(next_fetch_at: DateTime.add(now, -1, :second))
+
+      assert [source.id] == Content.claim_due_sources(now, 2)
+      assert [] == Content.claim_due_sources(now, 2)
+
+      assert {:ok, updated_source} =
+               Content.schedule_next_fetch(
+                 source.id,
+                 %Lens.Ingestion.Result{outcome: :success},
+                 now
+               )
+
+      assert DateTime.compare(updated_source.next_fetch_at, DateTime.add(now, 300, :second)) ==
+               :eq
+    end
+
+    test "clears validators and makes a changed endpoint immediately due" do
+      source =
+        source_fixture(
+          etag: "v1",
+          last_modified: "yesterday",
+          next_fetch_at: ~U[2026-09-09 00:00:00Z]
+        )
+
+      assert {:ok, updated} =
+               Content.update_source(source, %{
+                 endpoint_url: "https://feeds.example.com/updated.xml"
+               })
+
+      assert updated.etag == nil
+      assert updated.last_modified == nil
+      assert updated.next_fetch_at
+    end
+  end
+
   defp source_fixture(attrs \\ %{}) do
     attributes =
       Map.merge(

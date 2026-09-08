@@ -26,7 +26,7 @@ defmodule Lens.Content do
   @spec update_source(Source.t(), attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def update_source(%Source{} = source, attrs) do
     source
-    |> Source.changeset(attrs)
+    |> Source.changeset(clear_validators_for_changed_endpoint(source, attrs))
     |> Repo.update()
   end
 
@@ -44,6 +44,47 @@ defmodule Lens.Content do
         order_by: [desc: observation.observed_at]
       )
     )
+  end
+
+  @spec claim_due_sources(DateTime.t(), non_neg_integer()) :: [source_id()]
+  def claim_due_sources(now, limit) when limit > 0 do
+    from(source in Source,
+      where: source.enabled and not is_nil(source.next_fetch_at) and source.next_fetch_at <= ^now,
+      order_by: [asc: source.next_fetch_at],
+      limit: ^limit,
+      select: source.id
+    )
+    |> Repo.all()
+    |> Enum.filter(fn source_id ->
+      {count, _} =
+        Repo.insert_all("source_runs", [%{source_id: Ecto.UUID.dump!(source_id), locked_at: now}],
+          on_conflict: :nothing
+        )
+
+      count == 1
+    end)
+  end
+
+  def claim_due_sources(_now, _limit), do: []
+
+  @spec schedule_next_fetch(source_id(), Lens.Ingestion.Result.t(), DateTime.t()) ::
+          {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
+  def schedule_next_fetch(source_id, result, now) do
+    source = get_source!(source_id)
+
+    seconds =
+      case result.outcome do
+        outcome when outcome in [:success, :not_modified] ->
+          source.poll_interval_seconds
+
+        :failure ->
+          min(
+            source.poll_interval_seconds * trunc(:math.pow(2, min(source.failure_count, 6))),
+            3_600
+          )
+      end
+
+    update_source(source, %{next_fetch_at: DateTime.add(now, seconds, :second)})
   end
 
   @spec observe_document(Source.t() | source_id(), attributes(), keyword()) ::
@@ -114,6 +155,23 @@ defmodule Lens.Content do
     case Repo.update(changeset) do
       {:ok, value} -> value
       {:error, changeset} -> Repo.rollback(changeset)
+    end
+  end
+
+  defp clear_validators_for_changed_endpoint(source, attrs) do
+    endpoint_url = Map.get(attrs, :endpoint_url, Map.get(attrs, "endpoint_url"))
+
+    if is_binary(endpoint_url) and endpoint_url != source.endpoint_url do
+      Map.merge(Map.new(attrs), %{
+        etag: nil,
+        last_modified: nil,
+        last_success_at: nil,
+        last_error: nil,
+        failure_count: 0,
+        next_fetch_at: DateTime.utc_now()
+      })
+    else
+      attrs
     end
   end
 end
