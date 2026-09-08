@@ -5,8 +5,4 @@
 erl_crash.dump
 *.ez
 
-# Secrets and local environment configuration
-.env
-.env.*
-!.env.example
 mise.toml

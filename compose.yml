@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: lens
       POSTGRES_USER: lens
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lens -d lens"]
       interval: 5s
@@ -21,10 +21,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: ecto://lens:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres/lens
+      DATABASE_URL: ecto://lens:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres/lens
       PHX_HOST: ${PHX_HOST:-localhost}
       PORT: "4000"
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set SECRET_KEY_BASE in .env}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:4000/api/ready"]
       interval: 10s

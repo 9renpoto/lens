@@ -6,17 +6,16 @@ containers are recreated.
 
 ## Deploy
 
-Docker Engine with the Compose plugin is required. Copy the example environment
-file and replace both placeholder secrets:
+Docker Engine with the Compose plugin is required. Make `POSTGRES_PASSWORD` and
+`SECRET_KEY_BASE` available to Docker Compose before deploying. Generate a
+unique value for `SECRET_KEY_BASE` and use a separate strong value for
+`POSTGRES_PASSWORD`.
 
 ```sh
-cp .env.example .env
 openssl rand -base64 48
 ```
 
-Use the generated value for `SECRET_KEY_BASE`; choose a separate strong value
-for `POSTGRES_PASSWORD`. Build the release, run migrations explicitly, and
-start the application:
+Build the release, run migrations explicitly, and start the application:
 
 ```sh
 docker compose build app
