@@ -1,4 +1,6 @@
 defmodule Lens.Ingestion do
+  require Logger
+
   alias Lens.Content
   alias Lens.Content.Source
   alias Lens.Ingestion.{Fetcher, Parser, Result}
@@ -19,19 +21,31 @@ defmodule Lens.Ingestion do
 
   def ingest(%Source{} = source, options) do
     attempted_at = DateTime.utc_now()
+    started_at = System.monotonic_time()
 
-    case Fetcher.fetch(source, options) do
-      {:not_modified, headers} ->
-        update_success(source, headers, attempted_at)
-        %Result{outcome: :not_modified, status: 304, valid_entries: [], invalid_entries: []}
+    result =
+      case Fetcher.fetch(source, options) do
+        {:not_modified, headers} ->
+          update_success(source, headers, attempted_at)
+          %Result{outcome: :not_modified, status: 304, valid_entries: [], invalid_entries: []}
 
-      {:ok, response} ->
-        ingest_response(source, response, attempted_at, options)
+        {:ok, response} ->
+          ingest_response(source, response, attempted_at, options)
 
-      {:error, error} ->
-        update_failure(source, error, attempted_at)
-        %Result{outcome: :failure, valid_entries: [], invalid_entries: [], error: error}
-    end
+        {:error, error} ->
+          update_failure(source, error, attempted_at)
+          %Result{outcome: :failure, valid_entries: [], invalid_entries: [], error: error}
+      end
+
+    Logger.info("source ingestion completed",
+      source_id: source.id,
+      outcome: result.outcome,
+      duration_ms: elapsed_ms(started_at),
+      valid_entries: length(result.valid_entries),
+      invalid_entries: length(result.invalid_entries)
+    )
+
+    result
   end
 
   defp ingest_response(source, response, attempted_at, options) do
@@ -122,5 +136,11 @@ defmodule Lens.Ingestion do
 
   defp errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {message, _options} -> message end)
+  end
+
+  defp elapsed_ms(started_at) do
+    System.monotonic_time()
+    |> Kernel.-(started_at)
+    |> System.convert_time_unit(:native, :millisecond)
   end
 end

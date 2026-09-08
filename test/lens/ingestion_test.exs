@@ -1,6 +1,8 @@
 defmodule Lens.IngestionTest do
   use Lens.DataCase
 
+  import ExUnit.CaptureLog
+
   alias Lens.Content
   alias Lens.Content.Document
   alias Lens.Ingestion
@@ -163,6 +165,20 @@ defmodule Lens.IngestionTest do
 
       [document] = Repo.all(Document)
       assert length(Content.list_observations(document)) == 2
+    end
+
+    test "logs source outcome metadata without feed content" do
+      source = source_fixture()
+
+      log =
+        capture_log(fn ->
+          Ingestion.ingest(source, transport: transport(200, rss_fixture()))
+        end)
+
+      assert log =~ "source_id=#{source.id}"
+      assert log =~ "outcome=success"
+      assert log =~ "valid_entries=1"
+      refute log =~ "First paragraph"
     end
   end
 

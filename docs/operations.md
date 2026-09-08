@@ -58,6 +58,9 @@ fetch without a manual command. To diagnose a failed source, inspect its
 docker compose logs --tail=200 app
 ```
 
+Each ingestion completion log includes the source ID, outcome, duration, and
+valid/invalid entry counts. It excludes feed bodies and endpoint URLs.
+
 For a manual diagnostic fetch, run `mix lens.ingest SOURCE_ID` from a local
 development checkout. Do not use an unauthenticated public RSSHub instance for
 private feeds.
