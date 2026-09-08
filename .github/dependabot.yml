@@ -9,7 +9,7 @@ updates:
     labels:
       - "Type: Maintenance"
   - package-ecosystem: docker
-    directory: "/.devcontainer"
+    directory: "/"
     schedule:
       interval: "weekly"
     cooldown:
