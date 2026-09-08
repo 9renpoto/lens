@@ -62,6 +62,28 @@ For a manual diagnostic fetch, run `mix lens.ingest SOURCE_ID` from a local
 development checkout. Do not use an unauthenticated public RSSHub instance for
 private feeds.
 
+## Smoke and soak checks
+
+The deterministic vertical-slice test uses only local RSS and Atom/RSSHub-style
+fixtures. It verifies source creation through the API, ingestion, changed
+content, PostgreSQL search, and an injected feed failure:
+
+```sh
+mix test test/system/vertical_slice_test.exs --seed 0
+```
+
+Run the same check once per minute for one hour before a home-server upgrade or
+after changing the deployment:
+
+```sh
+scripts/soak 60
+```
+
+The command exits at the first failed iteration and prints the iteration number.
+Record the command output, Lens version, host resources, and any failure in the
+deployment change record. It is an operator check, not a CI gate or a scale
+guarantee.
+
 ## Restart, backup, and restore
 
 Restart the application without losing content:
