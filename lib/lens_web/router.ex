@@ -10,5 +10,7 @@ defmodule LensWeb.Router do
 
     get("/health", HealthController, :show)
     resources("/sources", SourceController, only: [:index, :show, :create, :update])
+    get("/search", SearchController, :index)
+    get("/documents/:id", SearchController, :show_document)
   end
 end
