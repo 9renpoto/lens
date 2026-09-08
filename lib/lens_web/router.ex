@@ -9,5 +9,6 @@ defmodule LensWeb.Router do
     pipe_through(:api)
 
     get("/health", HealthController, :show)
+    resources("/sources", SourceController, only: [:index, :show, :create, :update])
   end
 end

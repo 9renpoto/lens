@@ -8,6 +8,8 @@ defmodule Lens.Application do
     children = [
       Lens.Repo,
       {Phoenix.PubSub, name: Lens.PubSub},
+      {Task.Supervisor, name: Lens.Ingestion.TaskSupervisor},
+      {Lens.Ingestion.Scheduler, []},
       LensWeb.Endpoint
     ]
 
