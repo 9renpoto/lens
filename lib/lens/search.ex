@@ -6,6 +6,7 @@ defmodule Lens.Search do
 
   @max_query_length 500
   @max_limit 100
+  @default_rebuild_batch_size 1_000
 
   @type result :: %{
           id: binary(),
@@ -52,10 +53,15 @@ defmodule Lens.Search do
 
   def search(_, _), do: {:error, :invalid_query}
 
-  @spec rebuild() :: :ok
-  def rebuild do
-    Repo.query!("UPDATE documents SET content = content")
-    :ok
+  @spec rebuild(keyword()) :: :ok | {:error, :invalid_batch_size}
+  def rebuild(options \\ []) do
+    batch_size = Keyword.get(options, :batch_size, @default_rebuild_batch_size)
+
+    if is_integer(batch_size) and batch_size > 0 do
+      rebuild_batches(nil, batch_size)
+    else
+      {:error, :invalid_batch_size}
+    end
   end
 
   defp valid_query?(query),
@@ -67,4 +73,33 @@ defmodule Lens.Search do
        do: true
 
   defp valid_pagination?(_, _), do: :invalid_pagination
+
+  defp rebuild_batches(last_id, batch_size) do
+    document_ids =
+      Document
+      |> order_by([document], asc: document.id)
+      |> limit(^batch_size)
+      |> select([document], document.id)
+      |> after_document(last_id)
+      |> Repo.all()
+
+    case document_ids do
+      [] ->
+        :ok
+
+      _ ->
+        from(document in Document,
+          where: document.id in ^document_ids,
+          update: [set: [content: fragment("content")]]
+        )
+        |> Repo.update_all([])
+
+        rebuild_batches(List.last(document_ids), batch_size)
+    end
+  end
+
+  defp after_document(query, nil), do: query
+
+  defp after_document(query, document_id),
+    do: where(query, [document], document.id > ^document_id)
 end

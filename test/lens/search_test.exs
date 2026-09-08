@@ -61,8 +61,12 @@ defmodule Lens.SearchTest do
       source = source_fixture()
       document_fixture(source, %{title: "Rebuild", content: "rebuildable-term"})
 
-      assert :ok = Search.rebuild()
+      assert :ok = Search.rebuild(batch_size: 1)
       assert {:ok, [%{title: "Rebuild"}]} = Search.search("rebuildable-term")
+    end
+
+    test "rejects an invalid rebuild batch size" do
+      assert {:error, :invalid_batch_size} = Search.rebuild(batch_size: 0)
     end
 
     test "rejects empty and oversized queries and invalid pagination" do

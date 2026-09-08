@@ -1,5 +1,5 @@
 defmodule LensWeb.HealthControllerTest do
-  use ExUnit.Case, async: true
+  use Lens.DataCase
 
   import Phoenix.ConnTest
 
@@ -9,5 +9,11 @@ defmodule LensWeb.HealthControllerTest do
     conn = get(build_conn(), "/api/health")
 
     assert %{"status" => "ok"} = json_response(conn, 200)
+  end
+
+  test "reports ready when PostgreSQL is available" do
+    conn = get(build_conn(), "/api/ready")
+
+    assert %{"status" => "ready"} = json_response(conn, 200)
   end
 end

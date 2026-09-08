@@ -16,7 +16,10 @@ defmodule LensWeb.SourceControllerTest do
         }
       })
 
-    assert %{"source" => %{"id" => id, "enabled" => true}} = json_response(create_conn, 201)
+    assert %{"source" => %{"id" => id, "enabled" => true, "next_fetch_at" => next_fetch_at}} =
+             json_response(create_conn, 201)
+
+    assert is_binary(next_fetch_at)
 
     assert %{"sources" => [%{"id" => ^id}]} =
              build_conn() |> get("/api/sources") |> json_response(200)
