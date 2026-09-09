@@ -65,6 +65,15 @@ defmodule LensWeb.SearchControllerTest do
     assert_response_schema(response, "DocumentResponse", ApiSpec.spec())
   end
 
+  test "returns the documented JSON 404 for missing or malformed document IDs" do
+    for id <- ["not-a-uuid", missing_id()] do
+      response = build_conn() |> get("/api/documents/#{id}") |> json_response(404)
+
+      assert response == %{"error" => "not_found"}
+      assert_response_schema(response, "ErrorResponse", ApiSpec.spec())
+    end
+  end
+
   test "rejects missing, empty, and invalid search parameters" do
     missing_query_response = build_conn() |> get("/api/search") |> json_response(422)
     assert %{"error" => "q is required"} = missing_query_response
@@ -102,4 +111,6 @@ defmodule LensWeb.SearchControllerTest do
     {:ok, %{document: document}} = Content.observe_document(source, Map.merge(defaults, attrs))
     document
   end
+
+  defp missing_id, do: "00000000-0000-0000-0000-000000000000"
 end

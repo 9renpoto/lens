@@ -4,6 +4,13 @@ Lens runs as one application container and one PostgreSQL container. PostgreSQL
 is the canonical store. Its named volume remains intact when application
 containers are recreated.
 
+The Compose stack uses the latest PostgreSQL major version supported by the
+PostgreSQL project (currently PostgreSQL 18). Its minor release and image digest
+are pinned for reproducibility, and Dependabot proposes image updates.
+PostgreSQL 18's official image stores data under
+`/var/lib/postgresql/18/docker`; the named volume therefore mounts
+`/var/lib/postgresql`.
+
 For a production deployment in a Kustomize environment, see [production
 deployment](deployment.md). This document covers the local Compose-based
 single-node operation only.
