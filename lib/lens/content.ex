@@ -18,6 +18,8 @@ defmodule Lens.Content do
 
   @spec create_source(attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def create_source(attrs) do
+    attrs = schedule_initial_fetch(attrs)
+
     %Source{}
     |> Source.changeset(attrs)
     |> Repo.insert()
@@ -173,5 +175,17 @@ defmodule Lens.Content do
     else
       attrs
     end
+  end
+
+  defp schedule_initial_fetch(attrs) do
+    if Map.has_key?(attrs, :next_fetch_at) or Map.has_key?(attrs, "next_fetch_at") do
+      attrs
+    else
+      Map.put(attrs, next_fetch_key(attrs), DateTime.utc_now())
+    end
+  end
+
+  defp next_fetch_key(attrs) do
+    if Enum.all?(Map.keys(attrs), &is_binary/1), do: "next_fetch_at", else: :next_fetch_at
   end
 end

@@ -70,8 +70,14 @@ mix test --warnings-as-errors
 ```
 
 `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `PORT`,
-and `POOL_SIZE` can override local defaults. The initial database has no domain
-migrations yet; they arrive with the persistence work.
+and `POOL_SIZE` can override local defaults.
+
+## Operations
+
+See [single-node operations](docs/operations.md) for the container deployment,
+backups, restores, and failure recovery. See the [search API](docs/search.md)
+for PostgreSQL FTS behavior, its current Japanese/CJK limitations, and search
+data rebuilds.
 
 ## License
 

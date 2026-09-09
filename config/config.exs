@@ -11,6 +11,6 @@ config :lens, LensWeb.Endpoint,
 
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [:request_id, :source_id, :outcome, :duration_ms, :valid_entries, :invalid_entries]
 
 import_config "#{config_env()}.exs"
