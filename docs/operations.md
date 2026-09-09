@@ -4,6 +4,10 @@ Lens runs as one application container and one PostgreSQL container. PostgreSQL
 is the canonical store. Its named volume remains intact when application
 containers are recreated.
 
+For a production deployment in a Kustomize environment, see [production
+deployment](deployment.md). This document covers the local Compose-based
+single-node operation only.
+
 ## Deploy
 
 Docker Engine with the Compose plugin is required. Make `POSTGRES_PASSWORD` and
@@ -22,11 +26,6 @@ docker compose build app
 docker compose run --rm app /app/bin/lens eval 'Lens.Release.migrate()'
 docker compose up -d app
 ```
-
-After `Elixir CI` succeeds for a merge to `main`, Lens publishes
-`ghcr.io/9renpoto/lens` with `latest` and a commit-specific `sha-...` tag. The
-publish workflow retains the two newest GHCR package versions and deletes older
-versions to keep storage within the free tier.
 
 Confirm liveness and database readiness:
 

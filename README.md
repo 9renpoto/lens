@@ -74,10 +74,11 @@ and `POOL_SIZE` can override local defaults.
 
 ## Operations
 
-See [single-node operations](docs/operations.md) for the container deployment,
-backups, restores, and failure recovery. See the [search API](docs/search.md)
-for PostgreSQL FTS behavior, its current Japanese/CJK limitations, and search
-data rebuilds.
+See [production deployment](docs/deployment.md) for the Kustomize deployment
+contract and [single-node operations](docs/operations.md) for local Compose
+operation, backups, restores, and failure recovery. See the [search
+API](docs/search.md) for PostgreSQL FTS behavior, its current Japanese/CJK
+limitations, and search data rebuilds.
 
 ## License
 
