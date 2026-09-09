@@ -55,4 +55,21 @@ defmodule LensWeb.SourceControllerTest do
     assert %{"errors" => %{"endpoint_url" => _, "poll_interval_seconds" => _}} = response
     assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
   end
+
+  test "returns the documented JSON 404 for missing or malformed source IDs" do
+    for method <- [:get, :patch, :put], id <- ["not-a-uuid", missing_id()] do
+      conn =
+        case method do
+          :get -> build_conn() |> get("/api/sources/#{id}")
+          :patch -> build_conn() |> patch("/api/sources/#{id}", %{source: %{enabled: false}})
+          :put -> build_conn() |> put("/api/sources/#{id}", %{source: %{enabled: false}})
+        end
+
+      response = json_response(conn, 404)
+      assert response == %{"error" => "not_found"}
+      assert_response_schema(response, "ErrorResponse", ApiSpec.spec())
+    end
+  end
+
+  defp missing_id, do: "00000000-0000-0000-0000-000000000000"
 end

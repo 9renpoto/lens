@@ -16,6 +16,9 @@ defmodule Lens.Content do
   @spec get_source!(source_id()) :: Source.t()
   def get_source!(id), do: Repo.get!(Source, id)
 
+  @spec fetch_source(source_id()) :: {:ok, Source.t()} | :error
+  def fetch_source(id), do: fetch(Source, id)
+
   @spec create_source(attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def create_source(attrs) do
     attrs = schedule_initial_fetch(attrs)
@@ -37,6 +40,9 @@ defmodule Lens.Content do
 
   @spec get_document!(binary()) :: Document.t()
   def get_document!(id), do: Repo.get!(Document, id)
+
+  @spec fetch_document(binary()) :: {:ok, Document.t()} | :error
+  def fetch_document(id), do: fetch(Document, id)
 
   @spec list_observations(Document.t()) :: [Observation.t()]
   def list_observations(%Document{id: document_id}) do
@@ -187,5 +193,14 @@ defmodule Lens.Content do
 
   defp next_fetch_key(attrs) do
     if Enum.all?(Map.keys(attrs), &is_binary/1), do: "next_fetch_at", else: :next_fetch_at
+  end
+
+  defp fetch(schema, id) when is_binary(id) do
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         record when not is_nil(record) <- Repo.get(schema, id) do
+      {:ok, record}
+    else
+      _ -> :error
+    end
   end
 end
