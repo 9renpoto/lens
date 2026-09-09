@@ -41,13 +41,19 @@ paragraph breaks, not raw HTML or a complex content AST.
 
 ## Development setup
 
-Requirements: Elixir 1.18 / Erlang-OTP 27 and PostgreSQL 17. For the initial
-development environment, install PostgreSQL with Homebrew:
+Requirements: Elixir 1.18 / Erlang-OTP 27 and the latest supported PostgreSQL
+major version (currently PostgreSQL 18). For the initial development
+environment, install PostgreSQL with Homebrew:
 
 ```sh
-brew install postgresql@17
-brew services start postgresql@17
+brew install postgresql@18
+brew services start postgresql@18
 ```
+
+Lens supports the latest PostgreSQL major version supported by the PostgreSQL
+project. Compose and CI use a fixed current minor release and digest for
+reproducibility; Dependabot tracks Docker image updates. A new PostgreSQL major
+version requires a separately reviewed compatibility update.
 
 Install dependencies and create the development database:
 
