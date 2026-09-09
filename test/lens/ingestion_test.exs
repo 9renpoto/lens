@@ -111,10 +111,22 @@ defmodule Lens.IngestionTest do
       assert source.failure_count == 3
     end
 
+    test "captures a bounded retry-after delay from failed HTTP responses" do
+      source = source_fixture()
+
+      result =
+        Ingestion.ingest(source,
+          transport: transport(503, "unavailable", %{"retry-after" => "7200"})
+        )
+
+      assert result.outcome == :failure
+      assert result.retry_after_seconds == 3_600
+    end
+
     test "bounds request timeouts and redirects" do
       source = source_fixture()
 
-      assert {:error, "unexpected HTTP status 302"} =
+      assert {:error, "unexpected HTTP status 302", %{}} =
                Fetcher.fetch(source,
                  timeout: 1_234,
                  max_redirects: 2,
@@ -129,13 +141,13 @@ defmodule Lens.IngestionTest do
     test "rejects declared and actual response byte limits" do
       source = source_fixture()
 
-      assert {:error, "response exceeds byte limit"} =
+      assert {:error, "response exceeds byte limit", _headers} =
                Fetcher.fetch(source,
                  max_bytes: 3,
                  transport: transport(200, "abcd", %{"content-length" => "4"})
                )
 
-      assert {:error, "response exceeds byte limit"} =
+      assert {:error, "response exceeds byte limit", _headers} =
                Fetcher.fetch(source, max_bytes: 3, transport: transport(200, "abcd"))
     end
 

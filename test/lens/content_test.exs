@@ -226,6 +226,64 @@ defmodule Lens.ContentTest do
       assert updated.last_modified == nil
       assert updated.next_fetch_at
     end
+
+    test "reclaims stale source runs without reclaiming active runs" do
+      now = ~U[2026-09-08 00:00:00Z]
+      source = source_fixture(next_fetch_at: DateTime.add(now, -1, :second))
+
+      assert [source.id] == Content.claim_due_sources(now, 1, lock_ttl_seconds: 60)
+
+      assert [] ==
+               Content.claim_due_sources(DateTime.add(now, 59, :second), 1, lock_ttl_seconds: 60)
+
+      assert [source.id] ==
+               Content.claim_due_sources(DateTime.add(now, 61, :second), 1, lock_ttl_seconds: 60)
+    end
+
+    test "respects concurrency and disabled sources when claiming due work" do
+      now = ~U[2026-09-08 00:00:00Z]
+      first = source_fixture(next_fetch_at: DateTime.add(now, -3, :second))
+
+      second =
+        source_fixture(
+          endpoint_url: "https://feeds.example.com/second.xml",
+          next_fetch_at: DateTime.add(now, -2, :second)
+        )
+
+      disabled =
+        source_fixture(
+          endpoint_url: "https://feeds.example.com/disabled.xml",
+          next_fetch_at: DateTime.add(now, -4, :second),
+          enabled: false
+        )
+
+      assert [first.id, second.id] == Content.claim_due_sources(now, 2)
+      refute disabled.id in Content.claim_due_sources(now, 2)
+    end
+
+    test "uses jittered capped backoff and bounded retry-after delays" do
+      now = ~U[2026-09-08 00:00:00Z]
+      source = source_fixture(failure_count: 1)
+
+      assert {:ok, jittered} =
+               Content.schedule_next_fetch(
+                 source.id,
+                 %Lens.Ingestion.Result{outcome: :failure},
+                 now,
+                 jitter: &(&1 + 3)
+               )
+
+      assert DateTime.compare(jittered.next_fetch_at, DateTime.add(now, 603, :second)) == :eq
+
+      assert {:ok, retried} =
+               Content.schedule_next_fetch(
+                 source.id,
+                 %Lens.Ingestion.Result{outcome: :failure, retry_after_seconds: 7_200},
+                 now
+               )
+
+      assert DateTime.compare(retried.next_fetch_at, DateTime.add(now, 3_600, :second)) == :eq
+    end
   end
 
   defp source_fixture(attrs \\ %{}) do

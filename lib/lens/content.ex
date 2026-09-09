@@ -9,6 +9,8 @@ defmodule Lens.Content do
   @type observation_result ::
           {:ok, %{document: Document.t(), observation: Observation.t()}}
           | {:error, %Ecto.Changeset{}}
+  @default_source_run_ttl_seconds 300
+  @max_retry_after_seconds 3_600
 
   @spec list_sources() :: [Source.t()]
   def list_sources, do: Repo.all(from(source in Source, order_by: [asc: source.inserted_at]))
@@ -54,8 +56,15 @@ defmodule Lens.Content do
     )
   end
 
-  @spec claim_due_sources(DateTime.t(), non_neg_integer()) :: [source_id()]
-  def claim_due_sources(now, limit) when limit > 0 do
+  @spec claim_due_sources(DateTime.t(), non_neg_integer(), keyword()) :: [source_id()]
+  def claim_due_sources(now, limit, options \\ [])
+
+  def claim_due_sources(now, limit, options) when limit > 0 do
+    release_expired_source_runs(
+      now,
+      Keyword.get(options, :lock_ttl_seconds, @default_source_run_ttl_seconds)
+    )
+
     from(source in Source,
       where: source.enabled and not is_nil(source.next_fetch_at) and source.next_fetch_at <= ^now,
       order_by: [asc: source.next_fetch_at],
@@ -73,11 +82,16 @@ defmodule Lens.Content do
     end)
   end
 
-  def claim_due_sources(_now, _limit), do: []
+  def claim_due_sources(_now, _limit, _options), do: []
 
-  @spec schedule_next_fetch(source_id(), Lens.Ingestion.Result.t(), DateTime.t()) ::
+  @spec release_source_run(source_id()) :: {non_neg_integer(), nil | [term()]}
+  def release_source_run(source_id) do
+    Repo.delete_all(from(run in "source_runs", where: run.source_id == ^source_id))
+  end
+
+  @spec schedule_next_fetch(source_id(), Lens.Ingestion.Result.t(), DateTime.t(), keyword()) ::
           {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
-  def schedule_next_fetch(source_id, result, now) do
+  def schedule_next_fetch(source_id, result, now, options \\ []) do
     source = get_source!(source_id)
 
     seconds =
@@ -86,10 +100,7 @@ defmodule Lens.Content do
           source.poll_interval_seconds
 
         :failure ->
-          min(
-            source.poll_interval_seconds * trunc(:math.pow(2, min(source.failure_count, 6))),
-            3_600
-          )
+          failure_delay(source, result, options)
       end
 
     update_source(source, %{next_fetch_at: DateTime.add(now, seconds, :second)})
@@ -203,4 +214,33 @@ defmodule Lens.Content do
       _ -> :error
     end
   end
+
+  defp release_expired_source_runs(now, ttl_seconds)
+       when is_integer(ttl_seconds) and ttl_seconds > 0 do
+    expires_at = DateTime.add(now, -ttl_seconds, :second)
+    Repo.delete_all(from(run in "source_runs", where: run.locked_at <= ^expires_at))
+  end
+
+  defp release_expired_source_runs(_now, _ttl_seconds), do: :ok
+
+  defp failure_delay(_source, %{retry_after_seconds: seconds}, _options)
+       when is_integer(seconds) and seconds >= 0,
+       do: min(seconds, @max_retry_after_seconds)
+
+  defp failure_delay(source, _result, options) do
+    seconds =
+      min(
+        source.poll_interval_seconds * trunc(:math.pow(2, min(source.failure_count, 6))),
+        @max_retry_after_seconds
+      )
+
+    options
+    |> Keyword.get(:jitter, &jitter/1)
+    |> then(& &1.(seconds))
+    |> trunc()
+    |> max(0)
+    |> min(@max_retry_after_seconds)
+  end
+
+  defp jitter(seconds), do: seconds * (0.8 + :rand.uniform() * 0.4)
 end
