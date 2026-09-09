@@ -462,6 +462,16 @@
               }
             },
             "description": "Canonical document"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Document not found"
           }
         },
         "summary": "Get canonical document content",
@@ -690,6 +700,16 @@
               }
             },
             "description": "Configured source"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source not found"
           }
         },
         "summary": "Get a source",
@@ -735,6 +755,16 @@
               }
             },
             "description": "Updated source"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source not found"
           },
           "422": {
             "content": {
@@ -790,6 +820,16 @@
               }
             },
             "description": "Updated source"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source not found"
           },
           "422": {
             "content": {
