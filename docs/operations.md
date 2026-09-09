@@ -15,13 +15,18 @@ unique value for `SECRET_KEY_BASE` and use a separate strong value for
 openssl rand -base64 48
 ```
 
-Build the release, run migrations explicitly, and start the application:
+Build the release locally, run migrations explicitly, and start the application:
 
 ```sh
 docker compose build app
 docker compose run --rm app /app/bin/lens eval 'Lens.Release.migrate()'
 docker compose up -d app
 ```
+
+After `Elixir CI` succeeds for a merge to `main`, Lens publishes
+`ghcr.io/9renpoto/lens` with `latest` and a commit-specific `sha-...` tag. The
+publish workflow retains the two newest GHCR package versions and deletes older
+versions to keep storage within the free tier.
 
 Confirm liveness and database readiness:
 
