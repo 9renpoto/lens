@@ -1,0 +1,63 @@
+name: Publish API documentation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/publish-api-docs.yml"
+      - "docs/api/**"
+      - "lib/**"
+      - "mix.exs"
+      - "mix.lock"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-api-docs.yml"
+      - "docs/api/**"
+      - "lib/**"
+      - "mix.exs"
+      - "mix.lock"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          elixir-version: "1.18.3"
+          otp-version: "27.3.4"
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+      - run: mkdir _site
+      - run: mix openapi.spec.json --spec LensWeb.ApiSpec --pretty --start-app=false --filename _site/openapi.json
+      - run: cp docs/api/index.html _site/index.html
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: api-reference
+          path: _site
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-api-documentation
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: api-reference
+          path: _site
+      - uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: _site

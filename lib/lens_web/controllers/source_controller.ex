@@ -1,7 +1,54 @@
 defmodule LensWeb.SourceController do
   use LensWeb, :controller
+  use OpenApiSpex.ControllerSpecs
 
   alias Lens.Content
+  alias OpenApiSpex.Schema
+
+  alias LensWeb.ApiSchemas.{
+    CreateSourceRequest,
+    SourceResponse,
+    SourcesResponse,
+    UpdateSourceRequest,
+    ValidationErrorsResponse
+  }
+
+  tags(["Sources"])
+
+  operation :index,
+    summary: "List configured sources",
+    responses: [ok: {"Configured sources", "application/json", SourcesResponse}]
+
+  operation :show,
+    summary: "Get a source",
+    parameters: [id: [in: :path, schema: %Schema{type: :string, format: :uuid}]],
+    responses: [ok: {"Configured source", "application/json", SourceResponse}]
+
+  operation :create,
+    summary: "Create a source",
+    request_body: {"Source configuration", "application/json", CreateSourceRequest},
+    responses: [
+      created: {"Created source", "application/json", SourceResponse},
+      unprocessable_entity: {"Validation errors", "application/json", ValidationErrorsResponse}
+    ]
+
+  operation :update,
+    summary: "Update a source",
+    parameters: [id: [in: :path, schema: %Schema{type: :string, format: :uuid}]],
+    request_body: {"Source changes", "application/json", UpdateSourceRequest},
+    responses: [
+      ok: {"Updated source", "application/json", SourceResponse},
+      unprocessable_entity: {"Validation errors", "application/json", ValidationErrorsResponse}
+    ]
+
+  operation :replace,
+    summary: "Replace a source configuration",
+    parameters: [id: [in: :path, schema: %Schema{type: :string, format: :uuid}]],
+    request_body: {"Source configuration", "application/json", UpdateSourceRequest},
+    responses: [
+      ok: {"Updated source", "application/json", SourceResponse},
+      unprocessable_entity: {"Validation errors", "application/json", ValidationErrorsResponse}
+    ]
 
   def index(conn, _params),
     do: json(conn, %{sources: Enum.map(Content.list_sources(), &source_json/1)})
@@ -21,6 +68,8 @@ defmodule LensWeb.SourceController do
       {:error, changeset} -> validation_error(conn, changeset)
     end
   end
+
+  def replace(conn, params), do: update(conn, params)
 
   defp validation_error(conn, changeset) do
     conn |> put_status(:unprocessable_entity) |> json(%{errors: errors(changeset)})
