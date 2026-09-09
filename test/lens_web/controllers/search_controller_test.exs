@@ -2,8 +2,10 @@ defmodule LensWeb.SearchControllerTest do
   use Lens.DataCase
 
   import Phoenix.ConnTest
+  import OpenApiSpex.TestAssertions
 
   alias Lens.Content
+  alias LensWeb.ApiSpec
 
   @endpoint LensWeb.Endpoint
 
@@ -18,6 +20,8 @@ defmodule LensWeb.SearchControllerTest do
 
     conn = build_conn() |> get("/api/search", %{q: "searchable"})
 
+    response = json_response(conn, 200)
+
     assert %{
              "results" => [
                %{
@@ -27,10 +31,11 @@ defmodule LensWeb.SearchControllerTest do
                  "excerpt" => "First searchable line. Second searchable line."
                }
              ]
-           } = json_response(conn, 200)
+           } = response
 
     assert document_id == document.id
     assert canonical_url == document.canonical_url
+    assert_response_schema(response, "SearchResponse", ApiSpec.spec())
   end
 
   test "returns canonical document content" do
@@ -45,6 +50,8 @@ defmodule LensWeb.SearchControllerTest do
 
     conn = build_conn() |> get("/api/documents/#{document.id}")
 
+    response = json_response(conn, 200)
+
     assert %{
              "document" => %{
                "id" => document_id,
@@ -52,20 +59,26 @@ defmodule LensWeb.SearchControllerTest do
                "canonical_url" => "https://example.com/documents/canonical",
                "content" => "Canonical content"
              }
-           } = json_response(conn, 200)
+           } = response
 
     assert document_id == document.id
+    assert_response_schema(response, "DocumentResponse", ApiSpec.spec())
   end
 
   test "rejects missing, empty, and invalid search parameters" do
-    assert %{"error" => "q is required"} =
-             build_conn() |> get("/api/search") |> json_response(422)
+    missing_query_response = build_conn() |> get("/api/search") |> json_response(422)
+    assert %{"error" => "q is required"} = missing_query_response
+    assert_response_schema(missing_query_response, "ErrorResponse", ApiSpec.spec())
 
-    assert %{"error" => "invalid_query"} =
-             build_conn() |> get("/api/search", %{q: "  "}) |> json_response(422)
+    empty_query_response = build_conn() |> get("/api/search", %{q: "  "}) |> json_response(422)
+    assert %{"error" => "invalid_query"} = empty_query_response
+    assert_response_schema(empty_query_response, "ErrorResponse", ApiSpec.spec())
 
-    assert %{"error" => "invalid_pagination"} =
-             build_conn() |> get("/api/search", %{q: "term", limit: "many"}) |> json_response(422)
+    invalid_pagination_response =
+      build_conn() |> get("/api/search", %{q: "term", limit: "many"}) |> json_response(422)
+
+    assert %{"error" => "invalid_pagination"} = invalid_pagination_response
+    assert_response_schema(invalid_pagination_response, "ErrorResponse", ApiSpec.spec())
   end
 
   defp source_fixture do

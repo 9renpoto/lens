@@ -1,6 +1,29 @@
 defmodule LensWeb.SearchController do
   use LensWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
   alias Lens.{Content, Search}
+  alias LensWeb.ApiSchemas.{DocumentResponse, ErrorResponse, SearchResponse}
+  alias OpenApiSpex.Schema
+
+  tags(["Search"])
+
+  operation :index,
+    summary: "Search canonical documents",
+    parameters: [
+      q: [in: :query, required: true, schema: %Schema{type: :string, maxLength: 500}],
+      limit: [in: :query, schema: %Schema{type: :integer, minimum: 1, maximum: 100}],
+      offset: [in: :query, schema: %Schema{type: :integer, minimum: 0}]
+    ],
+    responses: [
+      ok: {"Search results", "application/json", SearchResponse},
+      unprocessable_entity: {"Invalid search parameters", "application/json", ErrorResponse}
+    ]
+
+  operation :show_document,
+    summary: "Get canonical document content",
+    parameters: [id: [in: :path, schema: %Schema{type: :string, format: :uuid}]],
+    responses: [ok: {"Canonical document", "application/json", DocumentResponse}]
 
   def index(conn, %{"q" => query} = params) do
     with {:ok, options} <- pagination(params), {:ok, results} <- Search.search(query, options) do

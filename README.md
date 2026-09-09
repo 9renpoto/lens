@@ -82,6 +82,8 @@ operation, backups, restores, and failure recovery. See the [search
 API](docs/search.md) for PostgreSQL FTS behavior, its current Japanese/CJK
 limitations, and search data rebuilds.
 
+The generated [API reference](docs/api.md) describes the HTTP JSON contract.
+
 ## License
 
 Lens is licensed under the [MIT License](LICENSE).
