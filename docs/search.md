@@ -20,7 +20,9 @@ curl --get http://127.0.0.1:4000/api/search \
 
 Each result contains the document ID, title, canonical URL, publication time,
 and a 300-character plain-text excerpt. `GET /api/documents/:id` returns the
-canonical document content.
+canonical document content and one provenance record for each Source that
+observed it. A provenance record includes the Source ID, type, endpoint URL,
+and most recent observation time.
 
 Empty or over-500-character queries, and malformed pagination values, return
 `422`. Punctuation-only queries and queries with no matching indexed terms

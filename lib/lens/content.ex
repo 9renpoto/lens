@@ -56,6 +56,25 @@ defmodule Lens.Content do
     )
   end
 
+  @spec document_sources(Document.t()) :: [map()]
+  def document_sources(%Document{id: document_id}) do
+    Repo.all(
+      from(observation in Observation,
+        join: source in Source,
+        on: source.id == observation.source_id,
+        where: observation.document_id == ^document_id,
+        distinct: observation.source_id,
+        order_by: [asc: observation.source_id, desc: observation.observed_at],
+        select: %{
+          id: source.id,
+          source_type: source.source_type,
+          endpoint_url: source.endpoint_url,
+          observed_at: observation.observed_at
+        }
+      )
+    )
+  end
+
   @spec claim_due_sources(DateTime.t(), non_neg_integer(), keyword()) :: [source_id()]
   def claim_due_sources(now, limit, options \\ [])
 
