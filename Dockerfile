@@ -21,7 +21,7 @@ COPY priv priv
 RUN mix compile \
     && mix release
 
-FROM debian:bookworm-20250610-slim@sha256:e5865e6858dacc255bead044a7f2d0ad8c362433cfaa5acefb670c1edf54dfef
+FROM debian:bookworm-20260824-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y ca-certificates curl libncurses5 libstdc++6 openssl \
