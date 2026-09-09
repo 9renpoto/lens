@@ -240,6 +240,15 @@ defmodule Lens.ContentTest do
                Content.claim_due_sources(DateTime.add(now, 61, :second), 1, lock_ttl_seconds: 60)
     end
 
+    test "releases a claimed source run using its UUID" do
+      now = ~U[2026-09-08 00:00:00Z]
+      source = source_fixture(next_fetch_at: DateTime.add(now, -1, :second))
+
+      assert [source.id] == Content.claim_due_sources(now, 1)
+      assert {1, nil} = Content.release_source_run(source.id)
+      assert [source.id] == Content.claim_due_sources(now, 1)
+    end
+
     test "respects concurrency and disabled sources when claiming due work" do
       now = ~U[2026-09-08 00:00:00Z]
       first = source_fixture(next_fetch_at: DateTime.add(now, -3, :second))

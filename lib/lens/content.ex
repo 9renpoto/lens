@@ -86,6 +86,7 @@ defmodule Lens.Content do
 
   @spec release_source_run(source_id()) :: {non_neg_integer(), nil | [term()]}
   def release_source_run(source_id) do
+    source_id = Ecto.UUID.dump!(source_id)
     Repo.delete_all(from(run in "source_runs", where: run.source_id == ^source_id))
   end
 
