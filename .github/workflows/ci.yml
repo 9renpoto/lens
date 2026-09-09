@@ -48,6 +48,7 @@ jobs:
           path: _build/test/dialyxir_*.plt*
           key: dialyzer-${{ runner.os }}-otp-27.3.4-elixir-1.18.3-${{ hashFiles('mix.exs', 'mix.lock') }}
       - run: mix deps.get
+      - run: node --test .github/scripts/prune-package-versions.test.js
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
       - run: mix dialyzer
@@ -93,25 +94,7 @@ jobs:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const versions = await github.paginate(
-              github.rest.packages.getAllPackageVersionsForPackageOwnedByUser,
-              {
-                package_type: "container",
-                package_name: context.repo.repo,
-                username: context.repo.owner,
-                per_page: 100,
-              },
+            const { prunePackageVersions } = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/prune-package-versions.js`,
             );
-
-            const obsoleteVersions = versions
-              .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
-              .slice(2);
-
-            for (const version of obsoleteVersions) {
-              await github.rest.packages.deletePackageVersionForUser({
-                package_type: "container",
-                package_name: context.repo.repo,
-                username: context.repo.owner,
-                package_version_id: version.id,
-              });
-            }
+            await prunePackageVersions({ github, context });
