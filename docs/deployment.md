@@ -28,8 +28,10 @@ backup process.
 Lens requires the following services and capabilities:
 
 - A runtime that can run the Linux container image and expose its TCP port.
-- PostgreSQL reachable from the application. PostgreSQL is the canonical store
-  and requires durable storage, backups, and a restore procedure.
+- The latest PostgreSQL major version supported by the PostgreSQL project,
+  reachable from the application. PostgreSQL is the canonical store and
+  requires durable storage, backups, and a restore procedure. Lens currently
+  supports PostgreSQL 18.
 - Secret delivery for the database connection string and Phoenix secret key.
 - Network access from Lens to configured feed endpoints. This includes any
   RSSHub instance used as a feed endpoint.
@@ -41,6 +43,10 @@ Choose how these capabilities are supplied in the target environment. For
 example, PostgreSQL may be an existing managed service or a stateful workload;
 TLS and API access may be provided by an ingress, reverse proxy, private
 network, or another appropriate boundary.
+
+Lens tracks the latest supported PostgreSQL major version. A future major
+version change requires a separately reviewed compatibility update. Minor image
+updates are pinned by digest and tracked by Dependabot.
 
 ## Application configuration
 
