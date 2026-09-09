@@ -15,8 +15,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   app:
-    image: ghcr.io/9renpoto/lens:latest
-    pull_policy: always
+    build:
+      context: .
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,7 +1,9 @@
 name: Publish production image
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Elixir CI"]
+    types: [completed]
     branches: [main]
 
 permissions:
@@ -9,7 +11,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: publish-production-image
+  group: publish-production-image-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 env:
@@ -17,11 +19,13 @@ env:
 
 jobs:
   publish:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -34,9 +38,9 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:sha-${{ github.event.workflow_run.head_sha }}
           labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
       - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         with:
