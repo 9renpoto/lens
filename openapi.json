@@ -1,0 +1,815 @@
+{
+  "components": {
+    "responses": {},
+    "schemas": {
+      "CreateSourceRequest": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SourceAttributes"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "CreateSourceRequest",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.CreateSourceRequest",
+        "x-validate": null
+      },
+      "Document": {
+        "properties": {
+          "author": {
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "canonical_url": {
+            "format": "uri",
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "content": {
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "metadata": {
+            "type": "object",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "published_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "title": {
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "metadata"
+        ],
+        "title": "Document",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.Document",
+        "x-validate": null
+      },
+      "DocumentResponse": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "DocumentResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.DocumentResponse",
+        "x-validate": null
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.ErrorResponse",
+        "x-validate": null
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "enum": [
+              "ok"
+            ],
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.HealthResponse",
+        "x-validate": null
+      },
+      "ReadyResponse": {
+        "properties": {
+          "status": {
+            "enum": [
+              "ready"
+            ],
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ReadyResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.ReadyResponse",
+        "x-validate": null
+      },
+      "SearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            },
+            "type": "array",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "SearchResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.SearchResponse",
+        "x-validate": null
+      },
+      "SearchResult": {
+        "properties": {
+          "canonical_url": {
+            "format": "uri",
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "excerpt": {
+            "maxLength": 300,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "published_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "title": {
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "id",
+          "excerpt"
+        ],
+        "title": "SearchResult",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.SearchResult",
+        "x-validate": null
+      },
+      "Source": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "endpoint_url": {
+            "format": "uri",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "failure_count": {
+            "minimum": 0,
+            "type": "integer",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "last_attempt_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "last_error": {
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "last_success_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "next_fetch_at": {
+            "format": "date-time",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "poll_interval_seconds": {
+            "minimum": 1,
+            "type": "integer",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "source_type": {
+            "enum": [
+              "rss",
+              "atom",
+              "rsshub"
+            ],
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "title": {
+            "nullable": true,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "id",
+          "source_type",
+          "endpoint_url",
+          "enabled",
+          "poll_interval_seconds",
+          "next_fetch_at",
+          "failure_count"
+        ],
+        "title": "Source",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.Source",
+        "x-validate": null
+      },
+      "SourceAttributes": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "endpoint_url": {
+            "format": "uri",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "metadata": {
+            "type": "object",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "poll_interval_seconds": {
+            "minimum": 1,
+            "type": "integer",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "source_type": {
+            "enum": [
+              "rss",
+              "atom",
+              "rsshub"
+            ],
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "title": {
+            "maxLength": 1000,
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "title": "SourceAttributes",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.SourceAttributes",
+        "x-validate": null
+      },
+      "SourceResponse": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "SourceResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.SourceResponse",
+        "x-validate": null
+      },
+      "SourcesResponse": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            },
+            "type": "array",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "sources"
+        ],
+        "title": "SourcesResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.SourcesResponse",
+        "x-validate": null
+      },
+      "UnavailableResponse": {
+        "properties": {
+          "status": {
+            "enum": [
+              "unavailable"
+            ],
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "UnavailableResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.UnavailableResponse",
+        "x-validate": null
+      },
+      "UpdateSourceRequest": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SourceAttributes"
+          }
+        },
+        "title": "UpdateSourceRequest",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.UpdateSourceRequest",
+        "x-validate": null
+      },
+      "ValidationErrorsResponse": {
+        "properties": {
+          "errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string",
+                "x-struct": null,
+                "x-validate": null
+              },
+              "type": "array",
+              "x-struct": null,
+              "x-validate": null
+            },
+            "type": "object",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "errors"
+        ],
+        "title": "ValidationErrorsResponse",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.ValidationErrorsResponse",
+        "x-validate": null
+      }
+    }
+  },
+  "info": {
+    "description": "The HTTP API for a self-hosted Lens deployment.",
+    "title": "Lens API",
+    "version": "0.1.0-dev"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/documents/{id}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "LensWeb.SearchController.show_document",
+        "parameters": [
+          {
+            "description": "",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string",
+              "x-struct": null,
+              "x-validate": null
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            },
+            "description": "Canonical document"
+          }
+        },
+        "summary": "Get canonical document content",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "callbacks": {},
+        "operationId": "LensWeb.HealthController.show",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Lens is running"
+          }
+        },
+        "summary": "Report process health",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "callbacks": {},
+        "operationId": "LensWeb.HealthController.ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            },
+            "description": "PostgreSQL is reachable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnavailableResponse"
+                }
+              }
+            },
+            "description": "PostgreSQL is unavailable"
+          }
+        },
+        "summary": "Report database readiness",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "callbacks": {},
+        "operationId": "LensWeb.SearchController.index",
+        "parameters": [
+          {
+            "description": "",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 500,
+              "type": "string",
+              "x-struct": null,
+              "x-validate": null
+            }
+          },
+          {
+            "description": "",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "x-struct": null,
+              "x-validate": null
+            }
+          },
+          {
+            "description": "",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer",
+              "x-struct": null,
+              "x-validate": null
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Search results"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid search parameters"
+          }
+        },
+        "summary": "Search canonical documents",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/sources": {
+      "get": {
+        "callbacks": {},
+        "operationId": "LensWeb.SourceController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcesResponse"
+                }
+              }
+            },
+            "description": "Configured sources"
+          }
+        },
+        "summary": "List configured sources",
+        "tags": [
+          "Sources"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "operationId": "LensWeb.SourceController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSourceRequest"
+              }
+            }
+          },
+          "description": "Source configuration",
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Created source"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorsResponse"
+                }
+              }
+            },
+            "description": "Validation errors"
+          }
+        },
+        "summary": "Create a source",
+        "tags": [
+          "Sources"
+        ]
+      }
+    },
+    "/api/sources/{id}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "LensWeb.SourceController.show",
+        "parameters": [
+          {
+            "description": "",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string",
+              "x-struct": null,
+              "x-validate": null
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Configured source"
+          }
+        },
+        "summary": "Get a source",
+        "tags": [
+          "Sources"
+        ]
+      },
+      "patch": {
+        "callbacks": {},
+        "operationId": "LensWeb.SourceController.update",
+        "parameters": [
+          {
+            "description": "",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string",
+              "x-struct": null,
+              "x-validate": null
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSourceRequest"
+              }
+            }
+          },
+          "description": "Source changes",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Updated source"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorsResponse"
+                }
+              }
+            },
+            "description": "Validation errors"
+          }
+        },
+        "summary": "Update a source",
+        "tags": [
+          "Sources"
+        ]
+      },
+      "put": {
+        "callbacks": {},
+        "operationId": "LensWeb.SourceController.replace",
+        "parameters": [
+          {
+            "description": "",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string",
+              "x-struct": null,
+              "x-validate": null
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSourceRequest"
+              }
+            }
+          },
+          "description": "Source configuration",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Updated source"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorsResponse"
+                }
+              }
+            },
+            "description": "Validation errors"
+          }
+        },
+        "summary": "Replace a source configuration",
+        "tags": [
+          "Sources"
+        ]
+      }
+    }
+  },
+  "security": [],
+  "servers": [],
+  "tags": []
+}
