@@ -54,6 +54,14 @@
             "x-struct": null,
             "x-validate": null
           },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceProvenance"
+            },
+            "type": "array",
+            "x-struct": null,
+            "x-validate": null
+          },
           "title": {
             "nullable": true,
             "type": "string",
@@ -64,7 +72,8 @@
         "required": [
           "id",
           "content",
-          "metadata"
+          "metadata",
+          "sources"
         ],
         "title": "Document",
         "type": "object",
@@ -334,6 +343,48 @@
         "title": "SourceAttributes",
         "type": "object",
         "x-struct": "Elixir.LensWeb.ApiSchemas.SourceAttributes",
+        "x-validate": null
+      },
+      "SourceProvenance": {
+        "properties": {
+          "endpoint_url": {
+            "format": "uri",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "observed_at": {
+            "format": "date-time",
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          },
+          "source_type": {
+            "enum": [
+              "rss",
+              "atom",
+              "rsshub"
+            ],
+            "type": "string",
+            "x-struct": null,
+            "x-validate": null
+          }
+        },
+        "required": [
+          "id",
+          "source_type",
+          "endpoint_url",
+          "observed_at"
+        ],
+        "title": "SourceProvenance",
+        "type": "object",
+        "x-struct": "Elixir.LensWeb.ApiSchemas.SourceProvenance",
         "x-validate": null
       },
       "SourceResponse": {
