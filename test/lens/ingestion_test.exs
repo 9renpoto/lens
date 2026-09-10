@@ -207,6 +207,26 @@ defmodule Lens.IngestionTest do
       assert length(Content.list_observations(document)) == 2
     end
 
+    test "does not create provenance observations for HTTP 304 or failures" do
+      source = source_fixture()
+
+      assert :success ==
+               Ingestion.ingest(source, transport: transport(200, rss_fixture())).outcome
+
+      [document] = Repo.all(Document)
+      assert length(Content.list_observations(document)) == 1
+
+      assert :not_modified ==
+               Ingestion.ingest(source,
+                 transport: fn _request -> {:ok, %{status: 304, headers: %{}}} end
+               ).outcome
+
+      assert :failure ==
+               Ingestion.ingest(source, transport: transport(503, "unavailable")).outcome
+
+      assert length(Content.list_observations(document)) == 1
+    end
+
     test "logs source outcome metadata without feed content" do
       source = source_fixture()
 

@@ -130,31 +130,58 @@ defmodule Lens.Content do
           observation_result()
   def observe_document(source_or_id, attrs, options \\ [])
 
-  def observe_document(%Source{id: source_id}, attrs, options) do
-    observe_document(source_id, attrs, options)
+  def observe_document(%Source{} = source, attrs, options) do
+    observe_document_from_source(source, attrs, options)
   end
 
   def observe_document(source_id, attrs, options) when is_binary(source_id) and is_map(attrs) do
+    source_id
+    |> source_for_observation()
+    |> observe_document_from_source(attrs, options)
+  end
+
+  defp observe_document_from_source(%Source{} = source, attrs, options) do
     observed_at = Keyword.get(options, :observed_at, DateTime.utc_now())
     fetch_metadata = Keyword.get(options, :fetch_metadata, %{})
 
     Repo.transaction(fn ->
-      entry = Identity.normalize_entry(source_id, attrs)
+      entry = Identity.normalize_entry(source.id, attrs)
       document = upsert_document(entry)
 
       observation =
         %Observation{}
-        |> Observation.changeset(%{
-          source_id: source_id,
-          document_id: document.id,
-          observed_at: observed_at,
-          content_hash: entry.content_hash,
-          fetch_metadata: fetch_metadata
-        })
+        |> Observation.changeset(
+          Map.merge(
+            %{
+              source_id: source.id,
+              document_id: document.id,
+              observed_at: observed_at,
+              content_hash: entry.content_hash,
+              fetch_metadata: fetch_metadata
+            },
+            observation_provenance(source, entry)
+          )
+        )
         |> insert_or_rollback()
 
       %{document: document, observation: observation}
     end)
+  end
+
+  defp observation_provenance(source, entry) do
+    %{
+      entry_url: entry.canonical_url,
+      primary_source_url: source.original_feed_url,
+      feed_format: source.feed_format || "unknown",
+      acquisition_kind: source.acquisition_kind || "unknown",
+      publisher_authority: source.publisher_authority || "unknown",
+      acquisition_metadata_snapshot: source.acquisition_metadata || %{},
+      reported_published_at: entry.published_at
+    }
+  end
+
+  defp source_for_observation(source_id) do
+    Repo.get(Source, source_id) || %Source{id: source_id}
   end
 
   defp upsert_document(entry) do
