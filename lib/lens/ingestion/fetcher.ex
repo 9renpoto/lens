@@ -101,11 +101,20 @@ defmodule Lens.Ingestion.Fetcher do
   defp maybe_put_header(headers, name, value), do: [{name, value} | headers]
 
   defp normalize_headers(headers) when is_map(headers),
-    do: Map.new(headers, fn {key, value} -> {String.downcase(key), value} end)
+    do:
+      Map.new(headers, fn {key, value} ->
+        {String.downcase(key), normalize_header_value(value)}
+      end)
 
   defp normalize_headers(headers) when is_list(headers) do
-    Map.new(headers, fn {key, value} -> {String.downcase(to_string(key)), value} end)
+    Map.new(headers, fn {key, value} ->
+      {String.downcase(to_string(key)), normalize_header_value(value)}
+    end)
   end
+
+  defp normalize_header_value([value | _]) when is_binary(value), do: value
+  defp normalize_header_value(value) when is_binary(value), do: value
+  defp normalize_header_value(value), do: to_string(value)
 
   defp content_length_exceeds_limit?(headers, max_bytes) do
     case Integer.parse(to_string(Map.get(headers, "content-length", ""))) do
