@@ -1,9 +1,6 @@
 defmodule Lens.Ingestion.Scheduler do
   use GenServer
-  import Ecto.Query
-
   alias Lens.Content
-  alias Lens.Repo
 
   @default_concurrency 2
   @default_tick_ms 1_000
@@ -33,12 +30,20 @@ defmodule Lens.Ingestion.Scheduler do
 
     claimed = Content.claim_due_sources(DateTime.utc_now(), slots)
 
-    Enum.each(claimed, fn source_id ->
-      Task.Supervisor.start_child(Lens.Ingestion.TaskSupervisor, fn -> run(source_id) end)
-    end)
+    started =
+      Enum.count(claimed, fn source_id ->
+        case Task.Supervisor.start_child(Lens.Ingestion.TaskSupervisor, fn -> run(source_id) end) do
+          {:ok, _pid} ->
+            true
+
+          {:error, _reason} ->
+            Content.release_source_run(source_id)
+            false
+        end
+      end)
 
     Process.send_after(self(), :poll, state.tick_ms)
-    {:noreply, %{state | running: state.running + length(claimed)}}
+    {:noreply, %{state | running: state.running + started}}
   end
 
   def handle_info({:finished, _source_id}, state),
@@ -48,7 +53,7 @@ defmodule Lens.Ingestion.Scheduler do
     result = Lens.Ingestion.ingest(source_id)
     Content.schedule_next_fetch(source_id, result, DateTime.utc_now())
   after
-    Repo.delete_all(from(run in "source_runs", where: run.source_id == ^source_id))
+    Content.release_source_run(source_id)
     send(__MODULE__, {:finished, source_id})
   end
 end
