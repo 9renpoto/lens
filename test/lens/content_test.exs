@@ -2,7 +2,7 @@ defmodule Lens.ContentTest do
   use Lens.DataCase
 
   alias Lens.Content
-  alias Lens.Content.{Document, Identity}
+  alias Lens.Content.{Document, Identity, Observation}
 
   describe "sources" do
     test "validates source scheduling and endpoint configuration" do
@@ -127,6 +127,124 @@ defmodule Lens.ContentTest do
                second_document.content_hash,
                first_document.content_hash
              ]
+    end
+
+    test "snapshots source provenance for each observation" do
+      first_source =
+        source_fixture(
+          endpoint_url: "https://feeds.example.test/official.xml",
+          feed_format: "rss_2_0",
+          acquisition_kind: "direct",
+          publisher_authority: "official",
+          original_feed_url: "https://publisher.example.test/official.xml",
+          acquisition_metadata: %{"path" => "official"}
+        )
+
+      second_source =
+        source_fixture(
+          endpoint_url: "https://converter.example.test/feed.xml",
+          feed_format: "atom",
+          acquisition_kind: "conversion_service",
+          publisher_authority: "unknown",
+          acquisition_metadata: %{"converter" => "fixture"}
+        )
+
+      first_observed_at = ~U[2026-09-08 01:00:00.000000Z]
+      second_observed_at = ~U[2026-09-08 02:00:00.000000Z]
+
+      assert {:ok, %{document: document}} =
+               Content.observe_document(
+                 first_source,
+                 %{
+                   canonical_url: "https://publisher.example.test/articles/one",
+                   title: "Original",
+                   content: "Original content",
+                   published_at: ~U[2026-09-07 10:00:00.000000Z]
+                 },
+                 observed_at: first_observed_at
+               )
+
+      assert {:ok, %{document: second_document}} =
+               Content.observe_document(
+                 second_source,
+                 %{
+                   canonical_url: "https://publisher.example.test/articles/one",
+                   title: "Updated",
+                   content: "Updated content",
+                   published_at: ~U[2026-09-07 12:00:00.000000Z]
+                 },
+                 observed_at: second_observed_at
+               )
+
+      assert second_document.id == document.id
+
+      assert {:ok, changed_source} =
+               Content.update_source(first_source, %{
+                 publisher_authority: "third_party",
+                 original_feed_url: "https://changed.example.test/feed.xml",
+                 acquisition_metadata: %{"path" => "changed"}
+               })
+
+      assert {:ok, %{document: changed_document}} =
+               Content.observe_document(
+                 changed_source,
+                 %{
+                   canonical_url: "https://publisher.example.test/articles/one",
+                   title: "Changed again",
+                   content: "Changed content",
+                   published_at: ~U[2026-09-07 13:00:00.000000Z]
+                 },
+                 observed_at: ~U[2026-09-08 03:00:00.000000Z]
+               )
+
+      assert changed_document.id == document.id
+
+      observations = Content.list_observations(document)
+      assert length(observations) == 3
+
+      original = Enum.find(observations, &(&1.observed_at == first_observed_at))
+      converted = Enum.find(observations, &(&1.observed_at == second_observed_at))
+      changed = Enum.find(observations, &(&1.source_id == changed_source.id and &1 != original))
+
+      assert original.entry_url == "https://publisher.example.test/articles/one"
+      assert original.primary_source_url == "https://publisher.example.test/official.xml"
+      assert original.feed_format == "rss_2_0"
+      assert original.acquisition_kind == "direct"
+      assert original.publisher_authority == "official"
+      assert original.acquisition_metadata_snapshot == %{"path" => "official"}
+      assert original.reported_published_at == ~U[2026-09-07 10:00:00.000000Z]
+
+      assert converted.primary_source_url == nil
+      assert converted.feed_format == "atom"
+      assert converted.acquisition_kind == "conversion_service"
+      assert converted.publisher_authority == "unknown"
+      assert converted.acquisition_metadata_snapshot == %{"converter" => "fixture"}
+      assert converted.reported_published_at == ~U[2026-09-07 12:00:00.000000Z]
+
+      assert changed.publisher_authority == "third_party"
+      assert changed.primary_source_url == "https://changed.example.test/feed.xml"
+      assert changed.acquisition_metadata_snapshot == %{"path" => "changed"}
+      assert changed.reported_published_at == ~U[2026-09-07 13:00:00.000000Z]
+    end
+
+    test "treats legacy observation provenance as explicitly unknown" do
+      source = source_fixture()
+      document = %Document{id: Ecto.UUID.generate()}
+
+      changeset =
+        Observation.changeset(%Observation{}, %{
+          source_id: source.id,
+          document_id: document.id,
+          observed_at: ~U[2026-09-08 00:00:00.000000Z],
+          content_hash: String.duplicate("a", 64)
+        })
+
+      assert changeset.valid?
+      assert Ecto.Changeset.get_field(changeset, :feed_format) == "unknown"
+      assert Ecto.Changeset.get_field(changeset, :acquisition_kind) == "unknown"
+      assert Ecto.Changeset.get_field(changeset, :publisher_authority) == "unknown"
+      assert Ecto.Changeset.get_field(changeset, :primary_source_url) == nil
+      assert Ecto.Changeset.get_field(changeset, :acquisition_metadata_snapshot) == %{}
     end
 
     test "preserves known optional values when a later observation omits them" do
