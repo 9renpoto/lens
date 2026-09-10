@@ -28,6 +28,32 @@ defmodule LensWeb.SourceControllerTest do
     assert %{"source" => %{"enabled" => false}} = json_response(update_conn, 200)
   end
 
+  test "creates and returns independent provenance classification fields" do
+    conn =
+      build_conn()
+      |> post("/api/sources", %{
+        source: %{
+          feed_format: "rss_1_0",
+          acquisition_kind: "conversion_service",
+          publisher_authority: "third_party",
+          original_feed_url: "https://publisher.example.test/feed.rdf",
+          acquisition_metadata: %{"converter" => "fixture"},
+          endpoint_url: "https://converter.example.test/feed.rdf",
+          poll_interval_seconds: 300
+        }
+      })
+
+    assert %{
+             "source" => %{
+               "feed_format" => "rss_1_0",
+               "acquisition_kind" => "conversion_service",
+               "publisher_authority" => "third_party",
+               "original_feed_url" => "https://publisher.example.test/feed.rdf",
+               "acquisition_metadata" => %{"converter" => "fixture"}
+             }
+           } = json_response(conn, 201)
+  end
+
   test "returns validation errors for an invalid source" do
     conn =
       build_conn()
