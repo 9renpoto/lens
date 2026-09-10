@@ -13,7 +13,9 @@ defmodule Lens.IngestionTest do
       source = source_fixture()
 
       result =
-        Ingestion.ingest(source, transport: transport(200, rss_fixture(), %{"etag" => "rss-v1"}))
+        Ingestion.ingest(source,
+          transport: transport(200, rss_fixture(), %{"etag" => ["rss-v1"]})
+        )
 
       assert result.outcome == :success
       assert length(result.valid_entries) == 1
@@ -27,6 +29,9 @@ defmodule Lens.IngestionTest do
       source = Content.get_source!(source.id)
       assert source.etag == "rss-v1"
       assert source.failure_count == 0
+      assert source.last_attempt_at
+      assert source.last_success_at
+      assert source.last_error == nil
     end
 
     test "handles Atom and RSSHub output through the same path" do
@@ -136,6 +141,29 @@ defmodule Lens.IngestionTest do
                    {:ok, %{status: 302, headers: %{}, body: ""}}
                  end
                )
+    end
+
+    test "normalizes HTTP header maps and lists" do
+      source = source_fixture()
+
+      assert {:ok, %{headers: headers}} =
+               Fetcher.fetch(source,
+                 transport:
+                   transport(200, rss_fixture(), %{
+                     "etag" => ["rss-v1"],
+                     "last-modified" => ["Sun, 07 Sep 2026 12:00:00 GMT"]
+                   })
+               )
+
+      assert headers["etag"] == "rss-v1"
+      assert headers["last-modified"] == "Sun, 07 Sep 2026 12:00:00 GMT"
+
+      assert {:ok, %{headers: headers}} =
+               Fetcher.fetch(source,
+                 transport: transport(200, rss_fixture(), [{"x-retry-count", 3}])
+               )
+
+      assert headers["x-retry-count"] == "3"
     end
 
     test "rejects declared and actual response byte limits" do
