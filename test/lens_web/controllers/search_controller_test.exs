@@ -41,12 +41,26 @@ defmodule LensWeb.SearchControllerTest do
   test "returns canonical document content" do
     source = source_fixture()
 
+    second_source =
+      source_fixture(%{endpoint_url: "https://feeds.example.com/second-source.xml"})
+
     document =
       document_fixture(source, %{
         canonical_url: "https://example.com/documents/canonical",
         title: "Canonical document",
         content: "Canonical content"
       })
+
+    assert {:ok, %{document: ^document}} =
+             Content.observe_document(
+               second_source,
+               %{
+                 canonical_url: document.canonical_url,
+                 title: document.title,
+                 content: document.content
+               },
+               observed_at: ~U[2026-09-08 00:00:00Z]
+             )
 
     conn = build_conn() |> get("/api/documents/#{document.id}")
 
@@ -57,11 +71,32 @@ defmodule LensWeb.SearchControllerTest do
                "id" => document_id,
                "title" => "Canonical document",
                "canonical_url" => "https://example.com/documents/canonical",
-               "content" => "Canonical content"
+               "content" => "Canonical content",
+               "sources" => sources
              }
            } = response
 
     assert document_id == document.id
+
+    assert [
+             %{
+               "id" => source_id,
+               "source_type" => "rss",
+               "endpoint_url" => source_url,
+               "observed_at" => first_observed_at
+             },
+             %{
+               "id" => second_source_id,
+               "source_type" => "rss",
+               "endpoint_url" => second_source_url,
+               "observed_at" => "2026-09-08T00:00:00.000000Z"
+             }
+           ] = Enum.sort_by(sources, & &1["endpoint_url"])
+
+    assert {source_id, source_url} == {source.id, source.endpoint_url}
+    assert is_binary(first_observed_at)
+    assert {second_source_id, second_source_url} == {second_source.id, second_source.endpoint_url}
+
     assert_response_schema(response, "DocumentResponse", ApiSpec.spec())
   end
 
@@ -90,13 +125,16 @@ defmodule LensWeb.SearchControllerTest do
     assert_response_schema(invalid_pagination_response, "ErrorResponse", ApiSpec.spec())
   end
 
-  defp source_fixture do
+  defp source_fixture(attrs \\ %{}) do
     {:ok, source} =
-      Content.create_source(%{
-        source_type: "rss",
-        endpoint_url: "https://feeds.example.com/#{System.unique_integer([:positive])}.xml",
-        poll_interval_seconds: 300
-      })
+      Content.create_source(
+        %{
+          source_type: "rss",
+          endpoint_url: "https://feeds.example.com/#{System.unique_integer([:positive])}.xml",
+          poll_interval_seconds: 300
+        }
+        |> Map.merge(attrs)
+      )
 
     source
   end

@@ -195,9 +195,26 @@ defmodule LensWeb.ApiSchemas do
         content: %Schema{type: :string},
         author: %Schema{type: :string, nullable: true},
         published_at: %Schema{type: :string, format: :"date-time", nullable: true},
-        metadata: %Schema{type: :object}
+        metadata: %Schema{type: :object},
+        sources: %Schema{type: :array, items: LensWeb.ApiSchemas.SourceProvenance}
       },
-      required: [:id, :content, :metadata]
+      required: [:id, :content, :metadata, :sources]
+    })
+  end
+
+  defmodule SourceProvenance do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "SourceProvenance",
+      type: :object,
+      properties: %{
+        id: %Schema{type: :string, format: :uuid},
+        source_type: %Schema{type: :string, enum: ["rss", "atom", "rsshub"]},
+        endpoint_url: %Schema{type: :string, format: :uri},
+        observed_at: %Schema{type: :string, format: :"date-time"}
+      },
+      required: [:id, :source_type, :endpoint_url, :observed_at]
     })
   end
 

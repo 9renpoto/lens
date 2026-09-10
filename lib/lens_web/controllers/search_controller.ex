@@ -43,6 +43,8 @@ defmodule LensWeb.SearchController do
   def show_document(conn, %{"id" => id}) do
     case Content.fetch_document(id) do
       {:ok, document} ->
+        sources = Content.document_sources(document)
+
         json(conn, %{
           document:
             Map.take(document, [
@@ -54,6 +56,7 @@ defmodule LensWeb.SearchController do
               :published_at,
               :metadata
             ])
+            |> Map.put(:sources, sources)
         })
 
       :error ->
