@@ -143,7 +143,7 @@ defmodule Lens.IngestionTest do
                )
     end
 
-    test "normalizes list-valued HTTP headers" do
+    test "normalizes HTTP header maps and lists" do
       source = source_fixture()
 
       assert {:ok, %{headers: headers}} =
@@ -157,6 +157,13 @@ defmodule Lens.IngestionTest do
 
       assert headers["etag"] == "rss-v1"
       assert headers["last-modified"] == "Sun, 07 Sep 2026 12:00:00 GMT"
+
+      assert {:ok, %{headers: headers}} =
+               Fetcher.fetch(source,
+                 transport: transport(200, rss_fixture(), [{"x-retry-count", 3}])
+               )
+
+      assert headers["x-retry-count"] == "3"
     end
 
     test "rejects declared and actual response byte limits" do
