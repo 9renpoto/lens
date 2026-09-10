@@ -18,6 +18,57 @@ defmodule Lens.ContentTest do
 
       assert %{poll_interval_seconds: ["must be greater than 0"]} = errors_on(changeset)
     end
+
+    test "keeps feed format, acquisition, and publisher authority independent" do
+      {:ok, source} =
+        Content.create_source(%{
+          feed_format: "atom",
+          acquisition_kind: "rsshub",
+          publisher_authority: "official",
+          original_feed_url: "https://publisher.example.test/news.atom",
+          acquisition_metadata: %{"route" => "example/news"},
+          endpoint_url: "https://rsshub.example.test/example/news",
+          poll_interval_seconds: 300
+        })
+
+      assert source.feed_format == "atom"
+      assert source.acquisition_kind == "rsshub"
+      assert source.publisher_authority == "official"
+      assert source.original_feed_url == "https://publisher.example.test/news.atom"
+      assert source.acquisition_metadata == %{"route" => "example/news"}
+    end
+
+    test "keeps legacy source types compatible without inventing authority" do
+      {:ok, atom} =
+        Content.create_source(%{
+          source_type: "atom",
+          endpoint_url: "https://feeds.example.test/legacy.atom",
+          poll_interval_seconds: 300
+        })
+
+      assert atom.feed_format == "atom"
+      assert atom.acquisition_kind == "unknown"
+      assert atom.publisher_authority == "unknown"
+    end
+
+    test "rejects unknown provenance classifications and credential-bearing references" do
+      assert {:error, changeset} =
+               Content.create_source(%{
+                 feed_format: "json_feed",
+                 acquisition_kind: "scraper",
+                 publisher_authority: "verified",
+                 original_feed_url: "https://token@publisher.example.test/feed.xml",
+                 endpoint_url: "https://feeds.example.test/invalid.xml",
+                 poll_interval_seconds: 300
+               })
+
+      assert %{
+               feed_format: ["is invalid"],
+               acquisition_kind: ["is invalid"],
+               publisher_authority: ["is invalid"],
+               original_feed_url: ["must be an absolute HTTP(S) URL without credentials"]
+             } = errors_on(changeset)
+    end
   end
 
   describe "observe_document/3" do

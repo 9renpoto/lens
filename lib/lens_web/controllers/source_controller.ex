@@ -98,6 +98,11 @@ defmodule LensWeb.SourceController do
     Map.take(source, [
       :id,
       :source_type,
+      :feed_format,
+      :acquisition_kind,
+      :publisher_authority,
+      :original_feed_url,
+      :acquisition_metadata,
       :endpoint_url,
       :title,
       :enabled,
