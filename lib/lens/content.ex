@@ -13,6 +13,37 @@ defmodule Lens.Content do
   @spec list_sources() :: [Source.t()]
   def list_sources, do: Repo.all(from(source in Source, order_by: [asc: source.inserted_at]))
 
+  @spec dashboard_metrics() :: %{
+          source_count: non_neg_integer(),
+          enabled_source_count: non_neg_integer(),
+          disabled_source_count: non_neg_integer(),
+          attention_source_count: non_neg_integer(),
+          document_count: non_neg_integer(),
+          observation_count: non_neg_integer(),
+          latest_observation_at: DateTime.t() | nil,
+          attention_sources: [Source.t()]
+        }
+  def dashboard_metrics do
+    sources = list_sources()
+
+    attention_sources =
+      Enum.filter(sources, fn source ->
+        source.failure_count > 0 or not is_nil(source.last_error)
+      end)
+
+    %{
+      source_count: length(sources),
+      enabled_source_count: Enum.count(sources, & &1.enabled),
+      disabled_source_count: Enum.count(sources, &(not &1.enabled)),
+      attention_source_count: length(attention_sources),
+      document_count: Repo.aggregate(Document, :count),
+      observation_count: Repo.aggregate(Observation, :count),
+      latest_observation_at:
+        Repo.one(from(observation in Observation, select: max(observation.observed_at))),
+      attention_sources: attention_sources
+    }
+  end
+
   @spec get_source!(source_id()) :: Source.t()
   def get_source!(id), do: Repo.get!(Source, id)
 

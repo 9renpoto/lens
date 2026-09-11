@@ -14,4 +14,8 @@ defmodule LensWeb.Router do
     get("/search", SearchController, :index)
     get("/documents/:id", SearchController, :show_document)
   end
+
+  scope "/", LensWeb do
+    get("/dashboard", DashboardController, :show)
+  end
 end

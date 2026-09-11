@@ -34,6 +34,10 @@ curl http://127.0.0.1:4000/api/health
 curl http://127.0.0.1:4000/api/ready
 ```
 
+Open `http://127.0.0.1:4000/dashboard` for a mobile-friendly, server-rendered
+overview of source, document, and observation counts. The page has no client-side
+data fetching; reload it to see current values.
+
 The published API port is bound to loopback. Use an SSH tunnel or a trusted,
 authenticated reverse proxy for remote access. Lens does not provide accounts
 or public API authentication in v0.1. PostgreSQL has no published host port.
