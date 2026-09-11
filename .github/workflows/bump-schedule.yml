@@ -12,6 +12,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/bump.yml
+    uses: ./.github/workflows/bump.yml # zizmor: ignore[self-repository] actionlint does not support $/ references yet.
     with:
       semver: minor
