@@ -1,6 +1,8 @@
 defmodule Lens.Ingestion.Parser do
   alias Lens.Ingestion.Normalizer
 
+  @rss_1_0_namespace "http://purl.org/rss/1.0/"
+
   @typedoc "A feed entry normalized before persistence."
   @type entry :: %{
           source_entry_id: String.t() | nil,
@@ -21,11 +23,19 @@ defmodule Lens.Ingestion.Parser do
     end
   end
 
-  defp feed_kind({name, _, _}) do
+  defp feed_kind({name, attributes, _} = root) do
     case local_name(name) do
-      "rss" -> {:ok, :rss}
-      "feed" -> {:ok, :atom}
-      _ -> {:error, "unsupported feed format"}
+      "rss" ->
+        {:ok, :rss}
+
+      "feed" ->
+        {:ok, :atom}
+
+      "RDF" ->
+        if(rss_1_0?(root, attributes), do: {:ok, :rdf}, else: {:error, "unsupported feed format"})
+
+      _ ->
+        {:error, "unsupported feed format"}
     end
   end
 
@@ -41,6 +51,23 @@ defmodule Lens.Ingestion.Parser do
   defp entries(root, :atom, endpoint_url) do
     base_url = atom_link(root) || endpoint_url
     Enum.map(children(root, "entry"), &atom_entry(&1, base_url))
+  end
+
+  defp entries(root, :rdf, endpoint_url) do
+    root_base_url = element_base(root, endpoint_url)
+    channel = first_child(root, "channel")
+    channel_base_url = element_base(channel, root_base_url)
+
+    base_url =
+      Normalizer.resolve_url(text(first_child(channel, "link")), channel_base_url) ||
+        channel_base_url
+
+    item_base_url =
+      if local_attribute(root, "base"), do: root_base_url, else: base_url
+
+    root
+    |> children("item")
+    |> Enum.map(&rdf_entry(&1, element_base(&1, item_base_url)))
   end
 
   defp rss_entry(item, base_url) do
@@ -72,6 +99,24 @@ defmodule Lens.Ingestion.Parser do
         |> Normalizer.text(),
       author: Normalizer.text(author),
       published_at: Normalizer.date(text(first_present(entry, ["published", "updated"])))
+    }
+  end
+
+  defp rdf_entry(item, base_url) do
+    source_entry_id = Normalizer.resolve_url(local_attribute(item, "about"), base_url)
+    canonical_url = Normalizer.resolve_url(text(first_child(item, "link")), base_url)
+
+    %{
+      source_entry_id: source_entry_id,
+      canonical_url: canonical_url || Normalizer.resolve_url(source_entry_id, base_url),
+      title: Normalizer.text(text(first_child(item, "title"))),
+      content:
+        item
+        |> first_present(["encoded", "content", "description"])
+        |> text()
+        |> Normalizer.text(),
+      author: Normalizer.text(text(first_present(item, ["creator", "author"]))),
+      published_at: Normalizer.date(text(first_present(item, ["date", "pubDate"])))
     }
   end
 
@@ -113,8 +158,28 @@ defmodule Lens.Ingestion.Parser do
 
   defp local_name(name), do: name |> String.split(":") |> List.last()
 
+  defp rss_1_0?(root, attributes) do
+    Enum.any?(attributes, fn {_, value} -> value == @rss_1_0_namespace end) and
+      first_child(root, "channel") != nil
+  end
+
+  defp element_base({_, attributes, _}, fallback) do
+    case local_attribute(attributes, "base") do
+      nil -> fallback
+      value -> Normalizer.resolve_url(value, fallback) || fallback
+    end
+  end
+
   defp attribute(attributes, name, default \\ nil),
     do: attributes |> List.keyfind(name, 0, {nil, default}) |> elem(1)
+
+  defp local_attribute({_, attributes, _}, name), do: local_attribute(attributes, name)
+
+  defp local_attribute(attributes, name) do
+    Enum.find_value(attributes, fn {attribute_name, value} ->
+      if local_name(attribute_name) == name, do: value
+    end)
+  end
 
   defp message(error) when is_binary(error), do: error
   defp message(error), do: Exception.message(error)

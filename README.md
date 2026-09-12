@@ -9,10 +9,10 @@ useful information over time through a simple flow:
 Collect → Preserve → Search → Discover
 ```
 
-Version 0.1 concentrates on the first three steps: scheduled RSS and Atom feed
-collection (including output from an existing RSSHub endpoint), normalization
-to canonical plain text, PostgreSQL persistence, and PostgreSQL full-text
-search through a JSON API.
+Version 0.1 concentrates on the first three steps: scheduled RSS 2.0, Atom,
+and RDF/RSS 1.0 feed collection (including output from an existing RSSHub
+endpoint), normalization to canonical plain text, PostgreSQL persistence, and
+PostgreSQL full-text search through a JSON API.
 
 Lens is independent from the experimental offline-first RSS reader. A future
 integration, if useful, will use a loose API boundary rather than a shared
