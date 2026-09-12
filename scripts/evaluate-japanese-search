@@ -2,16 +2,20 @@
 set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-compose_file="$project_root/compose.evaluation.yml"
+project_name="lens-japanese-search-evaluation-$$"
+
+compose() {
+  POSTGRES_PASSWORD=evaluation-password SECRET_KEY_BASE=evaluation-secret-key-base \
+    docker compose --project-directory "$project_root" --project-name "$project_name" "$@"
+}
 
 cleanup() {
-  docker compose --file "$compose_file" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 }
 
 trap cleanup EXIT INT TERM
 
-docker compose --file "$compose_file" up --detach --wait
+compose up --detach --wait postgres
 
-docker compose --file "$compose_file" exec --no-TTY postgres \
-  psql --username postgres --dbname evaluation \
+compose exec --no-TTY postgres psql --username lens --dbname lens \
   < "$project_root/priv/evaluation/japanese_search_corpus.sql"

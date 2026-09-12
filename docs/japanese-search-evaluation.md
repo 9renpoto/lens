@@ -64,12 +64,13 @@ Run the evaluation from a checkout with Docker available:
 scripts/evaluate-japanese-search
 ```
 
-The script starts the disposable PostgreSQL service in
-[`compose.evaluation.yml`](../compose.evaluation.yml), enables `pg_trgm`,
-validates every corpus expectation, adds 10,000 unrelated synthetic documents,
-and prints an `EXPLAIN ANALYZE` plan for a Japanese substring query. The image
-digest is in the Compose file so Dependabot can monitor it. The script removes
-the evaluation service and its temporary data after the run.
+The script starts the existing `postgres` service from
+[`compose.yml`](../compose.yml) in a uniquely named temporary Compose project,
+enables `pg_trgm`, validates every corpus expectation, adds 10,000 unrelated
+synthetic documents, and prints an `EXPLAIN ANALYZE` plan for a Japanese
+substring query. The image digest remains in the existing Compose file so
+Dependabot monitors it. The script removes its project-specific service and
+volume after the run.
 
 ## Acceptance Threshold
 
@@ -84,7 +85,7 @@ guarantee.
 The initial run used the pinned PostgreSQL 18.6 container on 2026-09-13. Docker
 Engine 29.4.0 reported 12 CPUs and 25,274,273,792 bytes of memory. It validated
 all corpus cases with 10,006 documents. PostgreSQL selected a sequential scan
-for `前年同期比`, which completed in 7.933 ms; this small, highly cached corpus
+for `前年同期比`, which completed in 7.530 ms; this small, highly cached corpus
 did not justify the GIN index startup cost. The reproducible command prints the
 measured plan and timing for each environment instead of claiming a portable
 latency target.
