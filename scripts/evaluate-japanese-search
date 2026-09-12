@@ -2,32 +2,16 @@
 set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-container_name="lens-japanese-search-evaluation-$$"
-image="postgres:18.6@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280"
+compose_file="$project_root/compose.evaluation.yml"
 
 cleanup() {
-  docker rm --force "$container_name" >/dev/null 2>&1 || true
+  docker compose --file "$compose_file" down --volumes --remove-orphans >/dev/null 2>&1 || true
 }
 
 trap cleanup EXIT INT TERM
 
-docker run --detach --rm --name "$container_name" \
-  --env POSTGRES_HOST_AUTH_METHOD=trust \
-  --env POSTGRES_DB=evaluation \
-  "$image" >/dev/null
+docker compose --file "$compose_file" up --detach --wait
 
-attempt=0
-until docker exec "$container_name" pg_isready --username postgres --dbname evaluation >/dev/null 2>&1; do
-  attempt=$((attempt + 1))
-
-  if [ "$attempt" -ge 30 ]; then
-    echo "PostgreSQL did not become ready within 30 seconds." >&2
-    exit 1
-  fi
-
-  sleep 1
-done
-
-docker exec --interactive "$container_name" \
+docker compose --file "$compose_file" exec --no-TTY postgres \
   psql --username postgres --dbname evaluation \
   < "$project_root/priv/evaluation/japanese_search_corpus.sql"
