@@ -15,9 +15,10 @@ metadata are not supported in v0.1. Do not deploy `latest` or a commit-specific
 such as Dependabot propose a reviewable update to the Kustomize image reference.
 
 Images are published to `ghcr.io/9renpoto/lens`. The repository's version bump
-workflow updates the application version, merges the release PR, creates the
-corresponding GitHub release tag, and dispatches CI for that exact tag. The
-matching release-tagged image is published only after its tests pass.
+workflow updates the application version and prepares a release PR. After that
+PR is merged, create the release tag manually on the merge commit. Pushing the
+tag starts CI, and the matching release-tagged image is published only after
+its tests pass.
 The release tag and its commit-specific `sha-...` tag are produced from the
 same image build. The `latest` tag is reserved for successful pushes to `main`.
 Before creating a production workload, ensure the selected release tag exists
@@ -30,6 +31,24 @@ index, so cleanup cannot make a retained release unpullable. Keep the deployed
 release and its rollback candidate within the two-tag window. Operators who
 need a longer rollback history must provide it in their own image registry or
 backup process.
+
+## Create a release tag
+
+Run the version bump workflow and merge its release PR into `main`. Record the
+merge commit and the version written to `mix.exs`, then create an annotated tag
+on that exact commit:
+
+```sh
+git fetch origin main
+git tag --list 'v*.*.*'
+git tag -a v0.1.0 <merge-commit> -m "Release v0.1.0"
+git push origin v0.1.0
+```
+
+Replace `v0.1.0` and `<merge-commit>` with the values from the merged release
+PR. The tag must match `vMAJOR.MINOR.PATCH`; pre-release and build metadata are
+unsupported. The tag push runs the normal CI test job and publishes the release
+image only when the tests pass. Do not reuse an existing release tag.
 
 ## Required infrastructure
 
