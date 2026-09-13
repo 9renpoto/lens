@@ -49,7 +49,7 @@ jobs:
         with:
           path: _build/test/dialyxir_*.plt*
           key: dialyzer-${{ runner.os }}-otp-27.3.4-elixir-1.18.3-${{ hashFiles('mix.exs', 'mix.lock') }}
-          lookup-only: ${{ github.event_name == 'pull_request' }}
+          lookup-only: true
       - run: mix deps.get
       - run: node --test .github/scripts/prune-package-versions.test.js
       - run: mix format --check-formatted

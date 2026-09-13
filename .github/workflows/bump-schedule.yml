@@ -12,6 +12,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/bump.yml
+    uses: ./.github/workflows/bump.yml # zizmor: ignore[self-repository] pinned actionlint does not yet parse GitHub's $/ syntax
     with:
       semver: minor
