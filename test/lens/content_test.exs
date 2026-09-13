@@ -2,7 +2,7 @@ defmodule Lens.ContentTest do
   use Lens.DataCase
 
   alias Lens.Content
-  alias Lens.Content.{Document, Identity}
+  alias Lens.Content.{Document, Identity, Observation}
 
   describe "sources" do
     test "validates source scheduling and endpoint configuration" do
@@ -17,6 +17,57 @@ defmodule Lens.ContentTest do
                errors_on(changeset)
 
       assert %{poll_interval_seconds: ["must be greater than 0"]} = errors_on(changeset)
+    end
+
+    test "keeps feed format, acquisition, and publisher authority independent" do
+      {:ok, source} =
+        Content.create_source(%{
+          feed_format: "atom",
+          acquisition_kind: "rsshub",
+          publisher_authority: "official",
+          original_feed_url: "https://publisher.example.test/news.atom",
+          acquisition_metadata: %{"route" => "example/news"},
+          endpoint_url: "https://rsshub.example.test/example/news",
+          poll_interval_seconds: 300
+        })
+
+      assert source.feed_format == "atom"
+      assert source.acquisition_kind == "rsshub"
+      assert source.publisher_authority == "official"
+      assert source.original_feed_url == "https://publisher.example.test/news.atom"
+      assert source.acquisition_metadata == %{"route" => "example/news"}
+    end
+
+    test "keeps legacy source types compatible without inventing authority" do
+      {:ok, atom} =
+        Content.create_source(%{
+          source_type: "atom",
+          endpoint_url: "https://feeds.example.test/legacy.atom",
+          poll_interval_seconds: 300
+        })
+
+      assert atom.feed_format == "atom"
+      assert atom.acquisition_kind == "unknown"
+      assert atom.publisher_authority == "unknown"
+    end
+
+    test "rejects unknown provenance classifications and credential-bearing references" do
+      assert {:error, changeset} =
+               Content.create_source(%{
+                 feed_format: "json_feed",
+                 acquisition_kind: "scraper",
+                 publisher_authority: "verified",
+                 original_feed_url: "https://token@publisher.example.test/feed.xml",
+                 endpoint_url: "https://feeds.example.test/invalid.xml",
+                 poll_interval_seconds: 300
+               })
+
+      assert %{
+               feed_format: ["is invalid"],
+               acquisition_kind: ["is invalid"],
+               publisher_authority: ["is invalid"],
+               original_feed_url: ["must be an absolute HTTP(S) URL without credentials"]
+             } = errors_on(changeset)
     end
   end
 
@@ -76,6 +127,124 @@ defmodule Lens.ContentTest do
                second_document.content_hash,
                first_document.content_hash
              ]
+    end
+
+    test "snapshots source provenance for each observation" do
+      first_source =
+        source_fixture(
+          endpoint_url: "https://feeds.example.test/official.xml",
+          feed_format: "rss_2_0",
+          acquisition_kind: "direct",
+          publisher_authority: "official",
+          original_feed_url: "https://publisher.example.test/official.xml",
+          acquisition_metadata: %{"path" => "official"}
+        )
+
+      second_source =
+        source_fixture(
+          endpoint_url: "https://converter.example.test/feed.xml",
+          feed_format: "atom",
+          acquisition_kind: "conversion_service",
+          publisher_authority: "unknown",
+          acquisition_metadata: %{"converter" => "fixture"}
+        )
+
+      first_observed_at = ~U[2026-09-08 01:00:00.000000Z]
+      second_observed_at = ~U[2026-09-08 02:00:00.000000Z]
+
+      assert {:ok, %{document: document}} =
+               Content.observe_document(
+                 first_source,
+                 %{
+                   canonical_url: "https://publisher.example.test/articles/one",
+                   title: "Original",
+                   content: "Original content",
+                   published_at: ~U[2026-09-07 10:00:00.000000Z]
+                 },
+                 observed_at: first_observed_at
+               )
+
+      assert {:ok, %{document: second_document}} =
+               Content.observe_document(
+                 second_source,
+                 %{
+                   canonical_url: "https://publisher.example.test/articles/one",
+                   title: "Updated",
+                   content: "Updated content",
+                   published_at: ~U[2026-09-07 12:00:00.000000Z]
+                 },
+                 observed_at: second_observed_at
+               )
+
+      assert second_document.id == document.id
+
+      assert {:ok, changed_source} =
+               Content.update_source(first_source, %{
+                 publisher_authority: "third_party",
+                 original_feed_url: "https://changed.example.test/feed.xml",
+                 acquisition_metadata: %{"path" => "changed"}
+               })
+
+      assert {:ok, %{document: changed_document}} =
+               Content.observe_document(
+                 changed_source,
+                 %{
+                   canonical_url: "https://publisher.example.test/articles/one",
+                   title: "Changed again",
+                   content: "Changed content",
+                   published_at: ~U[2026-09-07 13:00:00.000000Z]
+                 },
+                 observed_at: ~U[2026-09-08 03:00:00.000000Z]
+               )
+
+      assert changed_document.id == document.id
+
+      observations = Content.list_observations(document)
+      assert length(observations) == 3
+
+      original = Enum.find(observations, &(&1.observed_at == first_observed_at))
+      converted = Enum.find(observations, &(&1.observed_at == second_observed_at))
+      changed = Enum.find(observations, &(&1.source_id == changed_source.id and &1 != original))
+
+      assert original.entry_url == "https://publisher.example.test/articles/one"
+      assert original.primary_source_url == "https://publisher.example.test/official.xml"
+      assert original.feed_format == "rss_2_0"
+      assert original.acquisition_kind == "direct"
+      assert original.publisher_authority == "official"
+      assert original.acquisition_metadata_snapshot == %{"path" => "official"}
+      assert original.reported_published_at == ~U[2026-09-07 10:00:00.000000Z]
+
+      assert converted.primary_source_url == nil
+      assert converted.feed_format == "atom"
+      assert converted.acquisition_kind == "conversion_service"
+      assert converted.publisher_authority == "unknown"
+      assert converted.acquisition_metadata_snapshot == %{"converter" => "fixture"}
+      assert converted.reported_published_at == ~U[2026-09-07 12:00:00.000000Z]
+
+      assert changed.publisher_authority == "third_party"
+      assert changed.primary_source_url == "https://changed.example.test/feed.xml"
+      assert changed.acquisition_metadata_snapshot == %{"path" => "changed"}
+      assert changed.reported_published_at == ~U[2026-09-07 13:00:00.000000Z]
+    end
+
+    test "treats legacy observation provenance as explicitly unknown" do
+      source = source_fixture()
+      document = %Document{id: Ecto.UUID.generate()}
+
+      changeset =
+        Observation.changeset(%Observation{}, %{
+          source_id: source.id,
+          document_id: document.id,
+          observed_at: ~U[2026-09-08 00:00:00.000000Z],
+          content_hash: String.duplicate("a", 64)
+        })
+
+      assert changeset.valid?
+      assert Ecto.Changeset.get_field(changeset, :feed_format) == "unknown"
+      assert Ecto.Changeset.get_field(changeset, :acquisition_kind) == "unknown"
+      assert Ecto.Changeset.get_field(changeset, :publisher_authority) == "unknown"
+      assert Ecto.Changeset.get_field(changeset, :primary_source_url) == nil
+      assert Ecto.Changeset.get_field(changeset, :acquisition_metadata_snapshot) == %{}
     end
 
     test "preserves known optional values when a later observation omits them" do
@@ -225,6 +394,73 @@ defmodule Lens.ContentTest do
       assert updated.etag == nil
       assert updated.last_modified == nil
       assert updated.next_fetch_at
+    end
+
+    test "reclaims stale source runs without reclaiming active runs" do
+      now = ~U[2026-09-08 00:00:00Z]
+      source = source_fixture(next_fetch_at: DateTime.add(now, -1, :second))
+
+      assert [source.id] == Content.claim_due_sources(now, 1, lock_ttl_seconds: 60)
+
+      assert [] ==
+               Content.claim_due_sources(DateTime.add(now, 59, :second), 1, lock_ttl_seconds: 60)
+
+      assert [source.id] ==
+               Content.claim_due_sources(DateTime.add(now, 61, :second), 1, lock_ttl_seconds: 60)
+    end
+
+    test "releases a claimed source run using its UUID" do
+      now = ~U[2026-09-08 00:00:00Z]
+      source = source_fixture(next_fetch_at: DateTime.add(now, -1, :second))
+
+      assert [source.id] == Content.claim_due_sources(now, 1)
+      assert {1, nil} = Content.release_source_run(source.id)
+      assert [source.id] == Content.claim_due_sources(now, 1)
+    end
+
+    test "respects concurrency and disabled sources when claiming due work" do
+      now = ~U[2026-09-08 00:00:00Z]
+      first = source_fixture(next_fetch_at: DateTime.add(now, -3, :second))
+
+      second =
+        source_fixture(
+          endpoint_url: "https://feeds.example.com/second.xml",
+          next_fetch_at: DateTime.add(now, -2, :second)
+        )
+
+      disabled =
+        source_fixture(
+          endpoint_url: "https://feeds.example.com/disabled.xml",
+          next_fetch_at: DateTime.add(now, -4, :second),
+          enabled: false
+        )
+
+      assert [first.id, second.id] == Content.claim_due_sources(now, 2)
+      refute disabled.id in Content.claim_due_sources(now, 2)
+    end
+
+    test "uses jittered capped backoff and bounded retry-after delays" do
+      now = ~U[2026-09-08 00:00:00Z]
+      source = source_fixture(failure_count: 1)
+
+      assert {:ok, jittered} =
+               Content.schedule_next_fetch(
+                 source.id,
+                 %Lens.Ingestion.Result{outcome: :failure},
+                 now,
+                 jitter: &(&1 + 3)
+               )
+
+      assert DateTime.compare(jittered.next_fetch_at, DateTime.add(now, 603, :second)) == :eq
+
+      assert {:ok, retried} =
+               Content.schedule_next_fetch(
+                 source.id,
+                 %Lens.Ingestion.Result{outcome: :failure, retry_after_seconds: 7_200},
+                 now
+               )
+
+      assert DateTime.compare(retried.next_fetch_at, DateTime.add(now, 3_600, :second)) == :eq
     end
   end
 

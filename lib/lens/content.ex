@@ -9,12 +9,48 @@ defmodule Lens.Content do
   @type observation_result ::
           {:ok, %{document: Document.t(), observation: Observation.t()}}
           | {:error, %Ecto.Changeset{}}
+  @default_source_run_ttl_seconds 300
+  @max_retry_after_seconds 3_600
 
   @spec list_sources() :: [Source.t()]
   def list_sources, do: Repo.all(from(source in Source, order_by: [asc: source.inserted_at]))
 
+  @spec dashboard_metrics() :: %{
+          source_count: non_neg_integer(),
+          enabled_source_count: non_neg_integer(),
+          disabled_source_count: non_neg_integer(),
+          attention_source_count: non_neg_integer(),
+          document_count: non_neg_integer(),
+          observation_count: non_neg_integer(),
+          latest_observation_at: DateTime.t() | nil,
+          attention_sources: [Source.t()]
+        }
+  def dashboard_metrics do
+    sources = list_sources()
+
+    attention_sources =
+      Enum.filter(sources, fn source ->
+        source.failure_count > 0 or not is_nil(source.last_error)
+      end)
+
+    %{
+      source_count: length(sources),
+      enabled_source_count: Enum.count(sources, & &1.enabled),
+      disabled_source_count: Enum.count(sources, &(not &1.enabled)),
+      attention_source_count: length(attention_sources),
+      document_count: Repo.aggregate(Document, :count),
+      observation_count: Repo.aggregate(Observation, :count),
+      latest_observation_at:
+        Repo.one(from(observation in Observation, select: max(observation.observed_at))),
+      attention_sources: attention_sources
+    }
+  end
+
   @spec get_source!(source_id()) :: Source.t()
   def get_source!(id), do: Repo.get!(Source, id)
+
+  @spec fetch_source(source_id()) :: {:ok, Source.t()} | :error
+  def fetch_source(id), do: fetch(Source, id)
 
   @spec create_source(attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def create_source(attrs) do
@@ -38,6 +74,9 @@ defmodule Lens.Content do
   @spec get_document!(binary()) :: Document.t()
   def get_document!(id), do: Repo.get!(Document, id)
 
+  @spec fetch_document(binary()) :: {:ok, Document.t()} | :error
+  def fetch_document(id), do: fetch(Document, id)
+
   @spec list_observations(Document.t()) :: [Observation.t()]
   def list_observations(%Document{id: document_id}) do
     Repo.all(
@@ -48,8 +87,34 @@ defmodule Lens.Content do
     )
   end
 
-  @spec claim_due_sources(DateTime.t(), non_neg_integer()) :: [source_id()]
-  def claim_due_sources(now, limit) when limit > 0 do
+  @spec document_sources(Document.t()) :: [map()]
+  def document_sources(%Document{id: document_id}) do
+    Repo.all(
+      from(observation in Observation,
+        join: source in Source,
+        on: source.id == observation.source_id,
+        where: observation.document_id == ^document_id,
+        distinct: observation.source_id,
+        order_by: [asc: observation.source_id, desc: observation.observed_at],
+        select: %{
+          id: source.id,
+          source_type: source.source_type,
+          endpoint_url: source.endpoint_url,
+          observed_at: observation.observed_at
+        }
+      )
+    )
+  end
+
+  @spec claim_due_sources(DateTime.t(), non_neg_integer(), keyword()) :: [source_id()]
+  def claim_due_sources(now, limit, options \\ [])
+
+  def claim_due_sources(now, limit, options) when limit > 0 do
+    release_expired_source_runs(
+      now,
+      Keyword.get(options, :lock_ttl_seconds, @default_source_run_ttl_seconds)
+    )
+
     from(source in Source,
       where: source.enabled and not is_nil(source.next_fetch_at) and source.next_fetch_at <= ^now,
       order_by: [asc: source.next_fetch_at],
@@ -67,11 +132,17 @@ defmodule Lens.Content do
     end)
   end
 
-  def claim_due_sources(_now, _limit), do: []
+  def claim_due_sources(_now, _limit, _options), do: []
 
-  @spec schedule_next_fetch(source_id(), Lens.Ingestion.Result.t(), DateTime.t()) ::
+  @spec release_source_run(source_id()) :: {non_neg_integer(), nil | [term()]}
+  def release_source_run(source_id) do
+    source_id = Ecto.UUID.dump!(source_id)
+    Repo.delete_all(from(run in "source_runs", where: run.source_id == ^source_id))
+  end
+
+  @spec schedule_next_fetch(source_id(), Lens.Ingestion.Result.t(), DateTime.t(), keyword()) ::
           {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
-  def schedule_next_fetch(source_id, result, now) do
+  def schedule_next_fetch(source_id, result, now, options \\ []) do
     source = get_source!(source_id)
 
     seconds =
@@ -80,10 +151,7 @@ defmodule Lens.Content do
           source.poll_interval_seconds
 
         :failure ->
-          min(
-            source.poll_interval_seconds * trunc(:math.pow(2, min(source.failure_count, 6))),
-            3_600
-          )
+          failure_delay(source, result, options)
       end
 
     update_source(source, %{next_fetch_at: DateTime.add(now, seconds, :second)})
@@ -93,31 +161,58 @@ defmodule Lens.Content do
           observation_result()
   def observe_document(source_or_id, attrs, options \\ [])
 
-  def observe_document(%Source{id: source_id}, attrs, options) do
-    observe_document(source_id, attrs, options)
+  def observe_document(%Source{} = source, attrs, options) do
+    observe_document_from_source(source, attrs, options)
   end
 
   def observe_document(source_id, attrs, options) when is_binary(source_id) and is_map(attrs) do
+    source_id
+    |> source_for_observation()
+    |> observe_document_from_source(attrs, options)
+  end
+
+  defp observe_document_from_source(%Source{} = source, attrs, options) do
     observed_at = Keyword.get(options, :observed_at, DateTime.utc_now())
     fetch_metadata = Keyword.get(options, :fetch_metadata, %{})
 
     Repo.transaction(fn ->
-      entry = Identity.normalize_entry(source_id, attrs)
+      entry = Identity.normalize_entry(source.id, attrs)
       document = upsert_document(entry)
 
       observation =
         %Observation{}
-        |> Observation.changeset(%{
-          source_id: source_id,
-          document_id: document.id,
-          observed_at: observed_at,
-          content_hash: entry.content_hash,
-          fetch_metadata: fetch_metadata
-        })
+        |> Observation.changeset(
+          Map.merge(
+            %{
+              source_id: source.id,
+              document_id: document.id,
+              observed_at: observed_at,
+              content_hash: entry.content_hash,
+              fetch_metadata: fetch_metadata
+            },
+            observation_provenance(source, entry)
+          )
+        )
         |> insert_or_rollback()
 
       %{document: document, observation: observation}
     end)
+  end
+
+  defp observation_provenance(source, entry) do
+    %{
+      entry_url: entry.canonical_url,
+      primary_source_url: source.original_feed_url,
+      feed_format: source.feed_format || "unknown",
+      acquisition_kind: source.acquisition_kind || "unknown",
+      publisher_authority: source.publisher_authority || "unknown",
+      acquisition_metadata_snapshot: source.acquisition_metadata || %{},
+      reported_published_at: entry.published_at
+    }
+  end
+
+  defp source_for_observation(source_id) do
+    Repo.get(Source, source_id) || %Source{id: source_id}
   end
 
   defp upsert_document(entry) do
@@ -188,4 +283,42 @@ defmodule Lens.Content do
   defp next_fetch_key(attrs) do
     if Enum.all?(Map.keys(attrs), &is_binary/1), do: "next_fetch_at", else: :next_fetch_at
   end
+
+  defp fetch(schema, id) when is_binary(id) do
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         record when not is_nil(record) <- Repo.get(schema, id) do
+      {:ok, record}
+    else
+      _ -> :error
+    end
+  end
+
+  defp release_expired_source_runs(now, ttl_seconds)
+       when is_integer(ttl_seconds) and ttl_seconds > 0 do
+    expires_at = DateTime.add(now, -ttl_seconds, :second)
+    Repo.delete_all(from(run in "source_runs", where: run.locked_at <= ^expires_at))
+  end
+
+  defp release_expired_source_runs(_now, _ttl_seconds), do: :ok
+
+  defp failure_delay(_source, %{retry_after_seconds: seconds}, _options)
+       when is_integer(seconds) and seconds >= 0,
+       do: min(seconds, @max_retry_after_seconds)
+
+  defp failure_delay(source, _result, options) do
+    seconds =
+      min(
+        source.poll_interval_seconds * trunc(:math.pow(2, min(source.failure_count, 6))),
+        @max_retry_after_seconds
+      )
+
+    options
+    |> Keyword.get(:jitter, &jitter/1)
+    |> then(& &1.(seconds))
+    |> trunc()
+    |> max(0)
+    |> min(@max_retry_after_seconds)
+  end
+
+  defp jitter(seconds), do: seconds * (0.8 + :rand.uniform() * 0.4)
 end

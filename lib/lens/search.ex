@@ -3,6 +3,7 @@ defmodule Lens.Search do
 
   alias Lens.Content.Document
   alias Lens.Repo
+  alias Lens.Search.Normalizer
 
   @max_query_length 500
   @max_limit 100
@@ -24,12 +25,27 @@ defmodule Lens.Search do
     limit = Keyword.get(options, :limit, 20)
     offset = Keyword.get(options, :offset, 0)
 
-    with true <- valid_query?(query), true <- valid_pagination?(limit, offset) do
+    with {:ok, normalized_query} <- valid_query?(query),
+         true <- valid_pagination?(limit, offset) do
       documents =
         from(document in Document,
-          where: fragment("search_vector @@ websearch_to_tsquery('simple', ?)", ^query),
+          where:
+            fragment(
+              "search_vector @@ websearch_to_tsquery('simple', ?) OR search_text ILIKE '%' || ? || '%' ESCAPE E'\\\\'",
+              ^normalized_query,
+              ^normalized_query
+            ),
           order_by: [
-            desc: fragment("ts_rank(search_vector, websearch_to_tsquery('simple', ?))", ^query),
+            desc:
+              fragment(
+                "CASE WHEN search_title ILIKE '%' || ? || '%' ESCAPE E'\\\\' THEN 1 ELSE 0 END",
+                ^normalized_query
+              ),
+            desc:
+              fragment(
+                "ts_rank(search_vector, websearch_to_tsquery('simple', ?))",
+                ^normalized_query
+              ),
             asc: document.id
           ],
           limit: ^limit,
@@ -46,7 +62,7 @@ defmodule Lens.Search do
 
       {:ok, documents}
     else
-      false -> {:error, :invalid_query}
+      :error -> {:error, :invalid_query}
       :invalid_pagination -> {:error, :invalid_pagination}
     end
   end
@@ -64,8 +80,11 @@ defmodule Lens.Search do
     end
   end
 
-  defp valid_query?(query),
-    do: String.trim(query) != "" and String.length(query) <= @max_query_length
+  defp valid_query?(query) do
+    if String.length(query) <= @max_query_length,
+      do: Normalizer.normalize_query(query),
+      else: :error
+  end
 
   defp valid_pagination?(limit, offset)
        when is_integer(limit) and is_integer(offset) and limit > 0 and limit <= @max_limit and
@@ -88,11 +107,17 @@ defmodule Lens.Search do
         :ok
 
       _ ->
-        from(document in Document,
-          where: document.id in ^document_ids,
-          update: [set: [content: fragment("content")]]
-        )
-        |> Repo.update_all([])
+        documents = Repo.all(from(document in Document, where: document.id in ^document_ids))
+
+        Enum.each(documents, fn document ->
+          Repo.update_all(
+            from(current in Document, where: current.id == ^document.id),
+            set: [
+              search_text: Normalizer.document_text(document.title, document.content),
+              search_title: Normalizer.title_text(document.title)
+            ]
+          )
+        end)
 
         rebuild_batches(List.last(document_ids), batch_size)
     end

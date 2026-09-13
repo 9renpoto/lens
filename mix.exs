@@ -34,6 +34,7 @@ defmodule Lens.MixProject do
       {:ecto_sql, "~> 3.12"},
       {:excoveralls, "~> 0.18", only: :test},
       {:jason, "~> 1.4"},
+      {:open_api_spex, "~> 3.22"},
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.6"},
       {:postgrex, "~> 0.21"},

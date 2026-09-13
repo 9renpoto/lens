@@ -4,6 +4,13 @@ Lens runs as one application container and one PostgreSQL container. PostgreSQL
 is the canonical store. Its named volume remains intact when application
 containers are recreated.
 
+The Compose stack uses the latest PostgreSQL major version supported by the
+PostgreSQL project (currently PostgreSQL 18). Its minor release and image digest
+are pinned for reproducibility, and Dependabot proposes image updates.
+PostgreSQL 18's official image stores data under
+`/var/lib/postgresql/18/docker`; the named volume therefore mounts
+`/var/lib/postgresql`.
+
 For a production deployment in a Kustomize environment, see [production
 deployment](deployment.md). This document covers the local Compose-based
 single-node operation only.
@@ -34,23 +41,38 @@ curl http://127.0.0.1:4000/api/health
 curl http://127.0.0.1:4000/api/ready
 ```
 
+Open `http://127.0.0.1:4000/dashboard` for a mobile-friendly, server-rendered
+overview of source, document, and observation counts. The page has no client-side
+data fetching; reload it to see current values.
+
 The published API port is bound to loopback. Use an SSH tunnel or a trusted,
 authenticated reverse proxy for remote access. Lens does not provide accounts
 or public API authentication in v0.1. PostgreSQL has no published host port.
 
 ## Configure and inspect sources
 
-Create an RSS, Atom, or existing RSSHub feed endpoint with the API. The
-scheduler owns polling; RSSHub only returns feed output.
+Create a source with the API. Feed format, acquisition kind, and publisher
+authority are distinct values: an RSSHub route can relay an official Atom feed,
+but RSSHub alone does not establish publisher authority. The scheduler owns
+polling; RSSHub only returns feed output.
 
 ```sh
 curl --fail-with-body http://127.0.0.1:4000/api/sources \
   -H 'content-type: application/json' \
-  -d '{"source":{"source_type":"rss","endpoint_url":"https://feeds.example.com/feed.xml","poll_interval_seconds":900}}'
+  -d '{"source":{"feed_format":"atom","acquisition_kind":"rsshub","publisher_authority":"official","original_feed_url":"https://publisher.example.test/news.atom","acquisition_metadata":{"route":"example/news"},"endpoint_url":"https://rsshub.example.test/example/news","poll_interval_seconds":900}}'
 
 curl --fail-with-body http://127.0.0.1:4000/api/sources
 curl --fail-with-body 'http://127.0.0.1:4000/api/search?q=example'
 ```
+
+Allowed values are `rss_2_0`, `atom`, `rss_1_0`, or `unknown` for
+`feed_format`; `direct`, `conversion_service`, `rsshub`, or `unknown` for
+`acquisition_kind`; and `official`, `third_party`, or `unknown` for
+`publisher_authority`. `original_feed_url` is optional and must not contain
+credentials. `source_type` remains accepted and returned for legacy clients;
+when it is the only classification supplied, Lens preserves ambiguity as
+`unknown` except that `atom` identifies the format and `rsshub` identifies the
+acquisition kind.
 
 New enabled sources are immediately due, so the scheduler performs their first
 fetch without a manual command. To diagnose a failed source, inspect its

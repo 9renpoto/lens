@@ -32,9 +32,16 @@ defmodule Lens.Ingestion do
         {:ok, response} ->
           ingest_response(source, response, attempted_at, options)
 
-        {:error, error} ->
+        {:error, error, headers} ->
           update_failure(source, error, attempted_at)
-          %Result{outcome: :failure, valid_entries: [], invalid_entries: [], error: error}
+
+          %Result{
+            outcome: :failure,
+            valid_entries: [],
+            invalid_entries: [],
+            error: error,
+            retry_after_seconds: retry_after_seconds(headers)
+          }
       end
 
     Logger.info("source ingestion completed",
@@ -142,5 +149,12 @@ defmodule Lens.Ingestion do
     System.monotonic_time()
     |> Kernel.-(started_at)
     |> System.convert_time_unit(:native, :millisecond)
+  end
+
+  defp retry_after_seconds(headers) do
+    case Integer.parse(to_string(Map.get(headers, "retry-after", ""))) do
+      {seconds, ""} when seconds >= 0 -> min(seconds, 3_600)
+      _ -> nil
+    end
   end
 end

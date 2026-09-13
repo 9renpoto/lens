@@ -1,15 +1,18 @@
 defmodule Lens.Ingestion.Scheduler do
   use GenServer
-  import Ecto.Query
-
   alias Lens.Content
-  alias Lens.Repo
 
   @default_concurrency 2
   @default_tick_ms 1_000
 
   @typedoc "Scheduler state kept only for currently running source tasks."
-  @type state :: %{concurrency: pos_integer(), running: non_neg_integer(), tick_ms: pos_integer()}
+  @type ingest_fun :: (Content.source_id() -> Lens.Ingestion.Result.t())
+  @type state :: %{
+          optional(:ingest) => ingest_fun(),
+          concurrency: pos_integer(),
+          running: non_neg_integer(),
+          tick_ms: pos_integer()
+        }
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(options), do: GenServer.start_link(__MODULE__, options, name: __MODULE__)
@@ -30,25 +33,36 @@ defmodule Lens.Ingestion.Scheduler do
   @impl true
   def handle_info(:poll, state) do
     slots = max(state.concurrency - state.running, 0)
+    ingest = Map.get(state, :ingest, &Lens.Ingestion.ingest/1)
 
     claimed = Content.claim_due_sources(DateTime.utc_now(), slots)
 
-    Enum.each(claimed, fn source_id ->
-      Task.Supervisor.start_child(Lens.Ingestion.TaskSupervisor, fn -> run(source_id) end)
-    end)
+    started =
+      Enum.count(claimed, fn source_id ->
+        case Task.Supervisor.start_child(Lens.Ingestion.TaskSupervisor, fn ->
+               run(source_id, ingest)
+             end) do
+          {:ok, _pid} ->
+            true
+
+          {:error, _reason} ->
+            Content.release_source_run(source_id)
+            false
+        end
+      end)
 
     Process.send_after(self(), :poll, state.tick_ms)
-    {:noreply, %{state | running: state.running + length(claimed)}}
+    {:noreply, %{state | running: state.running + started}}
   end
 
   def handle_info({:finished, _source_id}, state),
     do: {:noreply, %{state | running: max(state.running - 1, 0)}}
 
-  defp run(source_id) do
-    result = Lens.Ingestion.ingest(source_id)
+  defp run(source_id, ingest) do
+    result = ingest.(source_id)
     Content.schedule_next_fetch(source_id, result, DateTime.utc_now())
   after
-    Repo.delete_all(from(run in "source_runs", where: run.source_id == ^source_id))
+    Content.release_source_run(source_id)
     send(__MODULE__, {:finished, source_id})
   end
 end

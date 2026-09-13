@@ -22,7 +22,8 @@ defmodule Lens.Ingestion.Fetcher do
           required(:headers) => map(),
           required(:body) => binary()
         }
-  @type result :: {:ok, response()} | {:not_modified, map()} | {:error, String.t()}
+  @type result ::
+          {:ok, response()} | {:not_modified, map()} | {:error, String.t(), map()}
 
   @spec fetch(Source.t(), keyword()) :: result()
   def fetch(%Source{} = source, options \\ []) do
@@ -68,19 +69,27 @@ defmodule Lens.Ingestion.Fetcher do
     headers = normalize_headers(headers)
 
     cond do
-      content_length_exceeds_limit?(headers, max_bytes) -> {:error, "response exceeds byte limit"}
-      byte_size(body) > max_bytes -> {:error, "response exceeds byte limit"}
-      true -> {:ok, %{status: status, headers: headers, body: body}}
+      content_length_exceeds_limit?(headers, max_bytes) ->
+        {:error, "response exceeds byte limit", headers}
+
+      byte_size(body) > max_bytes ->
+        {:error, "response exceeds byte limit", headers}
+
+      true ->
+        {:ok, %{status: status, headers: headers, body: body}}
     end
   end
 
-  defp normalize_response({:ok, %{status: status}}, _max_bytes),
-    do: {:error, "unexpected HTTP status #{status}"}
+  defp normalize_response({:ok, %{status: status, headers: headers}}, _max_bytes),
+    do: {:error, "unexpected HTTP status #{status}", normalize_headers(headers)}
 
-  defp normalize_response({:error, error}, _max_bytes), do: {:error, to_string(error)}
+  defp normalize_response({:ok, %{status: status}}, _max_bytes),
+    do: {:error, "unexpected HTTP status #{status}", %{}}
+
+  defp normalize_response({:error, error}, _max_bytes), do: {:error, to_string(error), %{}}
 
   defp normalize_response(other, _max_bytes),
-    do: {:error, "invalid transport response: #{inspect(other)}"}
+    do: {:error, "invalid transport response: #{inspect(other)}", %{}}
 
   defp conditional_headers(source) do
     []
@@ -92,11 +101,20 @@ defmodule Lens.Ingestion.Fetcher do
   defp maybe_put_header(headers, name, value), do: [{name, value} | headers]
 
   defp normalize_headers(headers) when is_map(headers),
-    do: Map.new(headers, fn {key, value} -> {String.downcase(key), value} end)
+    do:
+      Map.new(headers, fn {key, value} ->
+        {String.downcase(key), normalize_header_value(value)}
+      end)
 
   defp normalize_headers(headers) when is_list(headers) do
-    Map.new(headers, fn {key, value} -> {String.downcase(to_string(key)), value} end)
+    Map.new(headers, fn {key, value} ->
+      {String.downcase(to_string(key)), normalize_header_value(value)}
+    end)
   end
+
+  defp normalize_header_value([value | _]) when is_binary(value), do: value
+  defp normalize_header_value(value) when is_binary(value), do: value
+  defp normalize_header_value(value), do: to_string(value)
 
   defp content_length_exceeds_limit?(headers, max_bytes) do
     case Integer.parse(to_string(Map.get(headers, "content-length", ""))) do

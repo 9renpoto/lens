@@ -9,10 +9,10 @@ useful information over time through a simple flow:
 Collect → Preserve → Search → Discover
 ```
 
-Version 0.1 concentrates on the first three steps: scheduled RSS and Atom feed
-collection (including output from an existing RSSHub endpoint), normalization
-to canonical plain text, PostgreSQL persistence, and PostgreSQL full-text
-search through a JSON API.
+Version 0.1 concentrates on the first three steps: scheduled RSS 2.0, Atom,
+and RDF/RSS 1.0 feed collection (including output from an existing RSSHub
+endpoint), normalization to canonical plain text, PostgreSQL persistence, and
+PostgreSQL full-text search through a JSON API.
 
 Lens is independent from the experimental offline-first RSS reader. A future
 integration, if useful, will use a loose API boundary rather than a shared
@@ -41,13 +41,19 @@ paragraph breaks, not raw HTML or a complex content AST.
 
 ## Development setup
 
-Requirements: Elixir 1.18 / Erlang-OTP 27 and PostgreSQL 17. For the initial
-development environment, install PostgreSQL with Homebrew:
+Requirements: Elixir 1.18 / Erlang-OTP 27 and the latest supported PostgreSQL
+major version (currently PostgreSQL 18). For the initial development
+environment, install PostgreSQL with Homebrew:
 
 ```sh
-brew install postgresql@17
-brew services start postgresql@17
+brew install postgresql@18
+brew services start postgresql@18
 ```
+
+Lens supports the latest PostgreSQL major version supported by the PostgreSQL
+project. Compose and CI use a fixed current minor release and digest for
+reproducibility; Dependabot tracks Docker image updates. A new PostgreSQL major
+version requires a separately reviewed compatibility update.
 
 Install dependencies and create the development database:
 
@@ -81,6 +87,8 @@ contract and [single-node operations](docs/operations.md) for local Compose
 operation, backups, restores, and failure recovery. See the [search
 API](docs/search.md) for PostgreSQL FTS behavior, its current Japanese/CJK
 limitations, and search data rebuilds.
+
+The generated [API reference](docs/api.md) describes the HTTP JSON contract.
 
 ## License
 

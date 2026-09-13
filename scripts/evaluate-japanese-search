@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+set -eu
+
+project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+project_name="lens-japanese-search-evaluation-$$"
+
+compose() {
+  POSTGRES_PASSWORD=evaluation-password SECRET_KEY_BASE=evaluation-secret-key-base \
+    docker compose --project-directory "$project_root" --project-name "$project_name" "$@"
+}
+
+cleanup() {
+  compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+}
+
+trap cleanup EXIT INT TERM
+
+compose up --detach --wait postgres
+
+compose exec --no-TTY postgres psql --username lens --dbname lens \
+  < "$project_root/priv/evaluation/japanese_search_corpus.sql"

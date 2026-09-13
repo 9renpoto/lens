@@ -13,7 +13,9 @@ defmodule Lens.IngestionTest do
       source = source_fixture()
 
       result =
-        Ingestion.ingest(source, transport: transport(200, rss_fixture(), %{"etag" => "rss-v1"}))
+        Ingestion.ingest(source,
+          transport: transport(200, rss_fixture(), %{"etag" => ["rss-v1"]})
+        )
 
       assert result.outcome == :success
       assert length(result.valid_entries) == 1
@@ -27,6 +29,9 @@ defmodule Lens.IngestionTest do
       source = Content.get_source!(source.id)
       assert source.etag == "rss-v1"
       assert source.failure_count == 0
+      assert source.last_attempt_at
+      assert source.last_success_at
+      assert source.last_error == nil
     end
 
     test "handles Atom and RSSHub output through the same path" do
@@ -111,10 +116,22 @@ defmodule Lens.IngestionTest do
       assert source.failure_count == 3
     end
 
+    test "captures a bounded retry-after delay from failed HTTP responses" do
+      source = source_fixture()
+
+      result =
+        Ingestion.ingest(source,
+          transport: transport(503, "unavailable", %{"retry-after" => "7200"})
+        )
+
+      assert result.outcome == :failure
+      assert result.retry_after_seconds == 3_600
+    end
+
     test "bounds request timeouts and redirects" do
       source = source_fixture()
 
-      assert {:error, "unexpected HTTP status 302"} =
+      assert {:error, "unexpected HTTP status 302", %{}} =
                Fetcher.fetch(source,
                  timeout: 1_234,
                  max_redirects: 2,
@@ -126,16 +143,39 @@ defmodule Lens.IngestionTest do
                )
     end
 
+    test "normalizes HTTP header maps and lists" do
+      source = source_fixture()
+
+      assert {:ok, %{headers: headers}} =
+               Fetcher.fetch(source,
+                 transport:
+                   transport(200, rss_fixture(), %{
+                     "etag" => ["rss-v1"],
+                     "last-modified" => ["Sun, 07 Sep 2026 12:00:00 GMT"]
+                   })
+               )
+
+      assert headers["etag"] == "rss-v1"
+      assert headers["last-modified"] == "Sun, 07 Sep 2026 12:00:00 GMT"
+
+      assert {:ok, %{headers: headers}} =
+               Fetcher.fetch(source,
+                 transport: transport(200, rss_fixture(), [{"x-retry-count", 3}])
+               )
+
+      assert headers["x-retry-count"] == "3"
+    end
+
     test "rejects declared and actual response byte limits" do
       source = source_fixture()
 
-      assert {:error, "response exceeds byte limit"} =
+      assert {:error, "response exceeds byte limit", _headers} =
                Fetcher.fetch(source,
                  max_bytes: 3,
                  transport: transport(200, "abcd", %{"content-length" => "4"})
                )
 
-      assert {:error, "response exceeds byte limit"} =
+      assert {:error, "response exceeds byte limit", _headers} =
                Fetcher.fetch(source, max_bytes: 3, transport: transport(200, "abcd"))
     end
 
@@ -167,6 +207,49 @@ defmodule Lens.IngestionTest do
       assert length(Content.list_observations(document)) == 2
     end
 
+    test "preserves RDF/RSS 1.0 document identity across changed entries" do
+      source = source_fixture(feed_format: "rss_1_0")
+
+      assert :success ==
+               Ingestion.ingest(source, transport: transport(200, rdf_rss_fixture())).outcome
+
+      assert :success ==
+               Ingestion.ingest(source,
+                 transport:
+                   transport(
+                     200,
+                     rdf_rss_fixture()
+                     |> String.replace("RDF entry", "Updated RDF entry")
+                     |> String.replace("RDF summary", "Updated RDF summary")
+                   )
+               ).outcome
+
+      assert [document] = Repo.all(Document)
+      assert document.title == "Updated RDF entry"
+      assert document.content == "Updated RDF summary"
+      assert length(Content.list_observations(document)) == 2
+    end
+
+    test "does not create provenance observations for HTTP 304 or failures" do
+      source = source_fixture()
+
+      assert :success ==
+               Ingestion.ingest(source, transport: transport(200, rss_fixture())).outcome
+
+      [document] = Repo.all(Document)
+      assert length(Content.list_observations(document)) == 1
+
+      assert :not_modified ==
+               Ingestion.ingest(source,
+                 transport: fn _request -> {:ok, %{status: 304, headers: %{}}} end
+               ).outcome
+
+      assert :failure ==
+               Ingestion.ingest(source, transport: transport(503, "unavailable")).outcome
+
+      assert length(Content.list_observations(document)) == 1
+    end
+
     test "logs source outcome metadata without feed content" do
       source = source_fixture()
 
@@ -183,6 +266,33 @@ defmodule Lens.IngestionTest do
   end
 
   describe "normalization boundaries" do
+    test "parses RDF/RSS 1.0 entries with namespace aliases and XML base URLs" do
+      assert {:ok, [entry]} =
+               Parser.parse(rdf_rss_fixture(), "https://feeds.example.com/fallback.rdf")
+
+      assert entry.source_entry_id == "https://example.com/articles/rdf-one"
+      assert entry.canonical_url == "https://example.com/articles/rdf-one"
+      assert entry.title == "RDF entry"
+      assert entry.content == "RDF summary"
+      assert entry.author == "Ada"
+      assert DateTime.compare(entry.published_at, ~U[2026-09-07 12:00:00Z]) == :eq
+    end
+
+    test "keeps missing RDF/RSS 1.0 fields unknown and preserves Japanese text" do
+      assert {:ok, [entry]} =
+               Parser.parse(
+                 rdf_rss_missing_fields_fixture(),
+                 "https://feeds.example.com/fallback.rdf"
+               )
+
+      assert entry.source_entry_id == "https://example.com/feeds/articles/two"
+      assert entry.canonical_url == "https://example.com/feeds/articles/two"
+      assert entry.title == nil
+      assert entry.content == "日本語の公開資料"
+      assert entry.author == nil
+      assert entry.published_at == nil
+    end
+
     test "normalizes relative links, entities, dates, and unsupported XML" do
       assert Normalizer.resolve_url("/article#section", "https://example.com/feed") ==
                "https://example.com/article"
@@ -199,6 +309,18 @@ defmodule Lens.IngestionTest do
 
       assert {:error, "unsupported feed format"} =
                Parser.parse("<catalog />", "https://example.com/feed")
+
+      assert {:error, "unsupported feed format"} =
+               Parser.parse(
+                 "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" />",
+                 "https://example.com/feed"
+               )
+
+      assert {:error, _} =
+               Parser.parse(
+                 "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><item>",
+                 "https://example.com/feed"
+               )
     end
   end
 
@@ -264,6 +386,46 @@ defmodule Lens.IngestionTest do
         <published>2026-09-07T12:00:00+00:00</published>
       </entry>
     </feed>
+    """
+  end
+
+  defp rdf_rss_fixture do
+    """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rdf:RDF
+        xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+        xmlns:news="http://purl.org/rss/1.0/"
+        xmlns:dc="http://purl.org/dc/elements/1.1/"
+        xml:base="https://example.com/feeds/">
+      <news:channel rdf:about="https://example.com/">
+        <news:title>RDF fixture</news:title>
+        <news:link>https://publisher.example/</news:link>
+      </news:channel>
+      <news:item rdf:about="../articles/rdf-one">
+        <news:title>RDF entry</news:title>
+        <news:link>../articles/rdf-one</news:link>
+        <news:description><![CDATA[<p>RDF summary</p>]]></news:description>
+        <dc:creator>Ada</dc:creator>
+        <dc:date>2026-09-07T12:00:00Z</dc:date>
+      </news:item>
+    </rdf:RDF>
+    """
+  end
+
+  defp rdf_rss_missing_fields_fixture do
+    """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rdf:RDF
+        xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+        xmlns:news="http://purl.org/rss/1.0/">
+      <news:channel>
+        <news:title>RDF fixture</news:title>
+        <news:link>https://example.com/feeds/</news:link>
+      </news:channel>
+      <news:item rdf:about="articles/two">
+        <news:description><![CDATA[<p>日本語の公開資料</p>]]></news:description>
+      </news:item>
+    </rdf:RDF>
     """
   end
 end

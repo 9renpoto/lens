@@ -10,9 +10,10 @@ defmodule Lens.Ingestion.Result do
           status: pos_integer() | nil,
           valid_entries: [map()] | nil,
           invalid_entries: [invalid_entry()] | nil,
-          error: String.t() | nil
+          error: String.t() | nil,
+          retry_after_seconds: non_neg_integer() | nil
         }
 
   @enforce_keys [:outcome]
-  defstruct [:outcome, :status, :valid_entries, :invalid_entries, :error]
+  defstruct [:outcome, :status, :valid_entries, :invalid_entries, :error, :retry_after_seconds]
 end
