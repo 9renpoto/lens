@@ -1,7 +1,13 @@
 pre-commit:
   commands:
+    actionlint:
+      run: actionlint .github/workflows/*.yml
     gitleaks:
       run: gitleaks protect --staged --redact
+    mix-format:
+      run: mix format --check-formatted
+    retention-tests:
+      run: node --test .github/scripts/prune-package-versions.test.js
     typos:
       run: typos
     zizmor:
