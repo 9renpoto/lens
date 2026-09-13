@@ -14,8 +14,10 @@ metadata are not supported in v0.1. Do not deploy `latest` or a commit-specific
 `sha-...` tag. A release tag makes the deployed version explicit and lets tools
 such as Dependabot propose a reviewable update to the Kustomize image reference.
 
-Images are published to `ghcr.io/9renpoto/lens`. A supported release tag pushed
-to GitHub is tested by CI before the matching release-tagged image is published.
+Images are published to `ghcr.io/9renpoto/lens`. The repository's version bump
+workflow updates the application version, merges the release PR, creates the
+corresponding GitHub release tag, and dispatches CI for that exact tag. The
+matching release-tagged image is published only after its tests pass.
 The release tag and its commit-specific `sha-...` tag are produced from the
 same image build. The `latest` tag is reserved for successful pushes to `main`.
 Before creating a production workload, ensure the selected release tag exists
