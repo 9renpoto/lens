@@ -3,6 +3,7 @@ defmodule Lens.Ingestion.SchedulerTest do
 
   alias Lens.Ingestion.Scheduler
   alias Lens.Content
+  alias Lens.Ingestion.Result
 
   test "poll keeps its state when no source is due" do
     state = %{concurrency: 2, running: 0, tick_ms: 60_000}
@@ -41,6 +42,39 @@ defmodule Lens.Ingestion.SchedulerTest do
              source = Content.get_source!(source.id)
              source.failure_count == 1 and source_run_count(source.id) == 0
            end)
+  end
+
+  test "poll starts no more than the configured number of synthetic ingestions" do
+    sources =
+      for index <- 1..3 do
+        {:ok, source} =
+          Content.create_source(%{
+            source_type: "rss",
+            endpoint_url: "https://feeds.example.test/#{index}.xml",
+            poll_interval_seconds: 60,
+            next_fetch_at: DateTime.add(DateTime.utc_now(), -1, :second)
+          })
+
+        source
+      end
+
+    parent = self()
+
+    state = %{
+      concurrency: 2,
+      running: 0,
+      tick_ms: 60_000,
+      ingest: fn source_id ->
+        send(parent, {:ingested, source_id})
+        %Result{outcome: :success}
+      end
+    }
+
+    assert {:noreply, %{running: 2}} = Scheduler.handle_info(:poll, state)
+
+    ingested_ids = for _ <- 1..2, do: assert_receive({:ingested, source_id}, 500) && source_id
+    assert Enum.sort(ingested_ids) == Enum.sort(Enum.map(sources, & &1.id) |> Enum.take(2))
+    refute_receive {:ingested, _source_id}, 50
   end
 
   defp source_run_count(source_id) do
