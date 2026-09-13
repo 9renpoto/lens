@@ -1,15 +1,18 @@
 # Search API
 
-Lens keeps canonical Documents in PostgreSQL. Its full-text vector and GIN
-index are derived from each Document's title and plain-text content, so they
-can be regenerated without fetching any source again.
+Lens keeps canonical Documents in PostgreSQL. Its full-text vector, normalized
+search text, and GIN indexes are derived from each Document's title and
+plain-text content, so they can be regenerated without fetching any source
+again.
 
 ## Query documents
 
 `GET /api/search` requires `q`. It accepts optional `limit` (1 to 100, default
 20) and `offset` (zero or greater, default 0). Queries use PostgreSQL
-`websearch_to_tsquery` with the explicit `simple` configuration. Results are
-ranked with titles above bodies and use document ID as the stable tie-breaker.
+`websearch_to_tsquery` with the explicit `simple` configuration and a
+PostgreSQL `pg_trgm` substring predicate. Results are ranked with normalized
+title matches above body-only matches and use document ID as the stable
+tie-breaker.
 
 ```sh
 curl --get http://127.0.0.1:4000/api/search \
@@ -24,16 +27,20 @@ canonical document content and one provenance record for each Source that
 observed it. A provenance record includes the Source ID, type, endpoint URL,
 and most recent observation time.
 
-Empty or over-500-character queries, and malformed pagination values, return
-`422`. Punctuation-only queries and queries with no matching indexed terms
-return `200` with an empty `results` list. Query text is passed as a parameter,
-never interpolated into SQL.
+Empty, one-character, punctuation-only, or over-500-character queries, and
+malformed pagination values, return `422`. Queries with no matching indexed
+terms return `200` with an empty `results` list. Query text is passed as a
+parameter and `%`, `_`, and backslash are treated as literal characters.
 
-The `simple` configuration is intentionally the v0.1 baseline. It does not
-provide Japanese/CJK morphological analysis, substring matching, or language
-specific stemming. Search quality for Japanese and other CJK content is
-therefore limited until a future, separately evaluated search approach is
-introduced.
+Japanese and other CJK text uses normalized substring matching. Lens applies
+Unicode NFKC normalization and lowercase mapping to derived search data and
+queries, so full-width and half-width Latin letters, spaces, and digits match
+each other. This is not Japanese morphological analysis, stemming, translation,
+or semantic search.
+
+The database migration enables PostgreSQL's `pg_trgm` extension and creates the
+derived GIN index. Roll back only after an application version that no longer
+depends on the derived columns is deployed; canonical Documents are unchanged.
 
 ## Rebuild derived search data
 
@@ -49,5 +56,6 @@ For the container deployment, run the same operation inside the release:
 docker compose exec app /app/bin/lens eval 'Lens.Search.rebuild()'
 ```
 
-The task only reads and updates canonical PostgreSQL documents. It does not
-fetch feeds or change canonical content.
+The task only reads canonical PostgreSQL documents and regenerates derived
+search data in bounded batches. It does not fetch feeds or change canonical
+content.
