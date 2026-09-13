@@ -3,6 +3,8 @@ defmodule Lens.Content.Document do
 
   import Ecto.Changeset
 
+  alias Lens.Search.Normalizer
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
@@ -24,6 +26,8 @@ defmodule Lens.Content.Document do
     field(:published_at, :utc_datetime_usec)
     field(:metadata, :map, default: %{})
     field(:content_hash, :string)
+    field(:search_text, :string)
+    field(:search_title, :string)
 
     has_many(:observations, Lens.Content.Observation)
 
@@ -47,6 +51,7 @@ defmodule Lens.Content.Document do
     |> validate_length(:content_hash, is: 64)
     |> validate_change(:canonical_url, &validate_canonical_url/2)
     |> validate_map()
+    |> put_search_text()
     |> unique_constraint(:identity_key)
     |> unique_constraint(:canonical_url)
   end
@@ -65,5 +70,14 @@ defmodule Lens.Content.Document do
     validate_change(changeset, :metadata, fn :metadata, metadata ->
       if is_map(metadata), do: [], else: [metadata: "must be a map"]
     end)
+  end
+
+  defp put_search_text(changeset) do
+    title = get_field(changeset, :title)
+    content = get_field(changeset, :content)
+
+    changeset
+    |> put_change(:search_text, Normalizer.document_text(title, content))
+    |> put_change(:search_title, Normalizer.title_text(title))
   end
 end

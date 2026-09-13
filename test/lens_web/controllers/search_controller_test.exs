@@ -38,6 +38,23 @@ defmodule LensWeb.SearchControllerTest do
     assert_response_schema(response, "SearchResponse", ApiSpec.spec())
   end
 
+  test "searches normalized Japanese text and rejects a one-character query" do
+    source = source_fixture()
+
+    document =
+      document_fixture(source, %{
+        title: "第1四半期決算説明資料",
+        content: "売上高は前年同期比12％増となりました。"
+      })
+
+    response = build_conn() |> get("/api/search", %{q: "前年同期比"}) |> json_response(200)
+    assert %{"results" => [%{"id" => document_id}]} = response
+    assert document_id == document.id
+
+    assert %{"error" => "invalid_query"} =
+             build_conn() |> get("/api/search", %{q: "株"}) |> json_response(422)
+  end
+
   test "returns canonical document content" do
     source = source_fixture()
 

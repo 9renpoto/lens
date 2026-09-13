@@ -1,7 +1,7 @@
 defmodule Lens.SearchTest do
   use Lens.DataCase
 
-  alias Lens.{Content, Search}
+  alias Lens.{Content, Repo, Search}
 
   describe "search/2" do
     test "finds title and content matches, with title matches ranked first" do
@@ -16,6 +16,38 @@ defmodule Lens.SearchTest do
 
       assert Enum.map(results, & &1.id) == [title_match.id, content_match.id]
       assert Enum.all?(results, &(&1.excerpt != ""))
+    end
+
+    test "finds an unsegmented Japanese body term" do
+      source = source_fixture()
+
+      document =
+        document_fixture(source, %{
+          title: "第1四半期決算説明資料",
+          content: "売上高は前年同期比12％増となりました。"
+        })
+
+      assert {:ok, [%{id: document_id}]} = Search.search("前年同期比")
+      assert document_id == document.id
+    end
+
+    test "normalizes width and ranks a Japanese title match before a body match" do
+      source = source_fixture()
+
+      title_match =
+        document_fixture(source, %{
+          title: "ＰｏｓｔｇｒｅＳＱＬ　１８ 運用メモ",
+          content: "索引を確認します。"
+        })
+
+      body_match =
+        document_fixture(source, %{
+          title: "運用メモ",
+          content: "PostgreSQL 18 の索引を確認します。"
+        })
+
+      assert {:ok, results} = Search.search("PostgreSQL 18")
+      assert Enum.map(results, & &1.id) == [title_match.id, body_match.id]
     end
 
     test "searches the latest canonical document content" do
@@ -59,10 +91,16 @@ defmodule Lens.SearchTest do
 
     test "rebuilds derived search data from canonical documents" do
       source = source_fixture()
-      document_fixture(source, %{title: "Rebuild", content: "rebuildable-term"})
+      document = document_fixture(source, %{title: "Rebuild", content: "これは再構築対象語です"})
+
+      Repo.update_all(from(document in Lens.Content.Document, where: document.id == ^document.id),
+        set: [search_text: "stale", search_title: "stale"]
+      )
+
+      assert {:ok, []} = Search.search("再構築")
 
       assert :ok = Search.rebuild(batch_size: 1)
-      assert {:ok, [%{title: "Rebuild"}]} = Search.search("rebuildable-term")
+      assert {:ok, [%{title: "Rebuild"}]} = Search.search("再構築")
     end
 
     test "rejects an invalid rebuild batch size" do
@@ -71,6 +109,8 @@ defmodule Lens.SearchTest do
 
     test "rejects empty and oversized queries and invalid pagination" do
       assert {:error, :invalid_query} = Search.search("  ")
+      assert {:error, :invalid_query} = Search.search("株")
+      assert {:error, :invalid_query} = Search.search("！")
       assert {:error, :invalid_query} = Search.search(String.duplicate("a", 501))
       assert {:error, :invalid_pagination} = Search.search("term", limit: 0)
       assert {:error, :invalid_pagination} = Search.search("term", limit: 101)
