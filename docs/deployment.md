@@ -19,8 +19,10 @@ workflow updates the application version and prepares a release PR. After that
 PR is merged, create the release tag manually on the merge commit. Pushing the
 tag starts CI, and the matching release-tagged image is published only after
 its tests pass.
-The release tag and its commit-specific `sha-...` tag are produced from the
-same image build. The `latest` tag is reserved for successful pushes to `main`.
+The release tag, `latest`, and its commit-specific `sha-...` tag are produced
+from the same image build. The `latest` tag therefore advances on successful
+pushes to `main` and on successful release tag publication; production
+deployments should continue to use the immutable release tag.
 Before creating a production workload, ensure the selected release tag exists
 and the deployment environment can pull it anonymously or with its configured
 registry credentials.
