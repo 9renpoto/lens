@@ -62,7 +62,6 @@ defmodule Lens.Search do
 
       {:ok, documents}
     else
-      false -> {:error, :invalid_query}
       :error -> {:error, :invalid_query}
       :invalid_pagination -> {:error, :invalid_pagination}
     end
