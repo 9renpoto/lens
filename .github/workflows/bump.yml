@@ -88,7 +88,14 @@ jobs:
             try {
               notes = await github.rest.repos.generateReleaseNotes(request);
             } catch (error) {
-              if (error.status !== 404) throw error;
+              // On the first release, PREVIOUS_VERSION comes from mix.exs and
+              // has no corresponding Git tag yet. GitHub reports that as 400.
+              if (
+                error.status !== 400 ||
+                !error.message.includes("Invalid previous_tag parameter")
+              ) {
+                throw error;
+              }
               delete request.previous_tag_name;
               notes = await github.rest.repos.generateReleaseNotes(request);
             }
