@@ -8,18 +8,24 @@ pull mechanism.
 
 ## Image version policy
 
-Production workloads must reference a released image tag such as `v0.1.0`.
-Do not deploy `latest` or a commit-specific `sha-...` tag. A release tag makes
-the deployed version explicit and lets tools such as Dependabot propose a
-reviewable update to the Kustomize image reference.
+Production workloads must reference a released image tag in the form
+`vMAJOR.MINOR.PATCH`, such as `v0.1.0`. Release tags with pre-release or build
+metadata are not supported in v0.1. Do not deploy `latest` or a commit-specific
+`sha-...` tag. A release tag makes the deployed version explicit and lets tools
+such as Dependabot propose a reviewable update to the Kustomize image reference.
 
-Images are published to `ghcr.io/9renpoto/lens`. Release-tag publishing is a
-separate delivery concern from this deployment contract. Before creating a
-production workload, ensure the selected release tag exists and the deployment
-environment can pull it.
+Images are published to `ghcr.io/9renpoto/lens`. A supported release tag pushed
+to GitHub is tested by CI before the matching release-tagged image is published.
+The release tag and its commit-specific `sha-...` tag are produced from the
+same image build. The `latest` tag is reserved for successful pushes to `main`.
+Before creating a production workload, ensure the selected release tag exists
+and the deployment environment can pull it anonymously or with its configured
+registry credentials.
 
-The GHCR package retains only the two newest image versions. Keep the deployed
-release and its rollback candidate within that retention window. Operators who
+The GHCR package retains only the two newest tagged image versions. Untagged
+manifests are retained when they may be children of a kept multi-platform
+index, so cleanup cannot make a retained release unpullable. Keep the deployed
+release and its rollback candidate within the two-tag window. Operators who
 need a longer rollback history must provide it in their own image registry or
 backup process.
 
