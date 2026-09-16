@@ -5,10 +5,10 @@ and schema modules. The generated document is the source for the static API
 reference published at GitHub Pages.
 
 The reference is available at `https://9renpoto.github.io/lens/` after GitHub
-Pages is configured to publish the root of the `gh-pages` branch.
+Pages is configured to publish through GitHub Actions.
 
-Configure this once in the repository settings: open **Settings → Pages**, set
-the source to **Deploy from a branch**, select `gh-pages`, and select `/ (root)`.
+Configure this once in the repository settings: open **Settings → Pages** and
+set the source to **GitHub Actions**.
 
 ## Generate locally
 
@@ -24,11 +24,11 @@ reference. The HTML template uses a versioned ReDoc asset from jsDelivr.
 ## Publishing
 
 The `Publish API documentation` workflow generates the document for pull
-requests and for changes merged to `main`. It only pushes the generated site to
-the `gh-pages` branch after a push to `main`; pull requests never receive
-write permission or publish documentation.
+requests and for changes merged to `main`. It only deploys the generated site to
+GitHub Pages after a push to `main`; pull requests never publish documentation.
 
-The `gh-pages` branch is generated output. Do not edit it manually.
+GitHub Pages stores the generated deployment artifact; no `gh-pages` branch is
+created or maintained.
 
 ## Keeping the contract accurate
 
