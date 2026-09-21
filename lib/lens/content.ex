@@ -87,6 +87,42 @@ defmodule Lens.Content do
     )
   end
 
+  @spec list_document_observations(Document.t() | binary(), keyword()) ::
+          {:ok, [Observation.t()]} | {:error, :invalid_pagination}
+  def list_document_observations(document_or_id, options \\ []) do
+    limit = Keyword.get(options, :limit, 20)
+    offset = Keyword.get(options, :offset, 0)
+
+    if valid_observation_pagination?(limit, offset) do
+      document_id =
+        case document_or_id do
+          %Document{id: id} -> id
+          id when is_binary(id) -> id
+        end
+
+      observations =
+        Repo.all(
+          from(observation in Observation,
+            where: observation.document_id == ^document_id,
+            order_by: [desc: observation.observed_at, desc: observation.id],
+            limit: ^limit,
+            offset: ^offset
+          )
+        )
+
+      {:ok, observations}
+    else
+      {:error, :invalid_pagination}
+    end
+  end
+
+  defp valid_observation_pagination?(limit, offset)
+       when is_integer(limit) and is_integer(offset) and limit > 0 and limit <= 100 and
+              offset >= 0,
+       do: true
+
+  defp valid_observation_pagination?(_, _), do: false
+
   @spec document_sources(Document.t()) :: [map()]
   def document_sources(%Document{id: document_id}) do
     Repo.all(

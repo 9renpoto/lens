@@ -28,13 +28,15 @@ defmodule LensWeb.SearchControllerTest do
                  "id" => document_id,
                  "title" => "Search result",
                  "canonical_url" => canonical_url,
-                 "excerpt" => "First searchable line. Second searchable line."
+                 "excerpt" => "First searchable line. Second searchable line.",
+                 "provenance_url" => provenance_url
                }
              ]
            } = response
 
     assert document_id == document.id
     assert canonical_url == document.canonical_url
+    assert provenance_url == "/api/documents/#{document.id}/provenance"
     assert_response_schema(response, "SearchResponse", ApiSpec.spec())
   end
 
@@ -68,7 +70,7 @@ defmodule LensWeb.SearchControllerTest do
         content: "Canonical content"
       })
 
-    assert {:ok, %{document: ^document}} =
+    assert {:ok, %{document: _second_doc}} =
              Content.observe_document(
                second_source,
                %{
@@ -89,11 +91,13 @@ defmodule LensWeb.SearchControllerTest do
                "title" => "Canonical document",
                "canonical_url" => "https://example.com/documents/canonical",
                "content" => "Canonical content",
-               "sources" => sources
+               "sources" => sources,
+               "provenance_url" => provenance_url
              }
            } = response
 
     assert document_id == document.id
+    assert provenance_url == "/api/documents/#{document.id}/provenance"
 
     assert [
              %{
@@ -122,6 +126,129 @@ defmodule LensWeb.SearchControllerTest do
       response = build_conn() |> get("/api/documents/#{id}") |> json_response(404)
 
       assert response == %{"error" => "not_found"}
+      assert_response_schema(response, "ErrorResponse", ApiSpec.spec())
+
+      provenance_response =
+        build_conn() |> get("/api/documents/#{id}/provenance") |> json_response(404)
+
+      assert provenance_response == %{"error" => "not_found"}
+      assert_response_schema(provenance_response, "ErrorResponse", ApiSpec.spec())
+    end
+  end
+
+  test "returns paginated document observation provenance without endpoint URLs or credentials" do
+    source =
+      source_fixture(%{
+        feed_format: "rss_2_0",
+        acquisition_kind: "direct",
+        publisher_authority: "official",
+        original_feed_url: "https://publisher.example.test/feed.xml",
+        endpoint_url: "https://private-ingest.internal.test/feed.xml"
+      })
+
+    second_source =
+      source_fixture(%{
+        feed_format: "atom",
+        acquisition_kind: "conversion_service",
+        publisher_authority: "unknown",
+        acquisition_metadata: %{"converter" => "fixture"},
+        endpoint_url: "https://private-converter.internal.test/feed.xml"
+      })
+
+    document =
+      document_fixture(
+        source,
+        %{
+          canonical_url: "https://publisher.example.test/article/1",
+          title: "Article 1",
+          content: "Content 1",
+          published_at: ~U[2026-09-08 10:00:00Z]
+        },
+        observed_at: ~U[2026-09-08 10:00:00Z]
+      )
+
+    assert {:ok, %{document: second_doc}} =
+             Content.observe_document(
+               second_source,
+               %{
+                 canonical_url: "https://publisher.example.test/article/1",
+                 title: "Article 1 Updated",
+                 content: "Content 1 Updated",
+                 published_at: ~U[2026-09-08 10:05:00Z]
+               },
+               observed_at: ~U[2026-09-08 11:00:00Z]
+             )
+
+    assert second_doc.id == document.id
+
+    conn = build_conn() |> get("/api/documents/#{document.id}/provenance", %{limit: 1, offset: 0})
+    response = json_response(conn, 200)
+
+    assert %{
+             "observations" => [
+               %{
+                 "id" => obs_id,
+                 "source_id" => second_source_id,
+                 "observed_at" => "2026-09-08T11:00:00.000000Z",
+                 "content_hash" => content_hash,
+                 "entry_url" => "https://publisher.example.test/article/1",
+                 "primary_source_url" => nil,
+                 "feed_format" => "atom",
+                 "acquisition_kind" => "conversion_service",
+                 "publisher_authority" => "unknown",
+                 "acquisition_metadata_snapshot" => %{"converter" => "fixture"},
+                 "reported_published_at" => "2026-09-08T10:05:00.000000Z"
+               }
+             ]
+           } = response
+
+    assert second_source_id == second_source.id
+    assert is_binary(obs_id)
+    assert is_binary(content_hash)
+    refute Map.has_key?(hd(response["observations"]), "endpoint_url")
+    assert_response_schema(response, "DocumentProvenanceResponse", ApiSpec.spec())
+
+    page2_response =
+      build_conn()
+      |> get("/api/documents/#{document.id}/provenance", %{limit: 1, offset: 1})
+      |> json_response(200)
+
+    assert %{
+             "observations" => [
+               %{
+                 "source_id" => first_source_id,
+                 "entry_url" => "https://publisher.example.test/article/1",
+                 "primary_source_url" => "https://publisher.example.test/feed.xml",
+                 "feed_format" => "rss_2_0",
+                 "acquisition_kind" => "direct",
+                 "publisher_authority" => "official",
+                 "acquisition_metadata_snapshot" => %{},
+                 "reported_published_at" => "2026-09-08T10:00:00.000000Z"
+               }
+             ]
+           } = page2_response
+
+    assert first_source_id == source.id
+    refute Map.has_key?(hd(page2_response["observations"]), "endpoint_url")
+    assert_response_schema(page2_response, "DocumentProvenanceResponse", ApiSpec.spec())
+  end
+
+  test "rejects invalid pagination parameters for document provenance" do
+    for params <- [
+          %{"limit" => "invalid"},
+          %{"limit" => "0"},
+          %{"limit" => "101"},
+          %{"offset" => "-1"}
+        ] do
+      source = source_fixture()
+      document = document_fixture(source, %{})
+
+      response =
+        build_conn()
+        |> get("/api/documents/#{document.id}/provenance", params)
+        |> json_response(422)
+
+      assert response == %{"error" => "invalid_pagination"}
       assert_response_schema(response, "ErrorResponse", ApiSpec.spec())
     end
   end
@@ -156,14 +283,16 @@ defmodule LensWeb.SearchControllerTest do
     source
   end
 
-  defp document_fixture(source, attrs) do
+  defp document_fixture(source, attrs, options \\ []) do
     defaults = %{
       canonical_url: "https://example.com/documents/#{System.unique_integer([:positive])}",
       title: "Document",
       content: "Content"
     }
 
-    {:ok, %{document: document}} = Content.observe_document(source, Map.merge(defaults, attrs))
+    {:ok, %{document: document}} =
+      Content.observe_document(source, Map.merge(defaults, attrs), options)
+
     document
   end
 

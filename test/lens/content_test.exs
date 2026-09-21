@@ -359,6 +359,70 @@ defmodule Lens.ContentTest do
     end
   end
 
+  describe "list_document_observations/2" do
+    test "lists observations deterministically with bounded pagination" do
+      source = source_fixture()
+
+      {:ok, %{document: document}} =
+        Content.observe_document(
+          source,
+          %{
+            canonical_url: "https://example.com/posts/pagination",
+            title: "Paginated",
+            content: "Content"
+          },
+          observed_at: ~U[2026-09-08 01:00:00.000000Z]
+        )
+
+      {:ok, %{document: doc2}} =
+        Content.observe_document(
+          source,
+          %{
+            canonical_url: "https://example.com/posts/pagination",
+            title: "Paginated",
+            content: "Updated Content"
+          },
+          observed_at: ~U[2026-09-08 02:00:00.000000Z]
+        )
+
+      assert doc2.id == document.id
+
+      {:ok, %{document: doc3}} =
+        Content.observe_document(
+          source,
+          %{
+            canonical_url: "https://example.com/posts/pagination",
+            title: "Paginated",
+            content: "Third Content"
+          },
+          observed_at: ~U[2026-09-08 03:00:00.000000Z]
+        )
+
+      assert doc3.id == document.id
+
+      assert {:ok, page1} = Content.list_document_observations(document, limit: 2, offset: 0)
+      assert length(page1) == 2
+
+      assert Enum.map(page1, & &1.observed_at) == [
+               ~U[2026-09-08 03:00:00.000000Z],
+               ~U[2026-09-08 02:00:00.000000Z]
+             ]
+
+      assert {:ok, page2} = Content.list_document_observations(document, limit: 2, offset: 2)
+      assert length(page2) == 1
+      assert Enum.map(page2, & &1.observed_at) == [~U[2026-09-08 01:00:00.000000Z]]
+
+      assert Content.list_document_observations(document, limit: 0) ==
+               {:error, :invalid_pagination}
+
+      assert Content.list_document_observations(document, limit: 101) ==
+               {:error, :invalid_pagination}
+
+      assert Content.list_document_observations(document, offset: -1) ==
+               {:error, :invalid_pagination}
+    end
+  end
+
   describe "scheduled sources" do
     test "claims a due source once and schedules its next fetch" do
       now = ~U[2026-09-08 00:00:00Z]

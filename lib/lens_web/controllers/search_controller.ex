@@ -3,7 +3,14 @@ defmodule LensWeb.SearchController do
   use OpenApiSpex.ControllerSpecs
 
   alias Lens.{Content, Search}
-  alias LensWeb.ApiSchemas.{DocumentResponse, ErrorResponse, SearchResponse}
+
+  alias LensWeb.ApiSchemas.{
+    DocumentProvenanceResponse,
+    DocumentResponse,
+    ErrorResponse,
+    SearchResponse
+  }
+
   alias OpenApiSpex.Schema
 
   tags(["Search"])
@@ -26,6 +33,19 @@ defmodule LensWeb.SearchController do
     responses: [
       ok: {"Canonical document", "application/json", DocumentResponse},
       not_found: {"Document not found", "application/json", ErrorResponse}
+    ]
+
+  operation :show_provenance,
+    summary: "Get paginated document observation provenance",
+    parameters: [
+      id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}],
+      limit: [in: :query, schema: %Schema{type: :integer, minimum: 1, maximum: 100}],
+      offset: [in: :query, schema: %Schema{type: :integer, minimum: 0}]
+    ],
+    responses: [
+      ok: {"Document observation provenance", "application/json", DocumentProvenanceResponse},
+      not_found: {"Document not found", "application/json", ErrorResponse},
+      unprocessable_entity: {"Invalid pagination parameters", "application/json", ErrorResponse}
     ]
 
   def index(conn, %{"q" => query} = params) do
@@ -57,11 +77,46 @@ defmodule LensWeb.SearchController do
               :metadata
             ])
             |> Map.put(:sources, sources)
+            |> Map.put(:provenance_url, "/api/documents/#{document.id}/provenance")
         })
 
       :error ->
         not_found(conn)
     end
+  end
+
+  def show_provenance(conn, %{"id" => id} = params) do
+    with {:ok, document} <- Content.fetch_document(id),
+         {:ok, options} <- pagination(params),
+         {:ok, observations} <- Content.list_document_observations(document, options) do
+      json(conn, %{
+        observations: Enum.map(observations, &render_observation_provenance/1)
+      })
+    else
+      :error ->
+        not_found(conn)
+
+      {:error, :invalid_pagination} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "invalid_pagination"})
+    end
+  end
+
+  defp render_observation_provenance(obs) do
+    %{
+      id: obs.id,
+      source_id: obs.source_id,
+      observed_at: obs.observed_at,
+      content_hash: obs.content_hash,
+      entry_url: obs.entry_url,
+      primary_source_url: obs.primary_source_url,
+      feed_format: obs.feed_format || "unknown",
+      acquisition_kind: obs.acquisition_kind || "unknown",
+      publisher_authority: obs.publisher_authority || "unknown",
+      acquisition_metadata_snapshot: obs.acquisition_metadata_snapshot || %{},
+      reported_published_at: obs.reported_published_at
+    }
   end
 
   defp pagination(params) do
