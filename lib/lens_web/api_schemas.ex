@@ -284,4 +284,157 @@ defmodule LensWeb.ApiSchemas do
       required: [:document]
     })
   end
+
+  defmodule MembershipAttributes do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "MembershipAttributes",
+      type: :object,
+      properties: %{
+        index_name: %Schema{type: :string, default: "nikkei_225"},
+        effective_from: %Schema{type: :string, format: :date},
+        effective_to: %Schema{type: :string, format: :date, nullable: true},
+        source_reference: %Schema{type: :string, nullable: true},
+        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      },
+      required: [:effective_from]
+    })
+  end
+
+  defmodule Membership do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "Membership",
+      type: :object,
+      properties: %{
+        id: %Schema{type: :string, format: :uuid},
+        target_id: %Schema{type: :string, format: :uuid},
+        index_name: %Schema{type: :string},
+        effective_from: %Schema{type: :string, format: :date},
+        effective_to: %Schema{type: :string, format: :date, nullable: true},
+        source_reference: %Schema{type: :string, nullable: true},
+        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      },
+      required: [:id, :target_id, :index_name, :effective_from]
+    })
+  end
+
+  defmodule CreateMembershipRequest do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "CreateMembershipRequest",
+      type: :object,
+      properties: %{membership: MembershipAttributes},
+      required: [:membership]
+    })
+  end
+
+  defmodule MembershipResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "MembershipResponse",
+      type: :object,
+      properties: %{membership: Membership},
+      required: [:membership]
+    })
+  end
+
+  defmodule MembershipsResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "MembershipsResponse",
+      type: :object,
+      properties: %{memberships: %Schema{type: :array, items: Membership}},
+      required: [:memberships]
+    })
+  end
+
+  defmodule TargetAttributes do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "TargetAttributes",
+      type: :object,
+      properties: %{
+        security_code: %Schema{type: :string},
+        market: %Schema{type: :string},
+        display_name: %Schema{type: :string},
+        sector: %Schema{type: :string},
+        tags: %Schema{type: :array, items: %Schema{type: :string}},
+        active: %Schema{type: :boolean, default: true},
+        source_reference: %Schema{type: :string, nullable: true},
+        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      }
+    })
+  end
+
+  defmodule CreateTargetRequest do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "CreateTargetRequest",
+      type: :object,
+      properties: %{target: TargetAttributes},
+      required: [:target]
+    })
+  end
+
+  defmodule UpdateTargetRequest do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "UpdateTargetRequest",
+      type: :object,
+      properties: %{target: TargetAttributes}
+    })
+  end
+
+  defmodule Target do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "Target",
+      type: :object,
+      properties: %{
+        id: %Schema{type: :string, format: :uuid},
+        security_code: %Schema{type: :string},
+        market: %Schema{type: :string},
+        display_name: %Schema{type: :string},
+        sector: %Schema{type: :string},
+        tags: %Schema{type: :array, items: %Schema{type: :string}},
+        active: %Schema{type: :boolean},
+        source_reference: %Schema{type: :string, nullable: true},
+        verified_at: %Schema{type: :string, format: :"date-time", nullable: true},
+        memberships: %Schema{type: :array, items: Membership}
+      },
+      required: [:id, :security_code, :market, :display_name, :sector, :tags, :active]
+    })
+  end
+
+  defmodule TargetResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "TargetResponse",
+      type: :object,
+      properties: %{target: Target},
+      required: [:target]
+    })
+  end
+
+  defmodule TargetsResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "TargetsResponse",
+      type: :object,
+      properties: %{targets: %Schema{type: :array, items: Target}},
+      required: [:targets]
+    })
+  end
 end
