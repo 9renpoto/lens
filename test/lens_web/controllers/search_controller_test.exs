@@ -239,6 +239,7 @@ defmodule LensWeb.SearchControllerTest do
           %{"limit" => "0"},
           %{"limit" => "101"},
           %{"offset" => "-1"},
+          %{"offset" => "9223372036854775808"},
           %{"limit" => ["1"]},
           %{"offset" => %{"x" => "1"}}
         ] do
@@ -284,6 +285,38 @@ defmodule LensWeb.SearchControllerTest do
                }
              ]
            } = response
+  end
+
+  test "redacts sensitive query parameters in entry_url and primary_source_url" do
+    source =
+      source_fixture(%{
+        original_feed_url: "https://publisher.example.test/feed.xml?token=secret123&format=rss"
+      })
+
+    document =
+      document_fixture(source, %{
+        canonical_url: "https://publisher.example.test/article?sig=xyz987&author=ada"
+      })
+
+    conn = build_conn() |> get("/api/documents/#{document.id}/provenance")
+    response = json_response(conn, 200)
+
+    assert %{
+             "observations" => [
+               %{
+                 "entry_url" => entry_url,
+                 "primary_source_url" => primary_url
+               }
+             ]
+           } = response
+
+    assert entry_url =~ "author=ada"
+    assert entry_url =~ "sig=%5BREDACTED%5D" or entry_url =~ "sig=[REDACTED]"
+    refute entry_url =~ "xyz987"
+
+    assert primary_url =~ "format=rss"
+    assert primary_url =~ "token=%5BREDACTED%5D" or primary_url =~ "token=[REDACTED]"
+    refute primary_url =~ "secret123"
   end
 
   test "rejects missing, empty, and invalid search parameters" do

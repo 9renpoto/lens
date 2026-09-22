@@ -40,7 +40,7 @@ defmodule LensWeb.SearchController do
     parameters: [
       id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}],
       limit: [in: :query, schema: %Schema{type: :integer, minimum: 1, maximum: 100}],
-      offset: [in: :query, schema: %Schema{type: :integer, minimum: 0}]
+      offset: [in: :query, schema: %Schema{type: :integer, minimum: 0, maximum: 2_147_483_647}]
     ],
     responses: [
       ok: {"Document observation provenance", "application/json", DocumentProvenanceResponse},
@@ -103,7 +103,12 @@ defmodule LensWeb.SearchController do
     end
   end
 
-  @sensitive_keywords ~w(auth token password cookie secret key credential bearer)
+  @sensitive_exact_keys ~w(
+    auth authorization token access_token id_token refresh_token
+    password pass secret api_key apikey key cookie credential bearer sig signature
+  )
+
+  @sensitive_suffixes ~w(_key -key _secret -secret _token -token _auth -auth)
 
   defp render_observation_provenance(obs) do
     %{
@@ -111,14 +116,41 @@ defmodule LensWeb.SearchController do
       source_id: obs.source_id,
       observed_at: obs.observed_at,
       content_hash: obs.content_hash,
-      entry_url: obs.entry_url,
-      primary_source_url: obs.primary_source_url,
+      entry_url: sanitize_url(obs.entry_url),
+      primary_source_url: sanitize_url(obs.primary_source_url),
       feed_format: obs.feed_format || "unknown",
       acquisition_kind: obs.acquisition_kind || "unknown",
       publisher_authority: obs.publisher_authority || "unknown",
       acquisition_metadata_snapshot: sanitize_metadata(obs.acquisition_metadata_snapshot || %{}),
       reported_published_at: obs.reported_published_at
     }
+  end
+
+  defp sanitize_url(nil), do: nil
+
+  defp sanitize_url(url) when is_binary(url) do
+    uri = URI.parse(url)
+    uri = %{uri | userinfo: nil}
+
+    if is_binary(uri.query) do
+      sanitized_query =
+        uri.query
+        |> URI.decode_query()
+        |> Map.new(fn {key, value} ->
+          if sensitive_key?(key) do
+            {key, "[REDACTED]"}
+          else
+            {key, value}
+          end
+        end)
+        |> URI.encode_query()
+
+      URI.to_string(%{uri | query: sanitized_query})
+    else
+      URI.to_string(uri)
+    end
+  rescue
+    _ -> url
   end
 
   defp sanitize_metadata(map) when is_map(map) do
@@ -141,7 +173,9 @@ defmodule LensWeb.SearchController do
 
   defp sensitive_key?(key) when is_binary(key) do
     downcase_key = String.downcase(key)
-    Enum.any?(@sensitive_keywords, &String.contains?(downcase_key, &1))
+
+    downcase_key in @sensitive_exact_keys or
+      Enum.any?(@sensitive_suffixes, &String.ends_with?(downcase_key, &1))
   end
 
   defp pagination(params) do

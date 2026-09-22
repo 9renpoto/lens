@@ -420,6 +420,9 @@ defmodule Lens.ContentTest do
 
       assert Content.list_document_observations(document, offset: -1) ==
                {:error, :invalid_pagination}
+
+      assert Content.list_document_observations(document, offset: 9_223_372_036_854_775_808) ==
+               {:error, :invalid_pagination}
     end
   end
 

@@ -116,9 +116,11 @@ defmodule Lens.Content do
     end
   end
 
+  @max_offset 2_147_483_647
+
   defp valid_observation_pagination?(limit, offset)
        when is_integer(limit) and is_integer(offset) and limit > 0 and limit <= 100 and
-              offset >= 0,
+              offset >= 0 and offset <= @max_offset,
        do: true
 
   defp valid_observation_pagination?(_, _), do: false
