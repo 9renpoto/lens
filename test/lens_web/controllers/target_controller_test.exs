@@ -1,8 +1,8 @@
 defmodule LensWeb.TargetControllerTest do
   use Lens.DataCase
 
-  import Phoenix.ConnTest
   import OpenApiSpex.TestAssertions
+  import Phoenix.ConnTest
 
   alias Lens.Analysis
   alias LensWeb.ApiSpec
@@ -109,7 +109,7 @@ defmodule LensWeb.TargetControllerTest do
   end
 
   describe "PATCH /api/targets/:id" do
-    test "updates target attributes" do
+    test "updates target attributes and handles validation error / 404" do
       {:ok, target} = Analysis.create_target(@valid_target_attrs)
 
       conn =
@@ -120,11 +120,19 @@ defmodule LensWeb.TargetControllerTest do
       assert %{"target" => updated} = response
       assert updated["display_name"] == "New Name (Synthetic)"
       assert_response_schema(response, "TargetResponse", ApiSpec.spec())
+
+      conn_err = build_conn() |> patch("/api/targets/#{target.id}", target: %{market: ""})
+      assert json_response(conn_err, 422)["errors"]["market"] != nil
+
+      conn_404 =
+        build_conn() |> patch("/api/targets/#{missing_id()}", target: %{display_name: "X"})
+
+      assert json_response(conn_404, 404)["error"] == "not_found"
     end
   end
 
   describe "POST /api/targets/:id/deactivate" do
-    test "deactivates target non-destructively" do
+    test "deactivates target non-destructively and handles 404" do
       {:ok, target} = Analysis.create_target(@valid_target_attrs)
       assert target.active == true
 
@@ -133,6 +141,9 @@ defmodule LensWeb.TargetControllerTest do
       assert %{"target" => deactivated} = response
       assert deactivated["active"] == false
       assert_response_schema(response, "TargetResponse", ApiSpec.spec())
+
+      conn_404 = build_conn() |> post("/api/targets/#{missing_id()}/deactivate")
+      assert json_response(conn_404, 404)["error"] == "not_found"
     end
   end
 
@@ -142,7 +153,7 @@ defmodule LensWeb.TargetControllerTest do
       %{target: target}
     end
 
-    test "POST and GET /api/targets/:target_id/memberships", %{target: target} do
+    test "POST and GET /api/targets/:target_id/memberships and 404s", %{target: target} do
       conn_create =
         build_conn()
         |> post("/api/targets/#{target.id}/memberships",
@@ -164,6 +175,17 @@ defmodule LensWeb.TargetControllerTest do
       assert %{"memberships" => memberships} = response_list
       assert length(memberships) == 1
       assert_response_schema(response_list, "MembershipsResponse", ApiSpec.spec())
+
+      conn_list_404 = build_conn() |> get("/api/targets/#{missing_id()}/memberships")
+      assert json_response(conn_list_404, 404)["error"] == "not_found"
+
+      conn_create_404 =
+        build_conn()
+        |> post("/api/targets/#{missing_id()}/memberships",
+          membership: %{effective_from: "2020-01-01"}
+        )
+
+      assert json_response(conn_create_404, 404)["error"] == "not_found"
     end
 
     test "returns 422 when creating overlapping membership", %{target: target} do

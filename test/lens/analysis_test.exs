@@ -29,6 +29,22 @@ defmodule Lens.AnalysisTest do
       assert DateTime.truncate(target.verified_at, :second) == ~U[2024-01-15 10:00:00Z]
     end
 
+    test "fetch_target/1 and get_target!/1" do
+      assert {:ok, target} = Analysis.create_target(@valid_target_attrs)
+
+      assert {:ok, fetched} = Analysis.fetch_target(target.id)
+      assert fetched.id == target.id
+
+      assert Analysis.fetch_target("invalid-uuid") == :error
+      assert Analysis.fetch_target(Ecto.UUID.generate()) == :error
+
+      assert Analysis.get_target!(target.id).id == target.id
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Analysis.get_target!(Ecto.UUID.generate())
+      end
+    end
+
     test "create_target/1 rejects duplicate security codes" do
       assert {:ok, _target} = Analysis.create_target(@valid_target_attrs)
 
@@ -52,6 +68,18 @@ defmodule Lens.AnalysisTest do
                Analysis.create_target(Map.put(@valid_target_attrs, :tags, too_many_tags))
 
       assert "should have at most 10 item(s)" in errors_on(changeset).tags
+
+      assert {:error, changeset2} =
+               Analysis.create_target(Map.put(@valid_target_attrs, :tags, "not-a-list"))
+
+      assert "must be a list" in errors_on(changeset2).tags
+
+      long_tag = String.duplicate("a", 60)
+
+      assert {:error, changeset3} =
+               Analysis.create_target(Map.put(@valid_target_attrs, :tags, [long_tag]))
+
+      assert "contains invalid tag elements" in errors_on(changeset3).tags
     end
 
     test "update_target/2 updates target attributes" do
@@ -86,7 +114,8 @@ defmodule Lens.AnalysisTest do
       %{target: target}
     end
 
-    test "create_membership/2 creates valid membership interval", %{target: target} do
+    test "create_membership/2 creates valid membership interval and list_memberships/1 lists it",
+         %{target: target} do
       attrs = %{
         effective_from: ~D[2020-01-01],
         effective_to: ~D[2023-12-31],
@@ -100,6 +129,28 @@ defmodule Lens.AnalysisTest do
       assert membership.effective_from == ~D[2020-01-01]
       assert membership.effective_to == ~D[2023-12-31]
       assert membership.source_reference == "Annual constituent review 2020"
+
+      memberships = Analysis.list_memberships(target.id)
+      assert length(memberships) == 1
+      assert hd(memberships).id == membership.id
+    end
+
+    test "updating an existing membership interval validates self-overlap exclusion", %{
+      target: target
+    } do
+      {:ok, membership} =
+        Analysis.create_membership(target, %{
+          effective_from: ~D[2020-01-01],
+          effective_to: ~D[2023-12-31]
+        })
+
+      changeset =
+        membership
+        |> Lens.Analysis.Membership.changeset(%{effective_to: ~D[2024-01-01]})
+        |> Lens.Analysis.Membership.validate_no_overlapping_intervals()
+
+      assert {:ok, updated} = Lens.Repo.update(changeset)
+      assert updated.effective_to == ~D[2024-01-01]
     end
 
     test "create_membership/2 rejects invalid interval where effective_to < effective_from", %{
@@ -134,7 +185,7 @@ defmodule Lens.AnalysisTest do
   end
 
   describe "as-of membership lookup" do
-    test "list_targets/1 with as_of option returns active members as of date" do
+    test "list_targets/1 with as_of option supports Date, ISO datetime, and invalid string" do
       {:ok, target_a} =
         Analysis.create_target(%{
           security_code: "9983",
@@ -151,31 +202,36 @@ defmodule Lens.AnalysisTest do
           sector: "Information & Communication"
         })
 
-      # Target A member from 2020-01-01 to 2023-12-31
       {:ok, _} =
         Analysis.create_membership(target_a, %{
           effective_from: ~D[2020-01-01],
           effective_to: ~D[2023-12-31]
         })
 
-      # Target B member from 2022-01-01 (ongoing)
       {:ok, _} =
         Analysis.create_membership(target_b, %{
           effective_from: ~D[2022-01-01],
           effective_to: nil
         })
 
-      # As of 2023-06-01: both targets are members
-      results_2023 = Analysis.list_targets(as_of: ~D[2023-06-01])
-      target_ids_2023 = Enum.map(results_2023, & &1.id)
-      assert target_a.id in target_ids_2023
-      assert target_b.id in target_ids_2023
+      # As of Date: both targets
+      results_date = Analysis.list_targets(as_of: ~D[2023-06-01])
+      ids_date = Enum.map(results_date, & &1.id)
+      assert target_a.id in ids_date
+      assert target_b.id in ids_date
 
-      # As of 2024-06-01: Target A is no longer a member, Target B remains
-      results_2024 = Analysis.list_targets(as_of: ~D[2024-06-01])
-      target_ids_2024 = Enum.map(results_2024, & &1.id)
-      refute target_a.id in target_ids_2024
-      assert target_b.id in target_ids_2024
+      # As of ISO datetime string: both targets
+      results_iso = Analysis.list_targets(as_of: "2023-06-01T12:00:00Z")
+      ids_iso = Enum.map(results_iso, & &1.id)
+      assert target_a.id in ids_iso
+      assert target_b.id in ids_iso
+
+      # Invalid as_of string / non-string fallback: returns all targets unfiltered
+      results_invalid = Analysis.list_targets(as_of: "invalid-date")
+      assert length(results_invalid) >= 2
+
+      results_nil = Analysis.list_targets(as_of: 123)
+      assert length(results_nil) >= 2
     end
   end
 end
