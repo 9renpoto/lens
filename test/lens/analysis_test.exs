@@ -182,8 +182,7 @@ defmodule Lens.AnalysisTest do
                  effective_to: ~D[2024-01-01]
                })
 
-      assert "overlaps with an existing membership interval"
-             in errors_on(changeset).effective_from
+      assert "overlaps with an existing membership interval" in errors_on(changeset).effective_from
     end
   end
 
