@@ -204,9 +204,23 @@ defmodule Lens.Content do
   end
 
   def observe_document(source_id, attrs, options) when is_binary(source_id) and is_map(attrs) do
-    source_id
-    |> source_for_observation()
-    |> observe_document_from_source(attrs, options)
+    case Repo.get(Source, source_id) do
+      %Source{} = source ->
+        observe_document_from_source(source, attrs, options)
+
+      nil ->
+        changeset =
+          %Observation{}
+          |> Observation.changeset(%{
+            source_id: source_id,
+            document_id: Ecto.UUID.generate(),
+            observed_at: DateTime.utc_now(),
+            content_hash: String.duplicate("0", 64)
+          })
+          |> Ecto.Changeset.add_error(:source_id, "does not exist")
+
+        {:error, changeset}
+    end
   end
 
   defp observe_document_from_source(%Source{} = source, attrs, options) do
@@ -247,10 +261,6 @@ defmodule Lens.Content do
       acquisition_metadata_snapshot: source.acquisition_metadata || %{},
       reported_published_at: entry.published_at
     }
-  end
-
-  defp source_for_observation(source_id) do
-    Repo.get(Source, source_id) || %Source{id: source_id}
   end
 
   defp upsert_document(entry) do
