@@ -87,6 +87,11 @@ defmodule Lens.AnalysisTest do
                Analysis.create_target(valid_target_attrs(%{tags: [long_tag]}))
 
       assert "contains invalid tag elements" in errors_on(changeset3).tags
+
+      assert {:error, changeset4} =
+               Analysis.create_target(valid_target_attrs(%{tags: [123]}))
+
+      assert "is invalid" in errors_on(changeset4).tags
     end
 
     test "update_target/2 updates target attributes" do
