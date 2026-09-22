@@ -131,25 +131,60 @@ defmodule LensWeb.SearchController do
   defp sanitize_url(url) when is_binary(url) do
     uri = URI.parse(url)
 
+    path = if is_binary(uri.path), do: sanitize_path(uri.path), else: nil
     query = if is_binary(uri.query), do: sanitize_query_string(uri.query), else: nil
     fragment = if is_binary(uri.fragment), do: sanitize_fragment(uri.fragment), else: nil
 
-    URI.to_string(%{uri | userinfo: nil, query: query, fragment: fragment})
+    URI.to_string(%{uri | userinfo: nil, path: path, query: query, fragment: fragment})
   rescue
     _ -> url
   end
 
+  defp sanitize_path(path) when is_binary(path) do
+    path
+    |> String.split("/")
+    |> sanitize_path_segments(false)
+    |> Enum.join("/")
+  end
+
+  defp sanitize_path_segments([], _redact_next), do: []
+
+  defp sanitize_path_segments([segment | rest], redact_next) do
+    if redact_next and segment != "" do
+      ["%5BREDACTED%5D" | sanitize_path_segments(rest, false)]
+    else
+      should_redact_following = sensitive_key?(segment)
+      [segment | sanitize_path_segments(rest, should_redact_following)]
+    end
+  end
+
   defp sanitize_query_string(query) when is_binary(query) do
     query
-    |> URI.query_decoder()
-    |> Enum.map(fn {key, value} ->
-      if sensitive_key?(key) do
-        {key, "[REDACTED]"}
-      else
-        {key, value}
-      end
-    end)
-    |> URI.encode_query()
+    |> String.split("&")
+    |> Enum.map(&sanitize_query_param/1)
+    |> Enum.join("&")
+  end
+
+  defp sanitize_query_param(param) when is_binary(param) do
+    case String.split(param, "=", parts: 2) do
+      [key_encoded, _val_encoded] ->
+        key = URI.decode_www_form(key_encoded)
+
+        if sensitive_key?(key) do
+          key_encoded <> "=%5BREDACTED%5D"
+        else
+          param
+        end
+
+      [param_encoded] ->
+        key = URI.decode_www_form(param_encoded)
+
+        if sensitive_key?(key) do
+          param_encoded <> "=%5BREDACTED%5D"
+        else
+          param
+        end
+    end
   end
 
   defp sanitize_fragment(fragment) when is_binary(fragment) do

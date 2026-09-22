@@ -321,11 +321,11 @@ defmodule LensWeb.SearchControllerTest do
     refute primary_url =~ "secret123"
   end
 
-  test "preserves repeated query parameters and redacts fragment credentials in provenance URLs" do
+  test "preserves repeated and valueless query parameters, and redacts path and fragment credentials in provenance URLs" do
     source =
       source_fixture(%{
         original_feed_url:
-          "https://publisher.example.test/feed.xml?role=reader&role=writer#access_token=secret123&state=abc"
+          "https://publisher.example.test/private/token/secret123/feed.xml?preview&role=reader&role=writer#access_token=secret123&state=abc"
       })
 
     document =
