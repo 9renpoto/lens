@@ -15,6 +15,7 @@ defmodule LensWeb.Router do
     put("/sources/:id", SourceController, :replace)
     get("/search", SearchController, :index)
     get("/documents/:id", SearchController, :show_document)
+    get("/documents/:id/provenance", SearchController, :show_provenance)
   end
 
   scope "/", LensWeb do

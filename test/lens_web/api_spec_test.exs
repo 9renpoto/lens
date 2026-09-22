@@ -35,5 +35,8 @@ defmodule LensWeb.ApiSpecTest do
 
     assert document["paths"]["/api/documents/{id}"]["get"]["operationId"] ==
              "LensWeb.SearchController.show_document"
+
+    assert document["paths"]["/api/documents/{id}/provenance"]["get"]["operationId"] ==
+             "LensWeb.SearchController.show_provenance"
   end
 end

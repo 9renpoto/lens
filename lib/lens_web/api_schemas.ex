@@ -165,9 +165,10 @@ defmodule LensWeb.ApiSchemas do
         title: %Schema{type: :string, nullable: true},
         canonical_url: %Schema{type: :string, format: :uri, nullable: true},
         published_at: %Schema{type: :string, format: :"date-time", nullable: true},
-        excerpt: %Schema{type: :string, maxLength: 300}
+        excerpt: %Schema{type: :string, maxLength: 300},
+        provenance_url: %Schema{type: :string}
       },
-      required: [:id, :excerpt]
+      required: [:id, :excerpt, :provenance_url]
     })
   end
 
@@ -196,9 +197,64 @@ defmodule LensWeb.ApiSchemas do
         author: %Schema{type: :string, nullable: true},
         published_at: %Schema{type: :string, format: :"date-time", nullable: true},
         metadata: %Schema{type: :object},
-        sources: %Schema{type: :array, items: LensWeb.ApiSchemas.SourceProvenance}
+        sources: %Schema{type: :array, items: LensWeb.ApiSchemas.SourceProvenance},
+        provenance_url: %Schema{type: :string}
       },
-      required: [:id, :content, :metadata, :sources]
+      required: [:id, :content, :metadata, :sources, :provenance_url]
+    })
+  end
+
+  defmodule ObservationProvenance do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "ObservationProvenance",
+      type: :object,
+      properties: %{
+        id: %Schema{type: :string, format: :uuid},
+        source_id: %Schema{type: :string, format: :uuid},
+        observed_at: %Schema{type: :string, format: :"date-time"},
+        content_hash: %Schema{type: :string},
+        entry_url: %Schema{type: :string, format: :uri, nullable: true},
+        primary_source_url: %Schema{type: :string, format: :uri, nullable: true},
+        feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
+        acquisition_kind: %Schema{
+          type: :string,
+          enum: ["direct", "conversion_service", "rsshub", "unknown"]
+        },
+        publisher_authority: %Schema{
+          type: :string,
+          enum: ["official", "third_party", "unknown"]
+        },
+        acquisition_metadata_snapshot: %Schema{type: :object},
+        reported_published_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      },
+      required: [
+        :id,
+        :source_id,
+        :observed_at,
+        :content_hash,
+        :feed_format,
+        :acquisition_kind,
+        :publisher_authority,
+        :acquisition_metadata_snapshot
+      ]
+    })
+  end
+
+  defmodule DocumentProvenanceResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "DocumentProvenanceResponse",
+      type: :object,
+      properties: %{
+        observations: %Schema{
+          type: :array,
+          items: ObservationProvenance
+        }
+      },
+      required: [:observations]
     })
   end
 

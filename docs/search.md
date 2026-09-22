@@ -22,10 +22,28 @@ curl --get http://127.0.0.1:4000/api/search \
 ```
 
 Each result contains the document ID, title, canonical URL, publication time,
-and a 300-character plain-text excerpt. `GET /api/documents/:id` returns the
-canonical document content and one provenance record for each Source that
-observed it. A provenance record includes the Source ID, type, endpoint URL,
-and most recent observation time.
+a 300-character plain-text excerpt, and a stable `provenance_url` reference
+(`/api/documents/:id/provenance`). `GET /api/documents/:id` returns the
+canonical document content, source summaries, and `provenance_url`.
+
+## Document observation provenance
+
+`GET /api/documents/:id/provenance` returns the full acquisition history behind a
+canonical document with bounded pagination (`limit` 1 to 100, default 20; `offset`
+default 0). Observations are ordered deterministically (latest `observed_at`
+first).
+
+Each observation includes:
+- Observation ID and Source ID
+- UTC observation time (`observed_at`) and reported publication time (`reported_published_at`)
+- SHA-256 content hash
+- Known primary/entry references (`entry_url`, `primary_source_url`)
+- Feed format, acquisition kind, and publisher authority classification snapshots
+- Acquisition metadata snapshot
+
+Operational source endpoint URLs and credentials are redacted and never returned
+in provenance responses. Invalid pagination values return `422`. Missing or malformed
+document IDs return `404`.
 
 Empty, one-character, punctuation-only, or over-500-character queries, and
 malformed pagination values, return `422`. Queries with no matching indexed

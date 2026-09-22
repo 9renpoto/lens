@@ -87,6 +87,44 @@ defmodule Lens.Content do
     )
   end
 
+  @spec list_document_observations(Document.t() | binary(), keyword()) ::
+          {:ok, [Observation.t()]} | {:error, :invalid_pagination}
+  def list_document_observations(document_or_id, options \\ []) do
+    limit = Keyword.get(options, :limit, 20)
+    offset = Keyword.get(options, :offset, 0)
+
+    if valid_observation_pagination?(limit, offset) do
+      document_id =
+        case document_or_id do
+          %Document{id: id} -> id
+          id when is_binary(id) -> id
+        end
+
+      observations =
+        Repo.all(
+          from(observation in Observation,
+            where: observation.document_id == ^document_id,
+            order_by: [desc: observation.observed_at, desc: observation.id],
+            limit: ^limit,
+            offset: ^offset
+          )
+        )
+
+      {:ok, observations}
+    else
+      {:error, :invalid_pagination}
+    end
+  end
+
+  @max_offset 2_147_483_647
+
+  defp valid_observation_pagination?(limit, offset)
+       when is_integer(limit) and is_integer(offset) and limit > 0 and limit <= 100 and
+              offset >= 0 and offset <= @max_offset,
+       do: true
+
+  defp valid_observation_pagination?(_, _), do: false
+
   @spec document_sources(Document.t()) :: [map()]
   def document_sources(%Document{id: document_id}) do
     Repo.all(
@@ -166,9 +204,23 @@ defmodule Lens.Content do
   end
 
   def observe_document(source_id, attrs, options) when is_binary(source_id) and is_map(attrs) do
-    source_id
-    |> source_for_observation()
-    |> observe_document_from_source(attrs, options)
+    case Repo.get(Source, source_id) do
+      %Source{} = source ->
+        observe_document_from_source(source, attrs, options)
+
+      nil ->
+        changeset =
+          %Observation{}
+          |> Observation.changeset(%{
+            source_id: source_id,
+            document_id: Ecto.UUID.generate(),
+            observed_at: DateTime.utc_now(),
+            content_hash: String.duplicate("0", 64)
+          })
+          |> Ecto.Changeset.add_error(:source_id, "does not exist")
+
+        {:error, changeset}
+    end
   end
 
   defp observe_document_from_source(%Source{} = source, attrs, options) do
@@ -209,10 +261,6 @@ defmodule Lens.Content do
       acquisition_metadata_snapshot: source.acquisition_metadata || %{},
       reported_published_at: entry.published_at
     }
-  end
-
-  defp source_for_observation(source_id) do
-    Repo.get(Source, source_id) || %Source{id: source_id}
   end
 
   defp upsert_document(entry) do
