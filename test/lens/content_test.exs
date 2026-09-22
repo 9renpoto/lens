@@ -401,6 +401,11 @@ defmodule Lens.ContentTest do
       assert doc3.id == document.id
 
       assert {:ok, page1} = Content.list_document_observations(document, limit: 2, offset: 0)
+
+      assert {:ok, page1_by_id} =
+               Content.list_document_observations(document.id, limit: 2, offset: 0)
+
+      assert page1 == page1_by_id
       assert length(page1) == 2
 
       assert Enum.map(page1, & &1.observed_at) == [

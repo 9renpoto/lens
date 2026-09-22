@@ -265,6 +265,7 @@ defmodule LensWeb.SearchControllerTest do
         acquisition_metadata: %{
           "route" => "news",
           "api_key" => "secret123",
+          "tags" => ["news", "tech"],
           "nested" => %{"secret" => "supersecret"}
         }
       })
@@ -280,6 +281,7 @@ defmodule LensWeb.SearchControllerTest do
                  "acquisition_metadata_snapshot" => %{
                    "route" => "news",
                    "api_key" => "[REDACTED]",
+                   "tags" => ["news", "tech"],
                    "nested" => %{"secret" => "[REDACTED]"}
                  }
                }
@@ -326,7 +328,12 @@ defmodule LensWeb.SearchControllerTest do
           "https://publisher.example.test/feed.xml?role=reader&role=writer#access_token=secret123&state=abc"
       })
 
-    document = document_fixture(source, %{})
+    document =
+      document_fixture(
+        source,
+        %{canonical_url: "https://publisher.example.test/section#section-1"},
+        observed_at: ~U[2026-09-08 10:00:00Z]
+      )
 
     conn = build_conn() |> get("/api/documents/#{document.id}/provenance")
     response = json_response(conn, 200)
