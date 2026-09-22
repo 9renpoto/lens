@@ -319,6 +319,35 @@ defmodule LensWeb.SearchControllerTest do
     refute primary_url =~ "secret123"
   end
 
+  test "preserves repeated query parameters and redacts fragment credentials in provenance URLs" do
+    source =
+      source_fixture(%{
+        original_feed_url:
+          "https://publisher.example.test/feed.xml?role=reader&role=writer#access_token=secret123&state=abc"
+      })
+
+    document = document_fixture(source, %{})
+
+    conn = build_conn() |> get("/api/documents/#{document.id}/provenance")
+    response = json_response(conn, 200)
+
+    assert %{
+             "observations" => [
+               %{
+                 "primary_source_url" => primary_url
+               }
+             ]
+           } = response
+
+    assert primary_url =~ "role=reader&role=writer"
+    assert primary_url =~ "state=abc"
+
+    assert primary_url =~ "access_token=%5BREDACTED%5D" or
+             primary_url =~ "access_token=[REDACTED]"
+
+    refute primary_url =~ "secret123"
+  end
+
   test "rejects missing, empty, and invalid search parameters" do
     missing_query_response = build_conn() |> get("/api/search") |> json_response(422)
     assert %{"error" => "q is required"} = missing_query_response

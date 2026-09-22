@@ -130,27 +130,34 @@ defmodule LensWeb.SearchController do
 
   defp sanitize_url(url) when is_binary(url) do
     uri = URI.parse(url)
-    uri = %{uri | userinfo: nil}
 
-    if is_binary(uri.query) do
-      sanitized_query =
-        uri.query
-        |> URI.decode_query()
-        |> Map.new(fn {key, value} ->
-          if sensitive_key?(key) do
-            {key, "[REDACTED]"}
-          else
-            {key, value}
-          end
-        end)
-        |> URI.encode_query()
+    query = if is_binary(uri.query), do: sanitize_query_string(uri.query), else: nil
+    fragment = if is_binary(uri.fragment), do: sanitize_fragment(uri.fragment), else: nil
 
-      URI.to_string(%{uri | query: sanitized_query})
-    else
-      URI.to_string(uri)
-    end
+    URI.to_string(%{uri | userinfo: nil, query: query, fragment: fragment})
   rescue
     _ -> url
+  end
+
+  defp sanitize_query_string(query) when is_binary(query) do
+    query
+    |> URI.query_decoder()
+    |> Enum.map(fn {key, value} ->
+      if sensitive_key?(key) do
+        {key, "[REDACTED]"}
+      else
+        {key, value}
+      end
+    end)
+    |> URI.encode_query()
+  end
+
+  defp sanitize_fragment(fragment) when is_binary(fragment) do
+    if String.contains?(fragment, "=") do
+      sanitize_query_string(fragment)
+    else
+      fragment
+    end
   end
 
   defp sanitize_metadata(map) when is_map(map) do
