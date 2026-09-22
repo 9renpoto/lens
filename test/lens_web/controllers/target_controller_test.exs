@@ -9,27 +9,34 @@ defmodule LensWeb.TargetControllerTest do
 
   @endpoint LensWeb.Endpoint
 
-  @valid_target_attrs %{
-    security_code: "7203",
-    market: "TSE Prime",
-    display_name: "Toyota Motor Corp (Synthetic)",
-    sector: "Transportation Equipment",
-    tags: ["automotive", "large-cap"],
-    source_reference: "EDINET filing #12345",
-    verified_at: "2024-01-15T10:00:00Z"
-  }
+  defp valid_target_attrs(custom \\ %{}) do
+    Map.merge(
+      %{
+        security_code: "CODE-#{System.unique_integer([:positive])}",
+        market: "TSE Prime",
+        display_name: "Toyota Motor Corp (Synthetic)",
+        sector: "Transportation Equipment",
+        tags: ["automotive", "large-cap"],
+        source_reference: "EDINET filing #12345",
+        verified_at: "2024-01-15T10:00:00Z"
+      },
+      custom
+    )
+  end
 
   describe "POST /api/targets" do
     test "creates a target with valid attributes" do
+      attrs = valid_target_attrs()
+
       conn =
         build_conn()
-        |> post("/api/targets", target: @valid_target_attrs)
+        |> post("/api/targets", target: attrs)
 
       response = json_response(conn, 201)
       assert %{"target" => target} = response
       assert_response_schema(response, "TargetResponse", ApiSpec.spec())
 
-      assert target["security_code"] == "7203"
+      assert target["security_code"] == attrs.security_code
       assert target["market"] == "TSE Prime"
       assert target["display_name"] == "Toyota Motor Corp (Synthetic)"
       assert target["sector"] == "Transportation Equipment"
@@ -44,10 +51,10 @@ defmodule LensWeb.TargetControllerTest do
       assert errors["security_code"] != nil
       assert_response_schema(response1, "ValidationErrorsResponse", ApiSpec.spec())
 
-      assert {:ok, _} =
-               Analysis.create_target(Map.put(@valid_target_attrs, :security_code, "7203"))
+      attrs = valid_target_attrs()
+      assert {:ok, _} = Analysis.create_target(attrs)
 
-      conn2 = build_conn() |> post("/api/targets", target: @valid_target_attrs)
+      conn2 = build_conn() |> post("/api/targets", target: attrs)
       response2 = json_response(conn2, 422)
       assert %{"errors" => errors2} = response2
       assert errors2["security_code"] != nil
@@ -57,8 +64,11 @@ defmodule LensWeb.TargetControllerTest do
 
   describe "GET /api/targets" do
     test "lists targets and supports as_of filter" do
-      {:ok, t1} = Analysis.create_target(%{@valid_target_attrs | security_code: "9983"})
-      {:ok, t2} = Analysis.create_target(%{@valid_target_attrs | security_code: "9984"})
+      attrs1 = valid_target_attrs()
+      attrs2 = valid_target_attrs()
+
+      {:ok, t1} = Analysis.create_target(attrs1)
+      {:ok, t2} = Analysis.create_target(attrs2)
 
       {:ok, _} =
         Analysis.create_membership(t1, %{
@@ -80,14 +90,15 @@ defmodule LensWeb.TargetControllerTest do
       assert_response_schema(response_as_of, "TargetsResponse", ApiSpec.spec())
 
       codes = Enum.map(targets_as_of, & &1["security_code"])
-      refute "9983" in codes
-      assert "9984" in codes
+      refute attrs1.security_code in codes
+      assert attrs2.security_code in codes
     end
   end
 
   describe "GET /api/targets/:id" do
     test "shows target with memberships" do
-      {:ok, target} = Analysis.create_target(@valid_target_attrs)
+      attrs = valid_target_attrs()
+      {:ok, target} = Analysis.create_target(attrs)
       {:ok, _m} = Analysis.create_membership(target, %{effective_from: ~D[2021-01-01]})
 
       conn = build_conn() |> get("/api/targets/#{target.id}")
@@ -96,7 +107,7 @@ defmodule LensWeb.TargetControllerTest do
       assert_response_schema(response, "TargetResponse", ApiSpec.spec())
 
       assert res_target["id"] == target.id
-      assert res_target["security_code"] == "7203"
+      assert res_target["security_code"] == attrs.security_code
       assert length(res_target["memberships"]) == 1
     end
 
@@ -110,7 +121,7 @@ defmodule LensWeb.TargetControllerTest do
 
   describe "PATCH /api/targets/:id" do
     test "updates target attributes and handles validation error / 404" do
-      {:ok, target} = Analysis.create_target(@valid_target_attrs)
+      {:ok, target} = Analysis.create_target(valid_target_attrs())
 
       conn =
         build_conn()
@@ -125,7 +136,8 @@ defmodule LensWeb.TargetControllerTest do
       assert json_response(conn_err, 422)["errors"]["market"] != nil
 
       conn_404 =
-        build_conn() |> patch("/api/targets/#{missing_id()}", target: %{display_name: "X"})
+        build_conn()
+        |> patch("/api/targets/#{missing_id()}", target: %{display_name: "X"})
 
       assert json_response(conn_404, 404)["error"] == "not_found"
     end
@@ -133,7 +145,7 @@ defmodule LensWeb.TargetControllerTest do
 
   describe "POST /api/targets/:id/deactivate" do
     test "deactivates target non-destructively and handles 404" do
-      {:ok, target} = Analysis.create_target(@valid_target_attrs)
+      {:ok, target} = Analysis.create_target(valid_target_attrs())
       assert target.active == true
 
       conn = build_conn() |> post("/api/targets/#{target.id}/deactivate")
@@ -149,7 +161,7 @@ defmodule LensWeb.TargetControllerTest do
 
   describe "Membership intervals endpoints" do
     setup do
-      {:ok, target} = Analysis.create_target(@valid_target_attrs)
+      {:ok, target} = Analysis.create_target(valid_target_attrs())
       %{target: target}
     end
 

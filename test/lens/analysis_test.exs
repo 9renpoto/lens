@@ -3,19 +3,24 @@ defmodule Lens.AnalysisTest do
 
   alias Lens.Analysis
 
-  describe "targets" do
-    @valid_target_attrs %{
-      security_code: "7203",
-      market: "TSE Prime",
-      display_name: "Toyota Motor Corp (Synthetic)",
-      sector: "Transportation Equipment",
-      tags: ["automotive", "large-cap"],
-      source_reference: "EDINET filing #12345",
-      verified_at: ~U[2024-01-15 10:00:00Z]
-    }
+  defp valid_target_attrs(custom \\ %{}) do
+    Map.merge(
+      %{
+        security_code: "CODE-#{System.unique_integer([:positive])}",
+        market: "TSE Prime",
+        display_name: "Toyota Motor Corp (Synthetic)",
+        sector: "Transportation Equipment",
+        tags: ["automotive", "large-cap"],
+        source_reference: "EDINET filing #12345",
+        verified_at: ~U[2024-01-15 10:00:00Z]
+      },
+      custom
+    )
+  end
 
+  describe "targets" do
     test "create_target/1 with valid attributes creates a target preserving text security code" do
-      attrs = Map.put(@valid_target_attrs, :security_code, "07203.T")
+      attrs = valid_target_attrs(%{security_code: "07203.T"})
       assert {:ok, target} = Analysis.create_target(attrs)
 
       assert target.security_code == "07203.T"
@@ -30,7 +35,8 @@ defmodule Lens.AnalysisTest do
     end
 
     test "fetch_target/1 and get_target!/1" do
-      assert {:ok, target} = Analysis.create_target(@valid_target_attrs)
+      attrs = valid_target_attrs()
+      assert {:ok, target} = Analysis.create_target(attrs)
 
       assert {:ok, fetched} = Analysis.fetch_target(target.id)
       assert fetched.id == target.id
@@ -46,10 +52,11 @@ defmodule Lens.AnalysisTest do
     end
 
     test "create_target/1 rejects duplicate security codes" do
-      assert {:ok, _target} = Analysis.create_target(@valid_target_attrs)
+      attrs = valid_target_attrs()
+      assert {:ok, _target} = Analysis.create_target(attrs)
 
       assert {:error, changeset} =
-               Analysis.create_target(%{@valid_target_attrs | display_name: "Another Name"})
+               Analysis.create_target(Map.put(attrs, :display_name, "Another Name"))
 
       assert "has already been taken" in errors_on(changeset).security_code
     end
@@ -65,25 +72,25 @@ defmodule Lens.AnalysisTest do
       too_many_tags = Enum.map(1..15, &"tag#{&1}")
 
       assert {:error, changeset} =
-               Analysis.create_target(Map.put(@valid_target_attrs, :tags, too_many_tags))
+               Analysis.create_target(valid_target_attrs(%{tags: too_many_tags}))
 
       assert "should have at most 10 item(s)" in errors_on(changeset).tags
 
       assert {:error, changeset2} =
-               Analysis.create_target(Map.put(@valid_target_attrs, :tags, "not-a-list"))
+               Analysis.create_target(valid_target_attrs(%{tags: "not-a-list"}))
 
-      assert "must be a list" in errors_on(changeset2).tags
+      assert "is invalid" in errors_on(changeset2).tags
 
       long_tag = String.duplicate("a", 60)
 
       assert {:error, changeset3} =
-               Analysis.create_target(Map.put(@valid_target_attrs, :tags, [long_tag]))
+               Analysis.create_target(valid_target_attrs(%{tags: [long_tag]}))
 
       assert "contains invalid tag elements" in errors_on(changeset3).tags
     end
 
     test "update_target/2 updates target attributes" do
-      assert {:ok, target} = Analysis.create_target(@valid_target_attrs)
+      assert {:ok, target} = Analysis.create_target(valid_target_attrs())
 
       assert {:ok, updated} =
                Analysis.update_target(target, %{display_name: "Updated Name (Synthetic)"})
@@ -92,7 +99,7 @@ defmodule Lens.AnalysisTest do
     end
 
     test "deactivate_target/1 non-destructively deactivates target" do
-      assert {:ok, target} = Analysis.create_target(@valid_target_attrs)
+      assert {:ok, target} = Analysis.create_target(valid_target_attrs())
       assert target.active == true
 
       assert {:ok, deactivated} = Analysis.deactivate_target(target)
@@ -104,12 +111,7 @@ defmodule Lens.AnalysisTest do
   describe "membership intervals" do
     setup do
       {:ok, target} =
-        Analysis.create_target(%{
-          security_code: "6758",
-          market: "TSE Prime",
-          display_name: "Sony Group (Synthetic)",
-          sector: "Electric Appliances"
-        })
+        Analysis.create_target(valid_target_attrs(%{display_name: "Sony Group (Synthetic)"}))
 
       %{target: target}
     end
@@ -180,27 +182,26 @@ defmodule Lens.AnalysisTest do
                  effective_to: ~D[2024-01-01]
                })
 
-      assert "overlaps with an existing membership interval" in errors_on(changeset).effective_from
+      assert "overlaps with an existing membership interval"
+             in errors_on(changeset).effective_from
     end
   end
 
   describe "as-of membership lookup" do
     test "list_targets/1 with as_of option supports Date, ISO datetime, and invalid string" do
       {:ok, target_a} =
-        Analysis.create_target(%{
-          security_code: "9983",
-          market: "TSE Prime",
-          display_name: "Fast Retailing (Synthetic)",
-          sector: "Retail Trade"
-        })
+        Analysis.create_target(
+          valid_target_attrs(%{
+            display_name: "Fast Retailing (Synthetic)"
+          })
+        )
 
       {:ok, target_b} =
-        Analysis.create_target(%{
-          security_code: "9984",
-          market: "TSE Prime",
-          display_name: "SoftBank Group (Synthetic)",
-          sector: "Information & Communication"
-        })
+        Analysis.create_target(
+          valid_target_attrs(%{
+            display_name: "SoftBank Group (Synthetic)"
+          })
+        )
 
       {:ok, _} =
         Analysis.create_membership(target_a, %{
