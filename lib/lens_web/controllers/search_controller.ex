@@ -103,6 +103,8 @@ defmodule LensWeb.SearchController do
     end
   end
 
+  @sensitive_keywords ~w(auth token password cookie secret key credential bearer)
+
   defp render_observation_provenance(obs) do
     %{
       id: obs.id,
@@ -114,14 +116,41 @@ defmodule LensWeb.SearchController do
       feed_format: obs.feed_format || "unknown",
       acquisition_kind: obs.acquisition_kind || "unknown",
       publisher_authority: obs.publisher_authority || "unknown",
-      acquisition_metadata_snapshot: obs.acquisition_metadata_snapshot || %{},
+      acquisition_metadata_snapshot: sanitize_metadata(obs.acquisition_metadata_snapshot || %{}),
       reported_published_at: obs.reported_published_at
     }
   end
 
+  defp sanitize_metadata(map) when is_map(map) do
+    Map.new(map, fn {key, value} ->
+      key_str = to_string(key)
+
+      if sensitive_key?(key_str) do
+        {key, "[REDACTED]"}
+      else
+        {key, sanitize_metadata(value)}
+      end
+    end)
+  end
+
+  defp sanitize_metadata(list) when is_list(list) do
+    Enum.map(list, &sanitize_metadata/1)
+  end
+
+  defp sanitize_metadata(value), do: value
+
+  defp sensitive_key?(key) when is_binary(key) do
+    downcase_key = String.downcase(key)
+    Enum.any?(@sensitive_keywords, &String.contains?(downcase_key, &1))
+  end
+
   defp pagination(params) do
-    with {limit, ""} <- Integer.parse(Map.get(params, "limit", "20")),
-         {offset, ""} <- Integer.parse(Map.get(params, "offset", "0")) do
+    limit_param = Map.get(params, "limit", "20")
+    offset_param = Map.get(params, "offset", "0")
+
+    with true <- is_binary(limit_param) and is_binary(offset_param),
+         {limit, ""} <- Integer.parse(limit_param),
+         {offset, ""} <- Integer.parse(offset_param) do
       {:ok, [limit: limit, offset: offset]}
     else
       _ -> {:error, :invalid_pagination}

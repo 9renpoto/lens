@@ -238,7 +238,9 @@ defmodule LensWeb.SearchControllerTest do
           %{"limit" => "invalid"},
           %{"limit" => "0"},
           %{"limit" => "101"},
-          %{"offset" => "-1"}
+          %{"offset" => "-1"},
+          %{"limit" => ["1"]},
+          %{"offset" => %{"x" => "1"}}
         ] do
       source = source_fixture()
       document = document_fixture(source, %{})
@@ -251,6 +253,37 @@ defmodule LensWeb.SearchControllerTest do
       assert response == %{"error" => "invalid_pagination"}
       assert_response_schema(response, "ErrorResponse", ApiSpec.spec())
     end
+  end
+
+  test "redacts sensitive keys in acquisition metadata snapshot when rendering provenance" do
+    source =
+      source_fixture(%{
+        feed_format: "atom",
+        acquisition_kind: "conversion_service",
+        publisher_authority: "third_party",
+        acquisition_metadata: %{
+          "route" => "news",
+          "api_key" => "secret123",
+          "nested" => %{"secret" => "supersecret"}
+        }
+      })
+
+    document = document_fixture(source, %{})
+
+    conn = build_conn() |> get("/api/documents/#{document.id}/provenance")
+    response = json_response(conn, 200)
+
+    assert %{
+             "observations" => [
+               %{
+                 "acquisition_metadata_snapshot" => %{
+                   "route" => "news",
+                   "api_key" => "[REDACTED]",
+                   "nested" => %{"secret" => "[REDACTED]"}
+                 }
+               }
+             ]
+           } = response
   end
 
   test "rejects missing, empty, and invalid search parameters" do
