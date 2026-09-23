@@ -292,7 +292,12 @@ defmodule LensWeb.ApiSchemas do
       title: "MembershipAttributes",
       type: :object,
       properties: %{
-        index_name: %Schema{type: :string, default: "nikkei_225"},
+        index_name: %Schema{
+          type: :string,
+          minLength: 1,
+          maxLength: 100,
+          default: "nikkei_225"
+        },
         effective_from: %Schema{type: :string, format: :date},
         effective_to: %Schema{type: :string, format: :date, nullable: true},
         source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
@@ -386,10 +391,10 @@ defmodule LensWeb.ApiSchemas do
       title: "TargetAttributes",
       type: :object,
       properties: %{
-        security_code: %Schema{type: :string, maxLength: 50},
-        market: %Schema{type: :string, maxLength: 100},
-        display_name: %Schema{type: :string, maxLength: 255},
-        sector: %Schema{type: :string, maxLength: 100},
+        security_code: %Schema{type: :string, minLength: 1, maxLength: 50},
+        market: %Schema{type: :string, minLength: 1, maxLength: 100},
+        display_name: %Schema{type: :string, minLength: 1, maxLength: 255},
+        sector: %Schema{type: :string, minLength: 1, maxLength: 100},
         tags: %Schema{
           type: :array,
           maxItems: 10,
@@ -409,10 +414,10 @@ defmodule LensWeb.ApiSchemas do
       title: "CreateTargetAttributes",
       type: :object,
       properties: %{
-        security_code: %Schema{type: :string, maxLength: 50},
-        market: %Schema{type: :string, maxLength: 100},
-        display_name: %Schema{type: :string, maxLength: 255},
-        sector: %Schema{type: :string, maxLength: 100},
+        security_code: %Schema{type: :string, minLength: 1, maxLength: 50},
+        market: %Schema{type: :string, minLength: 1, maxLength: 100},
+        display_name: %Schema{type: :string, minLength: 1, maxLength: 255},
+        sector: %Schema{type: :string, minLength: 1, maxLength: 100},
         tags: %Schema{
           type: :array,
           maxItems: 10,

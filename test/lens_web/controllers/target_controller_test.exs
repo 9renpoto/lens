@@ -96,13 +96,24 @@ defmodule LensWeb.TargetControllerTest do
       for schema_name <- ["CreateTargetAttributes", "TargetAttributes"] do
         properties = Map.fetch!(schemas, schema_name).properties
 
+        assert properties.security_code.minLength == 1
         assert properties.security_code.maxLength == 50
+        assert properties.market.minLength == 1
         assert properties.market.maxLength == 100
+        assert properties.display_name.minLength == 1
         assert properties.display_name.maxLength == 255
+        assert properties.sector.minLength == 1
         assert properties.sector.maxLength == 100
         assert properties.tags.maxItems == 10
         assert properties.tags.items.maxLength == 50
       end
+    end
+
+    test "documents membership index-name bounds" do
+      schema = Map.fetch!(ApiSpec.spec().components.schemas, "MembershipAttributes")
+
+      assert schema.properties.index_name.minLength == 1
+      assert schema.properties.index_name.maxLength == 100
     end
   end
 
