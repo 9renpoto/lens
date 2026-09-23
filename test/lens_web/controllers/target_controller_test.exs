@@ -89,6 +89,21 @@ defmodule LensWeb.TargetControllerTest do
       assert create_schema.properties.active.default == true
       assert update_schema.properties.active.default == nil
     end
+
+    test "documents target field bounds for creation and updates" do
+      schemas = ApiSpec.spec().components.schemas
+
+      for schema_name <- ["CreateTargetAttributes", "TargetAttributes"] do
+        properties = Map.fetch!(schemas, schema_name).properties
+
+        assert properties.security_code.maxLength == 50
+        assert properties.market.maxLength == 100
+        assert properties.display_name.maxLength == 255
+        assert properties.sector.maxLength == 100
+        assert properties.tags.maxItems == 10
+        assert properties.tags.items.maxLength == 50
+      end
+    end
   end
 
   describe "GET /api/targets" do

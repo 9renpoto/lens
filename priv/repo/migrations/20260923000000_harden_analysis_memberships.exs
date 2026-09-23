@@ -4,14 +4,6 @@ defmodule Lens.Repo.Migrations.HardenAnalysisMemberships do
   def change do
     execute("CREATE EXTENSION IF NOT EXISTS btree_gist", "SELECT 1")
 
-    alter table(:analysis_targets) do
-      modify :source_reference, :text, from: :string
-    end
-
-    alter table(:analysis_memberships) do
-      modify :source_reference, :text, from: :string
-    end
-
     execute(
       """
       ALTER TABLE analysis_memberships

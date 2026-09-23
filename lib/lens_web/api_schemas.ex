@@ -386,11 +386,15 @@ defmodule LensWeb.ApiSchemas do
       title: "TargetAttributes",
       type: :object,
       properties: %{
-        security_code: %Schema{type: :string},
-        market: %Schema{type: :string},
-        display_name: %Schema{type: :string},
-        sector: %Schema{type: :string},
-        tags: %Schema{type: :array, items: %Schema{type: :string}},
+        security_code: %Schema{type: :string, maxLength: 50},
+        market: %Schema{type: :string, maxLength: 100},
+        display_name: %Schema{type: :string, maxLength: 255},
+        sector: %Schema{type: :string, maxLength: 100},
+        tags: %Schema{
+          type: :array,
+          maxItems: 10,
+          items: %Schema{type: :string, maxLength: 50}
+        },
         active: %Schema{type: :boolean},
         source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
         verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
@@ -405,11 +409,15 @@ defmodule LensWeb.ApiSchemas do
       title: "CreateTargetAttributes",
       type: :object,
       properties: %{
-        security_code: %Schema{type: :string},
-        market: %Schema{type: :string},
-        display_name: %Schema{type: :string},
-        sector: %Schema{type: :string},
-        tags: %Schema{type: :array, items: %Schema{type: :string}},
+        security_code: %Schema{type: :string, maxLength: 50},
+        market: %Schema{type: :string, maxLength: 100},
+        display_name: %Schema{type: :string, maxLength: 255},
+        sector: %Schema{type: :string, maxLength: 100},
+        tags: %Schema{
+          type: :array,
+          maxItems: 10,
+          items: %Schema{type: :string, maxLength: 50}
+        },
         active: %Schema{type: :boolean, default: true},
         source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
         verified_at: %Schema{type: :string, format: :"date-time", nullable: true}

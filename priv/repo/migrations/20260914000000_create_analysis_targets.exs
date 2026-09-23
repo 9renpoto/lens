@@ -10,7 +10,7 @@ defmodule Lens.Repo.Migrations.CreateAnalysisTargets do
       add :sector, :string, null: false
       add :tags, {:array, :string}, default: [], null: false
       add :active, :boolean, default: true, null: false
-      add :source_reference, :string
+      add :source_reference, :text
       add :verified_at, :utc_datetime_usec
 
       timestamps(type: :utc_datetime_usec)
@@ -27,7 +27,7 @@ defmodule Lens.Repo.Migrations.CreateAnalysisTargets do
       add :index_name, :string, default: "nikkei_225", null: false
       add :effective_from, :date, null: false
       add :effective_to, :date
-      add :source_reference, :string
+      add :source_reference, :text
       add :verified_at, :utc_datetime_usec
 
       timestamps(type: :utc_datetime_usec)
