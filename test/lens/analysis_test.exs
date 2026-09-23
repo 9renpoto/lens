@@ -2,6 +2,8 @@ defmodule Lens.AnalysisTest do
   use Lens.DataCase, async: true
 
   alias Lens.Analysis
+  alias Lens.Analysis.Target
+  alias Lens.Repo
 
   defp valid_target_attrs(custom \\ %{}) do
     Map.merge(
@@ -272,6 +274,37 @@ defmodule Lens.AnalysisTest do
   end
 
   describe "as-of membership lookup" do
+    test "list_targets/1 preserves security-code ordering with an as_of filter" do
+      lower_code_target =
+        Repo.insert!(%Target{
+          id: "00000000-0000-0000-0000-000000000002",
+          security_code: "1000.T",
+          market: "TSE Prime",
+          display_name: "Lower Code (Synthetic)",
+          sector: "Services"
+        })
+
+      higher_code_target =
+        Repo.insert!(%Target{
+          id: "00000000-0000-0000-0000-000000000001",
+          security_code: "2000.T",
+          market: "TSE Prime",
+          display_name: "Higher Code (Synthetic)",
+          sector: "Services"
+        })
+
+      for target <- [lower_code_target, higher_code_target] do
+        assert {:ok, _} =
+                 Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
+      end
+
+      security_codes =
+        Analysis.list_targets(as_of: ~D[2024-01-01])
+        |> Enum.map(& &1.security_code)
+
+      assert security_codes == ["1000.T", "2000.T"]
+    end
+
     test "list_targets/1 with as_of option supports Date and ISO datetime, and rejects invalid values" do
       {:ok, target_a} =
         Analysis.create_target(

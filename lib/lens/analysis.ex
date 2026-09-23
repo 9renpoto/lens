@@ -35,7 +35,7 @@ defmodule Lens.Analysis do
               m.index_name == "nikkei_225" and
               m.effective_from <= ^as_of and
               (is_nil(m.effective_to) or m.effective_to >= ^as_of),
-          distinct: t.id
+          distinct: true
         )
       else
         query
