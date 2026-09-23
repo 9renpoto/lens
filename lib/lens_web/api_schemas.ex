@@ -391,7 +391,7 @@ defmodule LensWeb.ApiSchemas do
         display_name: %Schema{type: :string},
         sector: %Schema{type: :string},
         tags: %Schema{type: :array, items: %Schema{type: :string}},
-        active: %Schema{type: :boolean, default: true},
+        active: %Schema{type: :boolean},
         source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
         verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
       }

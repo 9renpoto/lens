@@ -80,6 +80,15 @@ defmodule LensWeb.TargetControllerTest do
 
       assert schema.required == [:target]
     end
+
+    test "documents the active default only for target creation" do
+      schemas = ApiSpec.spec().components.schemas
+      create_schema = Map.fetch!(schemas, "CreateTargetAttributes")
+      update_schema = Map.fetch!(schemas, "TargetAttributes")
+
+      assert create_schema.properties.active.default == true
+      assert update_schema.properties.active.default == nil
+    end
   end
 
   describe "GET /api/targets" do
