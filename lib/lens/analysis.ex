@@ -135,7 +135,7 @@ defmodule Lens.Analysis do
   """
   def update_membership(%Membership{} = membership, attrs) do
     membership
-    |> Membership.changeset(attrs)
+    |> Membership.update_changeset(attrs)
     |> Membership.validate_no_overlapping_intervals(Repo)
     |> Repo.update()
   end

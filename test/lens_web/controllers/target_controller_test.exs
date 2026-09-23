@@ -74,6 +74,12 @@ defmodule LensWeb.TargetControllerTest do
       assert Enum.sort(schema.required) ==
                Enum.sort([:security_code, :market, :display_name, :sector])
     end
+
+    test "documents the target wrapper as required for updates" do
+      schema = Map.fetch!(ApiSpec.spec().components.schemas, "UpdateTargetRequest")
+
+      assert schema.required == [:target]
+    end
   end
 
   describe "GET /api/targets" do
@@ -257,6 +263,30 @@ defmodule LensWeb.TargetControllerTest do
       response = json_response(conn, 200)
       assert response["membership"]["effective_to"] == "2024-09-30"
       assert_response_schema(response, "MembershipResponse", ApiSpec.spec())
+    end
+
+    test "PATCH ignores membership identity and interval-start fields", %{target: target} do
+      {:ok, other_target} = Analysis.create_target(valid_target_attrs())
+
+      {:ok, membership} =
+        Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
+
+      conn =
+        build_conn()
+        |> patch("/api/targets/#{target.id}/memberships/#{membership.id}",
+          membership: %{
+            target_id: other_target.id,
+            index_name: "topix",
+            effective_from: "2021-01-01",
+            effective_to: "2024-09-30"
+          }
+        )
+
+      response = json_response(conn, 200)
+      assert response["membership"]["target_id"] == target.id
+      assert response["membership"]["index_name"] == "nikkei_225"
+      assert response["membership"]["effective_from"] == "2020-01-01"
+      assert response["membership"]["effective_to"] == "2024-09-30"
     end
   end
 

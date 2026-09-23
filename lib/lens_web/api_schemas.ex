@@ -435,7 +435,8 @@ defmodule LensWeb.ApiSchemas do
     OpenApiSpex.schema(%{
       title: "UpdateTargetRequest",
       type: :object,
-      properties: %{target: TargetAttributes}
+      properties: %{target: TargetAttributes},
+      required: [:target]
     })
   end
 

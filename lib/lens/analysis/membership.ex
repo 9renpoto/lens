@@ -44,6 +44,19 @@ defmodule Lens.Analysis.Membership do
     |> validate_length(:index_name, min: 1, max: 100)
     |> validate_length(:source_reference, max: 1000)
     |> validate_effective_dates()
+    |> validate_database_constraints()
+  end
+
+  def update_changeset(membership, attrs) do
+    membership
+    |> cast(attrs, [:effective_to, :source_reference, :verified_at])
+    |> validate_length(:source_reference, max: 1000)
+    |> validate_effective_dates()
+    |> validate_database_constraints()
+  end
+
+  defp validate_database_constraints(changeset) do
+    changeset
     |> check_constraint(:effective_to,
       name: :effective_to_must_be_on_or_after_effective_from
     )
