@@ -40,12 +40,16 @@ defmodule Lens.Analysis.Membership do
       :source_reference,
       :verified_at
     ])
-    |> validate_required([:target_id, :effective_from])
+    |> validate_required([:target_id, :index_name, :effective_from])
     |> validate_length(:index_name, min: 1, max: 100)
     |> validate_length(:source_reference, max: 1000)
     |> validate_effective_dates()
     |> check_constraint(:effective_to,
       name: :effective_to_must_be_on_or_after_effective_from
+    )
+    |> exclusion_constraint(:effective_from,
+      name: :analysis_memberships_no_overlapping_intervals,
+      message: "overlaps with an existing membership interval"
     )
   end
 

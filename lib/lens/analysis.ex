@@ -16,8 +16,13 @@ defmodule Lens.Analysis do
       an active membership interval on that date and have active == true.
   """
   def list_targets(opts \\ []) do
-    as_of = parse_as_of_date(Keyword.get(opts, :as_of))
+    case parse_as_of_date(Keyword.get(opts, :as_of)) do
+      {:ok, as_of} -> list_targets_as_of(as_of)
+      :error -> {:error, :invalid_as_of}
+    end
+  end
 
+  defp list_targets_as_of(as_of) do
     query = from(t in Target, order_by: [asc: t.security_code])
 
     query =
@@ -27,6 +32,7 @@ defmodule Lens.Analysis do
           on: m.target_id == t.id,
           where:
             t.active == true and
+              m.index_name == "nikkei_225" and
               m.effective_from <= ^as_of and
               (is_nil(m.effective_to) or m.effective_to >= ^as_of),
           distinct: t.id
@@ -124,20 +130,45 @@ defmodule Lens.Analysis do
     |> Repo.insert()
   end
 
-  defp parse_as_of_date(%Date{} = date), do: date
+  @doc """
+  Updates a membership interval, including closing an open interval.
+  """
+  def update_membership(%Membership{} = membership, attrs) do
+    membership
+    |> Membership.changeset(attrs)
+    |> Membership.validate_no_overlapping_intervals(Repo)
+    |> Repo.update()
+  end
+
+  @doc """
+  Fetches a membership that belongs to a target.
+  """
+  def fetch_membership(target_id, membership_id) do
+    with {:ok, target_uuid} <- Ecto.UUID.cast(target_id),
+         {:ok, membership_uuid} <- Ecto.UUID.cast(membership_id),
+         %Membership{} = membership <-
+           Repo.get_by(Membership, id: membership_uuid, target_id: target_uuid) do
+      {:ok, membership}
+    else
+      _ -> :error
+    end
+  end
+
+  defp parse_as_of_date(nil), do: {:ok, nil}
+  defp parse_as_of_date(%Date{} = date), do: {:ok, date}
 
   defp parse_as_of_date(str) when is_binary(str) do
     case Date.from_iso8601(str) do
       {:ok, date} ->
-        date
+        {:ok, date}
 
       _ ->
         case DateTime.from_iso8601(str) do
-          {:ok, dt, _offset} -> DateTime.to_date(dt)
-          _ -> nil
+          {:ok, dt, _offset} -> {:ok, DateTime.to_date(dt)}
+          _ -> :error
         end
     end
   end
 
-  defp parse_as_of_date(_), do: nil
+  defp parse_as_of_date(_), do: :error
 end

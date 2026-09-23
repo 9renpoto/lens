@@ -34,6 +34,14 @@ defmodule Lens.AnalysisTest do
       assert DateTime.truncate(target.verified_at, :second) == ~U[2024-01-15 10:00:00Z]
     end
 
+    test "create_target/1 applies non-null defaults when fields are omitted" do
+      attrs = valid_target_attrs() |> Map.drop([:tags, :active])
+
+      assert {:ok, target} = Analysis.create_target(attrs)
+      assert target.tags == []
+      assert target.active == true
+    end
+
     test "fetch_target/1 and get_target!/1" do
       attrs = valid_target_attrs()
       assert {:ok, target} = Analysis.create_target(attrs)
@@ -92,6 +100,29 @@ defmodule Lens.AnalysisTest do
                Analysis.create_target(valid_target_attrs(%{tags: [123]}))
 
       assert "is invalid" in errors_on(changeset4).tags
+
+      for field <- [:tags, :active] do
+        assert {:error, nil_changeset} =
+                 Analysis.create_target(valid_target_attrs(%{field => nil}))
+
+        assert "can't be blank" in Map.fetch!(errors_on(nil_changeset), field)
+      end
+    end
+
+    test "create_target/1 accepts source references up to 1000 characters" do
+      assert {:ok, target} =
+               Analysis.create_target(
+                 valid_target_attrs(%{source_reference: String.duplicate("a", 1000)})
+               )
+
+      assert String.length(target.source_reference) == 1000
+
+      assert {:error, changeset} =
+               Analysis.create_target(
+                 valid_target_attrs(%{source_reference: String.duplicate("a", 1001)})
+               )
+
+      assert "should be at most 1000 character(s)" in errors_on(changeset).source_reference
     end
 
     test "update_target/2 updates target attributes" do
@@ -189,10 +220,59 @@ defmodule Lens.AnalysisTest do
 
       assert "overlaps with an existing membership interval" in errors_on(changeset).effective_from
     end
+
+    test "database constraint rejects overlapping intervals atomically", %{target: target} do
+      assert {:ok, _membership} =
+               Analysis.create_membership(target, %{
+                 effective_from: ~D[2020-01-01],
+                 effective_to: ~D[2022-12-31]
+               })
+
+      changeset =
+        Lens.Analysis.Membership.changeset(%Lens.Analysis.Membership{}, %{
+          target_id: target.id,
+          effective_from: ~D[2022-06-01],
+          effective_to: ~D[2024-01-01]
+        })
+
+      assert {:error, changeset} = Lens.Repo.insert(changeset)
+
+      assert "overlaps with an existing membership interval" in errors_on(changeset).effective_from
+    end
+
+    test "create_membership/2 rejects a null index name", %{target: target} do
+      assert {:error, changeset} =
+               Analysis.create_membership(target, %{
+                 index_name: nil,
+                 effective_from: ~D[2020-01-01]
+               })
+
+      assert "can't be blank" in errors_on(changeset).index_name
+    end
+
+    test "create_membership/2 accepts source references up to 1000 characters", %{target: target} do
+      assert {:ok, membership} =
+               Analysis.create_membership(target, %{
+                 effective_from: ~D[2020-01-01],
+                 source_reference: String.duplicate("a", 1000)
+               })
+
+      assert String.length(membership.source_reference) == 1000
+    end
+
+    test "update_membership/2 closes an open interval", %{target: target} do
+      assert {:ok, membership} =
+               Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
+
+      assert {:ok, closed} =
+               Analysis.update_membership(membership, %{effective_to: ~D[2024-09-30]})
+
+      assert closed.effective_to == ~D[2024-09-30]
+    end
   end
 
   describe "as-of membership lookup" do
-    test "list_targets/1 with as_of option supports Date, ISO datetime, and invalid string" do
+    test "list_targets/1 with as_of option supports Date and ISO datetime, and rejects invalid values" do
       {:ok, target_a} =
         Analysis.create_target(
           valid_target_attrs(%{
@@ -231,12 +311,30 @@ defmodule Lens.AnalysisTest do
       assert target_a.id in ids_iso
       assert target_b.id in ids_iso
 
-      # Invalid as_of string / non-string fallback: returns all targets unfiltered
-      results_invalid = Analysis.list_targets(as_of: "invalid-date")
-      assert length(results_invalid) >= 2
+      assert {:error, :invalid_as_of} = Analysis.list_targets(as_of: "invalid-date")
+      assert {:error, :invalid_as_of} = Analysis.list_targets(as_of: 123)
+    end
 
-      results_nil = Analysis.list_targets(as_of: 123)
-      assert length(results_nil) >= 2
+    test "list_targets/1 only uses Nikkei 225 memberships" do
+      {:ok, nikkei_target} = Analysis.create_target(valid_target_attrs())
+      {:ok, topix_target} = Analysis.create_target(valid_target_attrs())
+
+      assert {:ok, _} =
+               Analysis.create_membership(nikkei_target, %{
+                 index_name: "nikkei_225",
+                 effective_from: ~D[2020-01-01]
+               })
+
+      assert {:ok, _} =
+               Analysis.create_membership(topix_target, %{
+                 index_name: "topix",
+                 effective_from: ~D[2020-01-01]
+               })
+
+      ids = Analysis.list_targets(as_of: ~D[2024-01-01]) |> Enum.map(& &1.id)
+
+      assert nikkei_target.id in ids
+      refute topix_target.id in ids
     end
   end
 end

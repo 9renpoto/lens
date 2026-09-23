@@ -22,6 +22,12 @@ defmodule LensWeb.Router do
     post("/targets/:id/deactivate", TargetController, :deactivate)
     get("/targets/:target_id/memberships", TargetController, :index_memberships)
     post("/targets/:target_id/memberships", TargetController, :create_membership)
+
+    patch(
+      "/targets/:target_id/memberships/:id",
+      TargetController,
+      :update_membership
+    )
   end
 
   scope "/", LensWeb do

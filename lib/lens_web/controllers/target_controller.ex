@@ -13,6 +13,7 @@ defmodule LensWeb.TargetController do
     MembershipsResponse,
     TargetResponse,
     TargetsResponse,
+    UpdateMembershipRequest,
     UpdateTargetRequest,
     ValidationErrorsResponse
   }
@@ -28,7 +29,10 @@ defmodule LensWeb.TargetController do
         schema: %Schema{type: :string, format: :date}
       ]
     ],
-    responses: [ok: {"Analysis targets", "application/json", TargetsResponse}]
+    responses: [
+      ok: {"Analysis targets", "application/json", TargetsResponse},
+      unprocessable_entity: {"Validation errors", "application/json", ValidationErrorsResponse}
+    ]
 
   operation :show,
     summary: "Get an analysis target",
@@ -82,10 +86,29 @@ defmodule LensWeb.TargetController do
       unprocessable_entity: {"Validation errors", "application/json", ValidationErrorsResponse}
     ]
 
+  operation :update_membership,
+    summary: "Update a membership interval",
+    parameters: [
+      target_id: [in: :path, schema: %Schema{type: :string, format: :uuid}],
+      id: [in: :path, schema: %Schema{type: :string, format: :uuid}]
+    ],
+    request_body: {"Membership changes", "application/json", UpdateMembershipRequest},
+    responses: [
+      ok: {"Updated membership interval", "application/json", MembershipResponse},
+      not_found: {"Membership not found", "application/json", ErrorResponse},
+      unprocessable_entity: {"Validation errors", "application/json", ValidationErrorsResponse}
+    ]
+
   def index(conn, params) do
     opts = if as_of = params["as_of"], do: [as_of: as_of], else: []
-    targets = Analysis.list_targets(opts)
-    json(conn, %{targets: Enum.map(targets, &target_json/1)})
+
+    case Analysis.list_targets(opts) do
+      {:error, :invalid_as_of} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{errors: %{as_of: ["is invalid"]}})
+
+      targets ->
+        json(conn, %{targets: Enum.map(targets, &target_json/1)})
+    end
   end
 
   def show(conn, %{"id" => id}) do
@@ -148,6 +171,23 @@ defmodule LensWeb.TargetController do
 
           {:error, changeset} ->
             validation_error(conn, changeset)
+        end
+
+      :error ->
+        not_found(conn)
+    end
+  end
+
+  def update_membership(conn, %{
+        "target_id" => target_id,
+        "id" => id,
+        "membership" => attrs
+      }) do
+    case Analysis.fetch_membership(target_id, id) do
+      {:ok, membership} ->
+        case Analysis.update_membership(membership, attrs) do
+          {:ok, membership} -> json(conn, %{membership: membership_json(membership)})
+          {:error, changeset} -> validation_error(conn, changeset)
         end
 
       :error ->

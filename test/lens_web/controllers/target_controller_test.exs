@@ -60,6 +60,20 @@ defmodule LensWeb.TargetControllerTest do
       assert errors2["security_code"] != nil
       assert_response_schema(response2, "ValidationErrorsResponse", ApiSpec.spec())
     end
+
+    test "returns 422 when non-null default fields are explicitly null" do
+      for field <- [:tags, :active] do
+        conn = build_conn() |> post("/api/targets", target: valid_target_attrs(%{field => nil}))
+        assert json_response(conn, 422)["errors"][Atom.to_string(field)] != nil
+      end
+    end
+
+    test "documents required create attributes" do
+      schema = Map.fetch!(ApiSpec.spec().components.schemas, "CreateTargetAttributes")
+
+      assert Enum.sort(schema.required) ==
+               Enum.sort([:security_code, :market, :display_name, :sector])
+    end
   end
 
   describe "GET /api/targets" do
@@ -92,6 +106,14 @@ defmodule LensWeb.TargetControllerTest do
       codes = Enum.map(targets_as_of, & &1["security_code"])
       refute attrs1.security_code in codes
       assert attrs2.security_code in codes
+    end
+
+    test "returns 422 for an invalid as_of value" do
+      conn = build_conn() |> get("/api/targets?as_of=not-a-date")
+
+      response = json_response(conn, 422)
+      assert response["errors"]["as_of"] == ["is invalid"]
+      assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
     end
   end
 
@@ -220,6 +242,21 @@ defmodule LensWeb.TargetControllerTest do
       assert %{"errors" => errors} = response
       assert errors["effective_from"] != nil
       assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
+    end
+
+    test "PATCH closes an open membership interval", %{target: target} do
+      {:ok, membership} =
+        Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
+
+      conn =
+        build_conn()
+        |> patch("/api/targets/#{target.id}/memberships/#{membership.id}",
+          membership: %{effective_to: "2024-09-30"}
+        )
+
+      response = json_response(conn, 200)
+      assert response["membership"]["effective_to"] == "2024-09-30"
+      assert_response_schema(response, "MembershipResponse", ApiSpec.spec())
     end
   end
 

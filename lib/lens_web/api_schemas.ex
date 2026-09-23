@@ -295,7 +295,7 @@ defmodule LensWeb.ApiSchemas do
         index_name: %Schema{type: :string, default: "nikkei_225"},
         effective_from: %Schema{type: :string, format: :date},
         effective_to: %Schema{type: :string, format: :date, nullable: true},
-        source_reference: %Schema{type: :string, nullable: true},
+        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
         verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
       },
       required: [:effective_from]
@@ -314,7 +314,7 @@ defmodule LensWeb.ApiSchemas do
         index_name: %Schema{type: :string},
         effective_from: %Schema{type: :string, format: :date},
         effective_to: %Schema{type: :string, format: :date, nullable: true},
-        source_reference: %Schema{type: :string, nullable: true},
+        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
         verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
       },
       required: [:id, :target_id, :index_name, :effective_from]
@@ -328,6 +328,31 @@ defmodule LensWeb.ApiSchemas do
       title: "CreateMembershipRequest",
       type: :object,
       properties: %{membership: MembershipAttributes},
+      required: [:membership]
+    })
+  end
+
+  defmodule UpdateMembershipAttributes do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "UpdateMembershipAttributes",
+      type: :object,
+      properties: %{
+        effective_to: %Schema{type: :string, format: :date, nullable: true},
+        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
+        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      }
+    })
+  end
+
+  defmodule UpdateMembershipRequest do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "UpdateMembershipRequest",
+      type: :object,
+      properties: %{membership: UpdateMembershipAttributes},
       required: [:membership]
     })
   end
@@ -367,9 +392,29 @@ defmodule LensWeb.ApiSchemas do
         sector: %Schema{type: :string},
         tags: %Schema{type: :array, items: %Schema{type: :string}},
         active: %Schema{type: :boolean, default: true},
-        source_reference: %Schema{type: :string, nullable: true},
+        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
         verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
       }
+    })
+  end
+
+  defmodule CreateTargetAttributes do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "CreateTargetAttributes",
+      type: :object,
+      properties: %{
+        security_code: %Schema{type: :string},
+        market: %Schema{type: :string},
+        display_name: %Schema{type: :string},
+        sector: %Schema{type: :string},
+        tags: %Schema{type: :array, items: %Schema{type: :string}},
+        active: %Schema{type: :boolean, default: true},
+        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
+        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      },
+      required: [:security_code, :market, :display_name, :sector]
     })
   end
 
@@ -379,7 +424,7 @@ defmodule LensWeb.ApiSchemas do
     OpenApiSpex.schema(%{
       title: "CreateTargetRequest",
       type: :object,
-      properties: %{target: TargetAttributes},
+      properties: %{target: CreateTargetAttributes},
       required: [:target]
     })
   end
@@ -408,7 +453,7 @@ defmodule LensWeb.ApiSchemas do
         sector: %Schema{type: :string},
         tags: %Schema{type: :array, items: %Schema{type: :string}},
         active: %Schema{type: :boolean},
-        source_reference: %Schema{type: :string, nullable: true},
+        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
         verified_at: %Schema{type: :string, format: :"date-time", nullable: true},
         memberships: %Schema{type: :array, items: Membership}
       },

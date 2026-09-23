@@ -46,7 +46,7 @@ defmodule Lens.Analysis.Target do
       :source_reference,
       :verified_at
     ])
-    |> validate_required([:security_code, :market, :display_name, :sector])
+    |> validate_required([:security_code, :market, :display_name, :sector, :tags, :active])
     |> validate_length(:security_code, min: 1, max: 50)
     |> validate_length(:market, max: 100)
     |> validate_length(:display_name, max: 255)

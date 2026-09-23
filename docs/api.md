@@ -21,6 +21,7 @@ Operators can manage analysis targets and effective-dated Nikkei 225 membership 
 - `POST /api/targets/:id/deactivate`: Non-destructively deactivate a target.
 - `GET /api/targets/:target_id/memberships`: List membership intervals for a target.
 - `POST /api/targets/:target_id/memberships`: Add an effective-dated membership interval for a target.
+- `PATCH /api/targets/:target_id/memberships/:id`: Update or close a membership interval while preserving its history.
 
 ## Generate locally
 
@@ -70,6 +71,7 @@ GitHub Actions経由で公開するようGitHub Pagesを設定すると、リフ
 - `POST /api/targets/:id/deactivate`: 分析対象を非破壊的に無効化します。
 - `GET /api/targets/:target_id/memberships`: 分析対象の所属期間一覧を取得します。
 - `POST /api/targets/:target_id/memberships`: 分析対象に適用期間付きの所属期間を追加します。
+- `PATCH /api/targets/:target_id/memberships/:id`: 履歴を保持したまま所属期間を更新または終了します。
 
 ## ローカルでの生成
 
