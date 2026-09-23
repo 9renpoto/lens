@@ -118,14 +118,16 @@ defmodule LensWeb.TargetController do
     end
   end
 
-  def create(conn, %{"target" => attrs}) do
+  def create(conn, %{"target" => attrs}) when is_map(attrs) do
     case Analysis.create_target(attrs) do
       {:ok, target} -> conn |> put_status(:created) |> json(%{target: target_json(target)})
       {:error, changeset} -> validation_error(conn, changeset)
     end
   end
 
-  def update(conn, %{"id" => id, "target" => attrs}) do
+  def create(conn, _params), do: invalid_attributes(conn, :target)
+
+  def update(conn, %{"id" => id, "target" => attrs}) when is_map(attrs) do
     case Analysis.fetch_target(id) do
       {:ok, target} ->
         case Analysis.update_target(target, attrs) do
@@ -137,6 +139,8 @@ defmodule LensWeb.TargetController do
         not_found(conn)
     end
   end
+
+  def update(conn, _params), do: invalid_attributes(conn, :target)
 
   def deactivate(conn, %{"id" => id}) do
     case Analysis.fetch_target(id) do
@@ -162,7 +166,8 @@ defmodule LensWeb.TargetController do
     end
   end
 
-  def create_membership(conn, %{"target_id" => target_id, "membership" => attrs}) do
+  def create_membership(conn, %{"target_id" => target_id, "membership" => attrs})
+      when is_map(attrs) do
     case Analysis.fetch_target(target_id) do
       {:ok, target} ->
         case Analysis.create_membership(target, attrs) do
@@ -178,11 +183,14 @@ defmodule LensWeb.TargetController do
     end
   end
 
+  def create_membership(conn, _params), do: invalid_attributes(conn, :membership)
+
   def update_membership(conn, %{
         "target_id" => target_id,
         "id" => id,
         "membership" => attrs
-      }) do
+      })
+      when is_map(attrs) do
     case Analysis.fetch_membership(target_id, id) do
       {:ok, membership} ->
         case Analysis.update_membership(membership, attrs) do
@@ -195,8 +203,16 @@ defmodule LensWeb.TargetController do
     end
   end
 
+  def update_membership(conn, _params), do: invalid_attributes(conn, :membership)
+
   defp validation_error(conn, changeset) do
     conn |> put_status(:unprocessable_entity) |> json(%{errors: errors(changeset)})
+  end
+
+  defp invalid_attributes(conn, field) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{errors: %{field => ["must be an object"]}})
   end
 
   defp not_found(conn), do: conn |> put_status(:not_found) |> json(%{error: "not_found"})

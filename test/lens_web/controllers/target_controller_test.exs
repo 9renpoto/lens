@@ -68,6 +68,28 @@ defmodule LensWeb.TargetControllerTest do
       end
     end
 
+    test "returns 422 for non-object target attributes" do
+      create_response =
+        build_conn()
+        |> Plug.Conn.put_req_header("content-type", "application/json")
+        |> post("/api/targets", Jason.encode!(%{target: []}))
+        |> json_response(422)
+
+      assert create_response["errors"]["target"] == ["must be an object"]
+      assert_response_schema(create_response, "ValidationErrorsResponse", ApiSpec.spec())
+
+      {:ok, target} = Analysis.create_target(valid_target_attrs())
+
+      update_response =
+        build_conn()
+        |> Plug.Conn.put_req_header("content-type", "application/json")
+        |> patch("/api/targets/#{target.id}", Jason.encode!(%{target: []}))
+        |> json_response(422)
+
+      assert update_response["errors"]["target"] == ["must be an object"]
+      assert_response_schema(update_response, "ValidationErrorsResponse", ApiSpec.spec())
+    end
+
     test "documents required create attributes" do
       schema = Map.fetch!(ApiSpec.spec().components.schemas, "CreateTargetAttributes")
 
@@ -283,6 +305,35 @@ defmodule LensWeb.TargetControllerTest do
       assert %{"errors" => errors} = response
       assert errors["effective_from"] != nil
       assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
+    end
+
+    test "returns 422 for non-object membership attributes", %{target: target} do
+      create_response =
+        build_conn()
+        |> Plug.Conn.put_req_header("content-type", "application/json")
+        |> post(
+          "/api/targets/#{target.id}/memberships",
+          Jason.encode!(%{membership: []})
+        )
+        |> json_response(422)
+
+      assert create_response["errors"]["membership"] == ["must be an object"]
+      assert_response_schema(create_response, "ValidationErrorsResponse", ApiSpec.spec())
+
+      {:ok, membership} =
+        Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
+
+      update_response =
+        build_conn()
+        |> Plug.Conn.put_req_header("content-type", "application/json")
+        |> patch(
+          "/api/targets/#{target.id}/memberships/#{membership.id}",
+          Jason.encode!(%{membership: []})
+        )
+        |> json_response(422)
+
+      assert update_response["errors"]["membership"] == ["must be an object"]
+      assert_response_schema(update_response, "ValidationErrorsResponse", ApiSpec.spec())
     end
 
     test "PATCH closes an open membership interval", %{target: target} do
