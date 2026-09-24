@@ -120,12 +120,16 @@ defmodule LensWeb.TargetControllerTest do
 
         assert properties.security_code.minLength == 1
         assert properties.security_code.maxLength == 50
+        assert properties.security_code.pattern == "\\S"
         assert properties.market.minLength == 1
         assert properties.market.maxLength == 100
+        assert properties.market.pattern == "\\S"
         assert properties.display_name.minLength == 1
         assert properties.display_name.maxLength == 255
+        assert properties.display_name.pattern == "\\S"
         assert properties.sector.minLength == 1
         assert properties.sector.maxLength == 100
+        assert properties.sector.pattern == "\\S"
         assert properties.tags.maxItems == 10
         assert properties.tags.items.maxLength == 50
       end
@@ -136,6 +140,7 @@ defmodule LensWeb.TargetControllerTest do
 
       assert schema.properties.index_name.minLength == 1
       assert schema.properties.index_name.maxLength == 100
+      assert schema.properties.index_name.pattern == "\\S"
     end
   end
 

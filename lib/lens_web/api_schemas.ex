@@ -296,6 +296,7 @@ defmodule LensWeb.ApiSchemas do
           type: :string,
           minLength: 1,
           maxLength: 100,
+          pattern: "\\S",
           default: "nikkei_225"
         },
         effective_from: %Schema{type: :string, format: :date},
@@ -391,10 +392,10 @@ defmodule LensWeb.ApiSchemas do
       title: "TargetAttributes",
       type: :object,
       properties: %{
-        security_code: %Schema{type: :string, minLength: 1, maxLength: 50},
-        market: %Schema{type: :string, minLength: 1, maxLength: 100},
-        display_name: %Schema{type: :string, minLength: 1, maxLength: 255},
-        sector: %Schema{type: :string, minLength: 1, maxLength: 100},
+        security_code: %Schema{type: :string, minLength: 1, maxLength: 50, pattern: "\\S"},
+        market: %Schema{type: :string, minLength: 1, maxLength: 100, pattern: "\\S"},
+        display_name: %Schema{type: :string, minLength: 1, maxLength: 255, pattern: "\\S"},
+        sector: %Schema{type: :string, minLength: 1, maxLength: 100, pattern: "\\S"},
         tags: %Schema{
           type: :array,
           maxItems: 10,
@@ -414,10 +415,10 @@ defmodule LensWeb.ApiSchemas do
       title: "CreateTargetAttributes",
       type: :object,
       properties: %{
-        security_code: %Schema{type: :string, minLength: 1, maxLength: 50},
-        market: %Schema{type: :string, minLength: 1, maxLength: 100},
-        display_name: %Schema{type: :string, minLength: 1, maxLength: 255},
-        sector: %Schema{type: :string, minLength: 1, maxLength: 100},
+        security_code: %Schema{type: :string, minLength: 1, maxLength: 50, pattern: "\\S"},
+        market: %Schema{type: :string, minLength: 1, maxLength: 100, pattern: "\\S"},
+        display_name: %Schema{type: :string, minLength: 1, maxLength: 255, pattern: "\\S"},
+        sector: %Schema{type: :string, minLength: 1, maxLength: 100, pattern: "\\S"},
         tags: %Schema{
           type: :array,
           maxItems: 10,
