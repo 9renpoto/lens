@@ -68,6 +68,31 @@ defmodule LensWeb.TargetControllerTest do
       end
     end
 
+    test "returns 422 when display name exceeds the database character limit by codepoint" do
+      create_conn =
+        build_conn()
+        |> post(
+          "/api/targets",
+          target: valid_target_attrs(%{display_name: String.duplicate("e\u0301", 128)})
+        )
+
+      create_response = json_response(create_conn, 422)
+      assert create_response["errors"]["display_name"] != nil
+      assert_response_schema(create_response, "ValidationErrorsResponse", ApiSpec.spec())
+
+      {:ok, target} = Analysis.create_target(valid_target_attrs())
+
+      update_conn =
+        build_conn()
+        |> patch("/api/targets/#{target.id}",
+          target: %{display_name: String.duplicate("e\u0301", 128)}
+        )
+
+      update_response = json_response(update_conn, 422)
+      assert update_response["errors"]["display_name"] != nil
+      assert_response_schema(update_response, "ValidationErrorsResponse", ApiSpec.spec())
+    end
+
     test "returns 422 for non-object target attributes" do
       create_response =
         build_conn()

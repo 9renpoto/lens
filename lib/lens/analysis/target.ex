@@ -47,11 +47,11 @@ defmodule Lens.Analysis.Target do
       :verified_at
     ])
     |> validate_required([:security_code, :market, :display_name, :sector, :tags, :active])
-    |> validate_length(:security_code, min: 1, max: 50)
-    |> validate_length(:market, max: 100)
-    |> validate_length(:display_name, max: 255)
-    |> validate_length(:sector, max: 100)
-    |> validate_length(:source_reference, max: 1000)
+    |> validate_length(:security_code, min: 1, max: 50, count: :codepoints)
+    |> validate_length(:market, max: 100, count: :codepoints)
+    |> validate_length(:display_name, max: 255, count: :codepoints)
+    |> validate_length(:sector, max: 100, count: :codepoints)
+    |> validate_length(:source_reference, max: 1000, count: :codepoints)
     |> validate_tags()
     |> unique_constraint(:security_code)
   end
@@ -65,7 +65,7 @@ defmodule Lens.Analysis.Target do
         length(tags) > 10 ->
           [tags: "should have at most 10 item(s)"]
 
-        Enum.any?(tags, &(not is_binary(&1) or String.length(&1) > 50)) ->
+        Enum.any?(tags, &(not is_binary(&1) or length(String.codepoints(&1)) > 50)) ->
           [tags: "contains invalid tag elements"]
 
         true ->

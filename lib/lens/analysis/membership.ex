@@ -41,8 +41,8 @@ defmodule Lens.Analysis.Membership do
       :verified_at
     ])
     |> validate_required([:target_id, :index_name, :effective_from])
-    |> validate_length(:index_name, min: 1, max: 100)
-    |> validate_length(:source_reference, max: 1000)
+    |> validate_length(:index_name, min: 1, max: 100, count: :codepoints)
+    |> validate_length(:source_reference, max: 1000, count: :codepoints)
     |> validate_effective_dates()
     |> validate_database_constraints()
   end
@@ -50,7 +50,7 @@ defmodule Lens.Analysis.Membership do
   def update_changeset(membership, attrs) do
     membership
     |> cast(attrs, [:effective_to, :source_reference, :verified_at])
-    |> validate_length(:source_reference, max: 1000)
+    |> validate_length(:source_reference, max: 1000, count: :codepoints)
     |> validate_effective_dates()
     |> validate_database_constraints()
   end

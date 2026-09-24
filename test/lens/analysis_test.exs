@@ -2,6 +2,7 @@ defmodule Lens.AnalysisTest do
   use Lens.DataCase, async: true
 
   alias Lens.Analysis
+  alias Lens.Analysis.Membership
   alias Lens.Analysis.Target
   alias Lens.Repo
 
@@ -108,6 +109,24 @@ defmodule Lens.AnalysisTest do
                  Analysis.create_target(valid_target_attrs(%{field => nil}))
 
         assert "can't be blank" in Map.fetch!(errors_on(nil_changeset), field)
+      end
+    end
+
+    test "target string limits count Unicode codepoints like PostgreSQL and OpenAPI" do
+      decomposed_fields = [
+        {:security_code, String.duplicate("e\u0301", 26)},
+        {:market, String.duplicate("e\u0301", 51)},
+        {:display_name, String.duplicate("e\u0301", 128)},
+        {:sector, String.duplicate("e\u0301", 51)},
+        {:source_reference, String.duplicate("e\u0301", 501)},
+        {:tags, [String.duplicate("e\u0301", 26)]}
+      ]
+
+      for {field, value} <- decomposed_fields do
+        changeset = Target.changeset(%Target{}, valid_target_attrs(%{field => value}))
+
+        refute changeset.valid?, "expected #{field} over the codepoint limit to be invalid"
+        assert Map.has_key?(errors_on(changeset), field)
       end
     end
 
@@ -260,6 +279,33 @@ defmodule Lens.AnalysisTest do
                })
 
       assert String.length(membership.source_reference) == 1000
+    end
+
+    test "membership string limits count Unicode codepoints like PostgreSQL and OpenAPI", %{
+      target: target
+    } do
+      attrs = %{
+        target_id: target.id,
+        effective_from: ~D[2020-01-01],
+        index_name: String.duplicate("e\u0301", 51),
+        source_reference: String.duplicate("e\u0301", 501)
+      }
+
+      changeset = Membership.changeset(%Membership{}, attrs)
+      refute changeset.valid?
+      errors = errors_on(changeset)
+      assert Map.has_key?(errors, :index_name)
+      assert Map.has_key?(errors, :source_reference)
+
+      {:ok, membership} = Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
+
+      update_changeset =
+        Membership.update_changeset(membership, %{
+          source_reference: String.duplicate("e\u0301", 501)
+        })
+
+      refute update_changeset.valid?
+      assert Map.has_key?(errors_on(update_changeset), :source_reference)
     end
 
     test "update_membership/2 closes an open interval", %{target: target} do
