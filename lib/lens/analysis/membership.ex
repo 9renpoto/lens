@@ -41,6 +41,8 @@ defmodule Lens.Analysis.Membership do
       :verified_at
     ])
     |> validate_explicit_index_name(attrs)
+    |> validate_explicit_effective_to(attrs)
+    |> validate_explicit_verified_at(attrs)
     |> validate_required([:target_id, :index_name, :effective_from])
     |> validate_length(:index_name, min: 1, max: 100, count: :codepoints)
     |> validate_length(:source_reference, max: 1000, count: :codepoints)
@@ -52,6 +54,7 @@ defmodule Lens.Analysis.Membership do
     membership
     |> cast(attrs, [:effective_to, :source_reference, :verified_at])
     |> validate_explicit_effective_to(attrs)
+    |> validate_explicit_verified_at(attrs)
     |> validate_length(:source_reference, max: 1000, count: :codepoints)
     |> validate_effective_dates()
     |> validate_database_constraints()
@@ -80,6 +83,18 @@ defmodule Lens.Analysis.Membership do
   end
 
   defp validate_explicit_effective_to(changeset, _attrs), do: changeset
+
+  defp validate_explicit_verified_at(changeset, attrs) when is_map(attrs) do
+    verified_at = Map.get(attrs, :verified_at, Map.get(attrs, "verified_at"))
+
+    if is_binary(verified_at) and String.trim(verified_at) == "" do
+      add_error(changeset, :verified_at, "is invalid")
+    else
+      changeset
+    end
+  end
+
+  defp validate_explicit_verified_at(changeset, _attrs), do: changeset
 
   defp validate_database_constraints(changeset) do
     changeset

@@ -47,6 +47,7 @@ defmodule Lens.Analysis.Target do
       :verified_at
     ])
     |> validate_explicit_nonblank_defaults(attrs)
+    |> validate_explicit_verified_at(attrs)
     |> validate_required([:security_code, :market, :display_name, :sector, :tags, :active])
     |> validate_length(:security_code, min: 1, max: 50, count: :codepoints)
     |> validate_length(:market, max: 100, count: :codepoints)
@@ -70,6 +71,18 @@ defmodule Lens.Analysis.Target do
   end
 
   defp validate_explicit_nonblank_defaults(changeset, _attrs), do: changeset
+
+  defp validate_explicit_verified_at(changeset, attrs) when is_map(attrs) do
+    verified_at = Map.get(attrs, :verified_at, Map.get(attrs, "verified_at"))
+
+    if is_binary(verified_at) and String.trim(verified_at) == "" do
+      add_error(changeset, :verified_at, "is invalid")
+    else
+      changeset
+    end
+  end
+
+  defp validate_explicit_verified_at(changeset, _attrs), do: changeset
 
   defp validate_tags(changeset) do
     validate_change(changeset, :tags, fn :tags, tags ->
