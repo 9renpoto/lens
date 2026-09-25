@@ -295,6 +295,7 @@ defmodule LensWeb.TargetControllerTest do
       assert %{"membership" => membership} = response_create
       assert membership["effective_from"] == "2020-01-01"
       assert membership["effective_to"] == "2023-12-31"
+      assert membership["index_name"] == "nikkei_225"
       assert_response_schema(response_create, "MembershipResponse", ApiSpec.spec())
 
       conn_list = build_conn() |> get("/api/targets/#{target.id}/memberships")
@@ -313,6 +314,20 @@ defmodule LensWeb.TargetControllerTest do
         )
 
       assert json_response(conn_create_404, 404)["error"] == "not_found"
+    end
+
+    test "returns 422 when membership index_name contains only whitespace", %{target: target} do
+      response =
+        build_conn()
+        |> Plug.Conn.put_req_header("content-type", "application/json")
+        |> post(
+          "/api/targets/#{target.id}/memberships",
+          Jason.encode!(%{membership: %{index_name: "   ", effective_from: "2020-01-01"}})
+        )
+        |> json_response(422)
+
+      assert response["errors"]["index_name"] == ["can't be blank"]
+      assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
     end
 
     test "returns 422 when creating overlapping membership", %{target: target} do

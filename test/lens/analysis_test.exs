@@ -271,6 +271,16 @@ defmodule Lens.AnalysisTest do
       assert "can't be blank" in errors_on(changeset).index_name
     end
 
+    test "create_membership/2 rejects an explicitly blank index name", %{target: target} do
+      assert {:error, changeset} =
+               Analysis.create_membership(target, %{
+                 index_name: "   ",
+                 effective_from: ~D[2020-01-01]
+               })
+
+      assert "can't be blank" in errors_on(changeset).index_name
+    end
+
     test "create_membership/2 accepts source references up to 1000 characters", %{target: target} do
       assert {:ok, membership} =
                Analysis.create_membership(target, %{

@@ -40,6 +40,7 @@ defmodule Lens.Analysis.Membership do
       :source_reference,
       :verified_at
     ])
+    |> validate_explicit_index_name(attrs)
     |> validate_required([:target_id, :index_name, :effective_from])
     |> validate_length(:index_name, min: 1, max: 100, count: :codepoints)
     |> validate_length(:source_reference, max: 1000, count: :codepoints)
@@ -54,6 +55,18 @@ defmodule Lens.Analysis.Membership do
     |> validate_effective_dates()
     |> validate_database_constraints()
   end
+
+  defp validate_explicit_index_name(changeset, attrs) when is_map(attrs) do
+    index_name = Map.get(attrs, :index_name, Map.get(attrs, "index_name"))
+
+    if is_binary(index_name) and String.trim(index_name) == "" do
+      add_error(changeset, :index_name, "can't be blank")
+    else
+      changeset
+    end
+  end
+
+  defp validate_explicit_index_name(changeset, _attrs), do: changeset
 
   defp validate_database_constraints(changeset) do
     changeset
