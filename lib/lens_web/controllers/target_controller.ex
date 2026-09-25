@@ -250,6 +250,16 @@ defmodule LensWeb.TargetController do
     ])
   end
 
-  defp errors(changeset),
-    do: Ecto.Changeset.traverse_errors(changeset, fn {message, _} -> message end)
+  defp errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {message, options} ->
+      Enum.reduce(options, message, fn {key, value}, message ->
+        value_string =
+          if is_binary(value) or is_atom(value) or is_number(value),
+            do: to_string(value),
+            else: inspect(value)
+
+        String.replace(message, "%{#{key}}", value_string)
+      end)
+    end)
+  end
 end
