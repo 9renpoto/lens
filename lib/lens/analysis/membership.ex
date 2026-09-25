@@ -51,6 +51,7 @@ defmodule Lens.Analysis.Membership do
   def update_changeset(membership, attrs) do
     membership
     |> cast(attrs, [:effective_to, :source_reference, :verified_at])
+    |> validate_explicit_effective_to(attrs)
     |> validate_length(:source_reference, max: 1000, count: :codepoints)
     |> validate_effective_dates()
     |> validate_database_constraints()
@@ -67,6 +68,18 @@ defmodule Lens.Analysis.Membership do
   end
 
   defp validate_explicit_index_name(changeset, _attrs), do: changeset
+
+  defp validate_explicit_effective_to(changeset, attrs) when is_map(attrs) do
+    effective_to = Map.get(attrs, :effective_to, Map.get(attrs, "effective_to"))
+
+    if is_binary(effective_to) and String.trim(effective_to) == "" do
+      add_error(changeset, :effective_to, "is invalid")
+    else
+      changeset
+    end
+  end
+
+  defp validate_explicit_effective_to(changeset, _attrs), do: changeset
 
   defp validate_database_constraints(changeset) do
     changeset

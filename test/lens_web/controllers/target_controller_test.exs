@@ -68,6 +68,24 @@ defmodule LensWeb.TargetControllerTest do
       end
     end
 
+    test "PATCH rejects blank active and tags values instead of applying defaults" do
+      {:ok, target} = Analysis.create_target(valid_target_attrs(%{active: false}))
+
+      for field <- [:active, :tags] do
+        response =
+          build_conn()
+          |> Plug.Conn.put_req_header("content-type", "application/json")
+          |> patch("/api/targets/#{target.id}", Jason.encode!(%{target: %{field => ""}}))
+          |> json_response(422)
+
+        assert response["errors"][Atom.to_string(field)] != nil
+      end
+
+      assert {:ok, unchanged} = Analysis.fetch_target(target.id)
+      assert unchanged.active == false
+      assert unchanged.tags == ["automotive", "large-cap"]
+    end
+
     test "returns 422 when display name exceeds the database character limit by codepoint" do
       create_conn =
         build_conn()
@@ -379,6 +397,48 @@ defmodule LensWeb.TargetControllerTest do
 
       assert update_response["errors"]["membership"] == ["must be an object"]
       assert_response_schema(update_response, "ValidationErrorsResponse", ApiSpec.spec())
+    end
+
+    test "PATCH rejects a blank effective_to without reopening a closed interval", %{
+      target: target
+    } do
+      {:ok, membership} =
+        Analysis.create_membership(target, %{
+          effective_from: ~D[2020-01-01],
+          effective_to: ~D[2023-12-31]
+        })
+
+      response =
+        build_conn()
+        |> Plug.Conn.put_req_header("content-type", "application/json")
+        |> patch(
+          "/api/targets/#{target.id}/memberships/#{membership.id}",
+          Jason.encode!(%{membership: %{effective_to: ""}})
+        )
+        |> json_response(422)
+
+      assert response["errors"]["effective_to"] != nil
+      assert {:ok, unchanged} = Analysis.fetch_membership(target.id, membership.id)
+      assert unchanged.effective_to == ~D[2023-12-31]
+    end
+
+    test "PATCH accepts null effective_to to reopen an interval", %{target: target} do
+      {:ok, membership} =
+        Analysis.create_membership(target, %{
+          effective_from: ~D[2020-01-01],
+          effective_to: ~D[2023-12-31]
+        })
+
+      response =
+        build_conn()
+        |> Plug.Conn.put_req_header("content-type", "application/json")
+        |> patch(
+          "/api/targets/#{target.id}/memberships/#{membership.id}",
+          Jason.encode!(%{membership: %{effective_to: nil}})
+        )
+        |> json_response(200)
+
+      assert response["membership"]["effective_to"] == nil
     end
 
     test "PATCH closes an open membership interval", %{target: target} do

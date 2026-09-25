@@ -46,6 +46,7 @@ defmodule Lens.Analysis.Target do
       :source_reference,
       :verified_at
     ])
+    |> validate_explicit_nonblank_defaults(attrs)
     |> validate_required([:security_code, :market, :display_name, :sector, :tags, :active])
     |> validate_length(:security_code, min: 1, max: 50, count: :codepoints)
     |> validate_length(:market, max: 100, count: :codepoints)
@@ -55,6 +56,20 @@ defmodule Lens.Analysis.Target do
     |> validate_tags()
     |> unique_constraint(:security_code)
   end
+
+  defp validate_explicit_nonblank_defaults(changeset, attrs) when is_map(attrs) do
+    Enum.reduce([:active, :tags], changeset, fn field, changeset ->
+      value = Map.get(attrs, field, Map.get(attrs, Atom.to_string(field)))
+
+      if is_binary(value) and String.trim(value) == "" do
+        add_error(changeset, field, "is invalid")
+      else
+        changeset
+      end
+    end)
+  end
+
+  defp validate_explicit_nonblank_defaults(changeset, _attrs), do: changeset
 
   defp validate_tags(changeset) do
     validate_change(changeset, :tags, fn :tags, tags ->
