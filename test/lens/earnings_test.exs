@@ -49,6 +49,12 @@ defmodule Lens.EarningsTest do
     assert pending.issuer_code == "6857"
     assert Repo.aggregate(Release, :count) == 0
 
+    assert {:ok, %{acquisition: ^pending, release: nil}} =
+             Earnings.record_success(Map.delete(attrs, :release))
+
+    assert {:error, :acquisition_conflict} = Earnings.record_success(attrs)
+    assert Repo.aggregate(Release, :count) == 0
+
     assert {:ok, confirmed} = Earnings.confirm_identity(pending.acquisition_id, @release)
     assert confirmed.release_id
     assert Repo.aggregate(Release, :count) == 1
@@ -90,6 +96,11 @@ defmodule Lens.EarningsTest do
     assert failure.failure_reason == "too_large"
     assert failure.original_id == nil
     assert Repo.aggregate(Original, :count) == 1
+    assert Repo.aggregate(Acquisition, :count) == 2
+
+    assert {:error, %Ecto.Changeset{}} =
+             Earnings.record_success(success("invalid-large", at_limit <> "x", "invalid URL"))
+
     assert Repo.aggregate(Acquisition, :count) == 2
   end
 
@@ -209,6 +220,9 @@ defmodule Lens.EarningsTest do
              Earnings.record_failure(%{attrs | reason: "not_found"})
 
     assert {:error, :acquisition_conflict} =
+             Earnings.record_failure(%{attrs | url: "https://example.test/other.pdf"})
+
+    assert {:error, :acquisition_conflict} =
              Earnings.record_success(success("failure-event", "%PDF-late", attrs.url))
 
     assert {:error, :not_successful} = Earnings.confirm_identity("failure-event", @release)
@@ -244,6 +258,14 @@ defmodule Lens.EarningsTest do
 
     assert {:error, %Ecto.Changeset{}} =
              Earnings.record_failure(%{acquisition_id: "invalid", reason: "timeout"})
+
+    assert {:error, %Ecto.Changeset{}} =
+             Earnings.record_failure(%{
+               acquisition_id: "missing-reason",
+               issuer_code: "6857",
+               url: "https://example.test/a.pdf",
+               acquired_at: @at
+             })
 
     assert {:error, :invalid_identity} =
              Earnings.record_success(%{
