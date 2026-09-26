@@ -77,7 +77,7 @@ defmodule Lens.Earnings.Extractions do
   end
 
   def succeed(id, text) when is_binary(text) do
-    if String.valid?(text) and String.trim(text) != "" do
+    if valid_text?(text) do
       finish(id, status: "succeeded", text: text)
     else
       {:error, :invalid_text}
@@ -87,12 +87,16 @@ defmodule Lens.Earnings.Extractions do
   def succeed(_, _), do: {:error, :invalid_text}
 
   def fail(id, reason) when is_binary(reason) do
-    if String.valid?(reason) and String.trim(reason) != "",
+    if valid_text?(reason),
       do: finish(id, status: "failed", failure_reason: reason),
       else: {:error, :invalid_reason}
   end
 
   def fail(_, _), do: {:error, :invalid_reason}
+
+  defp valid_text?(text) do
+    String.valid?(text) and not String.contains?(text, <<0>>) and String.trim(text) != ""
+  end
 
   defp finish(id, fields) do
     fields = Keyword.put(fields, :finished_at, DateTime.utc_now())
