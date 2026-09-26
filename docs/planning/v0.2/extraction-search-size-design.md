@@ -50,6 +50,49 @@ record the chosen contract, its visible indexing status and migration behavior.
 Then write regression tests for pre-existing large successful extractions,
 new completion, tail search, rebuilding and any affected operator semantics.
 
+## Concrete contract for option 1 (proposal, not selected)
+
+- Retain all accepted plain text, up to the existing 8 MiB extraction ceiling,
+  and its complete NFKC/lowercase search representation. Do not build a vector
+  from a truncated prefix or silently lower the extraction limit.
+- Use a strict immutable database function to derive a complete vector. Catch
+  only PostgreSQL `program_limit_exceeded`; return null in that case. Null input
+  remains null. Other database errors propagate rather than becoming invisible
+  search limitations. The generated column invokes this function for existing
+  rows, new completions and later regeneration alike.
+- Expose `search_mode` for the selected extraction: `full_text` when a vector
+  exists, `substring` when successful text has no vector, and `none` for attempts
+  without successful text. This is derived-search availability, not an
+  acquisition or extraction failure. A vector limit must not make valid text
+  lose `succeeded` status or make the older original preferred.
+- Continue literal normalized substring matching across the entire text. Give
+  null-vector rows a full-text rank of zero, retaining deterministic ID ties.
+  Full-text boolean/phrase operations apply only where the vector is available;
+  no claim is made that a fallback interprets AND/OR/NOT as operators.
+- The search response needs a query-scope `full_text_complete` flag, false when
+  any selected eligible earnings text lacks a vector. Derive this from all
+  selected text, before matching and pagination, in the same database snapshot.
+  Per-result flags alone cannot explain zero results from an unsupported boolean
+  match or omissions beyond the current page. Feed behavior remains unchanged.
+- Rebuild the full normalized substring representation using the shared
+  normalizer, without acquisition/extraction. Schema migration must allow
+  already successful large text. Existing extracted text and selection rules
+  remain authoritative; no asynchronous selected pointer is introduced.
+
+Additional session-local verification used exactly 8,388,608 bytes of ASCII
+distinct-token/repeated text with an end marker. Both GIN indexes were created;
+the vector was null, the end marker matched and its proposed rank was zero.
+Pending/failed null-body rows yielded `none`; an ordinary successful body yielded
+`full_text`. Updating successful bodies to themselves recomputed derived vectors
+without error and preserved tail matching. These are design-prototype results,
+not verification of a production implementation.
+
+Required regression gates before marking the PR ready: migration over pre-existing
+large successful text, successful new completion at the accepted ceiling, exact
+text/paragraph preservation, end-marker matching, status/detail flags, query-scope
+flag on zero results and later pages, unchanged selection/stale rules, rebuilding,
+shared normalization, and feed/CJK regressions. The semantic choice remains open.
+
 <details>
 <summary>日本語</summary>
 
@@ -91,5 +134,35 @@ new completion, tail search, rebuilding and any affected operator semantics.
 優先する検索契約をユーザーへ質問した。実装再開前に、選んだ契約・見える索引状態・
 マイグレーション挙動を記録し、既存の大きな成功本文、新規完了、末尾検索、再構築、
 影響する検索演算子の回帰テストを書く。
+
+## 第1案の具体的契約（未選択の提案）
+
+- 既存の抽出上限8 MiBまでの本文と、全文のNFKC・小文字化検索表現を保持する。
+  先頭だけのベクトルや、説明なしの抽出上限引下げは使わない。
+- STRICT・IMMUTABLEなDB関数で全ベクトルを生成し、`program_limit_exceeded` だけを
+  捕捉してnullにする。null入力はnullのまま。他のDBエラーは隠さない。
+  生成列は既存行、新規完了、再生成のいずれも同じ関数を使う。
+- 選択抽出の `search_mode` は、ベクトルありで `full_text`、成功本文のみで `substring`、
+  成功本文なしで `none` とする。これは検索派生表現の利用可否であり、取得・抽出失敗ではない。
+  ベクトル上限で有効本文の `succeeded` を取り消したり、旧原本を優先したりしない。
+- 正規化済みの文字列部分一致は全文を対象にする。nullベクトルの全文順位は0とし、
+  IDによる決定的な同順位を維持する。全文検索の論理・句操作はベクトルがある場合だけであり、
+  フォールバックでAND・OR・NOTを演算子として扱うとはしない。
+- 検索応答全体に `full_text_complete` を設け、選択済み対象本文にベクトルなしが1件でも
+  あればfalseとする。照合・ページング前の全選択本文から同じDBスナップショットで導出する。
+  結果ごとのフラグだけでは、未対応の論理照合で0件になる場合や別ページの欠落を説明できない。
+  フィードの動作は維持する。
+- 取得・抽出なしで、共通正規化により全文の部分一致表現を再構築する。
+  既存の大きな成功本文もマイグレーション可能にする。保存本文・選択規則を正とし、
+  非同期の選択ポインタは追加しない。
+
+追加の一時DB検証では、異なる語と反復を組み合わせ、末尾マーカー付きで8,388,608バイト
+ちょうどの本文を使った。両GIN索引を作成でき、ベクトルはnull、末尾照合は成功、提案順位は0。
+待機・失敗のnull本文は `none`、通常の成功本文は `full_text`。成功本文を同じ本文で更新しても
+再計算エラーはなく、末尾照合を維持した。本番実装の検証ではなく設計試作の結果である。
+
+PRをreadyに戻す前の回帰条件は、既存大型成功本文のマイグレーション、上限サイズの新規成功、
+本文・段落の一致、末尾照合、状態・詳細フラグ、0件や別ページでの応答全体のフラグ、
+選択・旧版規則、再構築、共通正規化、フィード・CJK回帰。検索の意味の選択はまだ未決定。
 
 </details>
