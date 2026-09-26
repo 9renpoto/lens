@@ -14,7 +14,8 @@ defmodule Lens.Search do
           title: String.t() | nil,
           canonical_url: String.t() | nil,
           published_at: DateTime.t() | nil,
-          excerpt: String.t()
+          excerpt: String.t(),
+          provenance_url: String.t()
         }
 
   @spec search(String.t(), keyword()) ::
@@ -60,7 +61,12 @@ defmodule Lens.Search do
         )
         |> Repo.all()
 
-      {:ok, documents}
+      results =
+        Enum.map(documents, fn doc ->
+          Map.put(doc, :provenance_url, "/api/documents/#{doc.id}/provenance")
+        end)
+
+      {:ok, results}
     else
       :error -> {:error, :invalid_query}
       :invalid_pagination -> {:error, :invalid_pagination}

@@ -15,6 +15,19 @@ defmodule LensWeb.Router do
     put("/sources/:id", SourceController, :replace)
     get("/search", SearchController, :index)
     get("/documents/:id", SearchController, :show_document)
+    get("/documents/:id/provenance", SearchController, :show_provenance)
+
+    resources("/targets", TargetController, only: [:index, :show, :create])
+    patch("/targets/:id", TargetController, :update)
+    post("/targets/:id/deactivate", TargetController, :deactivate)
+    get("/targets/:target_id/memberships", TargetController, :index_memberships)
+    post("/targets/:target_id/memberships", TargetController, :create_membership)
+
+    patch(
+      "/targets/:target_id/memberships/:id",
+      TargetController,
+      :update_membership
+    )
   end
 
   scope "/", LensWeb do
