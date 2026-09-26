@@ -16,7 +16,7 @@ defmodule LensWeb.SearchController do
   tags(["Search"])
 
   operation :index,
-    summary: "Search canonical documents",
+    summary: "Search feed documents and earnings releases",
     parameters: [
       q: [in: :query, required: true, schema: %Schema{type: :string, maxLength: 500}],
       limit: [in: :query, schema: %Schema{type: :integer, minimum: 1, maximum: 100}],

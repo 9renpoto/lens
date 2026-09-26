@@ -77,3 +77,26 @@ docker compose exec app /app/bin/lens eval 'Lens.Search.rebuild()'
 The task only reads canonical PostgreSQL documents and regenerates derived
 search data in bounded batches. It does not fetch feeds or change canonical
 content.
+# Earnings search
+
+Retained earnings PDFs join ordinary search after successful extraction. Each
+logical release contributes its newest eligible successful original only; older
+successful text stays selected with `stale: true` when a newer original is pending
+or failed. Selection precedes matching and global pagination across feed and
+earnings results. Search uses the existing CJK normalizer and the rebuild task
+also regenerates extraction search fields from plain text without publisher access.
+See [earnings extraction](earnings-extraction.md) for commands, deterministic
+ordering, result fields and `GET /api/earnings/releases/:id` inspection.
+
+<details>
+<summary>日本語</summary>
+
+## 決算本文の検索
+
+保存した決算PDFは抽出成功後に通常検索へ加わる。論理短信ごとに対象原本の最新成功版1件を使い、
+新しい原本が待機・失敗の場合は旧成功本文を `stale: true` で維持する。選択は照合と
+フィード・短信全体のページングより先に行う。既存CJK正規化を使い、再構築タスクも発行元通信なしで
+抽出本文から検索フィールドを再生成する。コマンド、決定的順序、結果項目、
+`GET /api/earnings/releases/:id` による確認は[抽出説明](earnings-extraction.md)を参照。
+
+</details>

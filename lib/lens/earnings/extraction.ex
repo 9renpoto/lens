@@ -8,6 +8,7 @@ defmodule Lens.Earnings.Extraction do
     field(:extractor_version, :string)
     field(:status, :string)
     field(:text, :string)
+    field(:search_text, :string, default: "")
     field(:failure_reason, :string)
     field(:finished_at, :utc_datetime_usec)
     timestamps(type: :utc_datetime_usec, updated_at: false)

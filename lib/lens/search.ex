@@ -36,34 +36,54 @@ defmodule Lens.Search do
               ^normalized_query,
               ^normalized_query
             ),
-          order_by: [
-            desc:
-              fragment(
-                "CASE WHEN search_title ILIKE '%' || ? || '%' ESCAPE E'\\\\' THEN 1 ELSE 0 END",
-                ^normalized_query
-              ),
-            desc:
-              fragment(
-                "ts_rank(search_vector, websearch_to_tsquery('simple', ?))",
-                ^normalized_query
-              ),
-            asc: document.id
-          ],
-          limit: ^limit,
-          offset: ^offset,
           select: %{
             id: document.id,
             title: document.title,
             canonical_url: document.canonical_url,
             published_at: document.published_at,
-            excerpt: fragment("left(regexp_replace(content, '\\s+', ' ', 'g'), 300)")
+            excerpt: fragment("left(regexp_replace(content, '\\s+', ' ', 'g'), 300)"),
+            resource_type: "document",
+            original_id: type(^nil, Ecto.UUID),
+            extraction_id: type(^nil, :id),
+            stale: false,
+            title_match:
+              fragment(
+                "CASE WHEN search_title ILIKE '%' || ? || '%' ESCAPE E'\\\\' THEN 1 ELSE 0 END",
+                ^normalized_query
+              ),
+            rank:
+              fragment(
+                "ts_rank(search_vector, websearch_to_tsquery('simple', ?))",
+                ^normalized_query
+              )
           }
         )
-        |> Repo.all()
+
+      earnings = Lens.Search.Earnings.query(normalized_query)
+      combined = union_all(documents, ^earnings)
+
+      documents =
+        Repo.all(
+          from(result in subquery(combined),
+            order_by: [
+              desc: result.title_match,
+              desc: result.rank,
+              asc: result.id,
+              asc: result.resource_type
+            ],
+            limit: ^limit,
+            offset: ^offset
+          )
+        )
 
       results =
         Enum.map(documents, fn doc ->
-          Map.put(doc, :provenance_url, "/api/documents/#{doc.id}/provenance")
+          path =
+            if doc.resource_type == "document",
+              do: "/api/documents/#{doc.id}/provenance",
+              else: "/api/earnings/releases/#{doc.id}"
+
+          doc |> Map.drop([:rank, :title_match]) |> Map.put(:provenance_url, path)
         end)
 
       {:ok, results}
@@ -80,7 +100,8 @@ defmodule Lens.Search do
     batch_size = Keyword.get(options, :batch_size, @default_rebuild_batch_size)
 
     if is_integer(batch_size) and batch_size > 0 do
-      rebuild_batches(nil, batch_size)
+      :ok = rebuild_batches(nil, batch_size)
+      Lens.Search.Earnings.rebuild(batch_size)
     else
       {:error, :invalid_batch_size}
     end

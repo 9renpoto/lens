@@ -35,6 +35,11 @@ successful = Lens.Earnings.Extractions.latest_success(text.original.id)
 true = String.contains?(successful.text, "営業利益")
 true = String.contains?(successful.text, "\n\n")
 true = String.contains?(successful.extractor_version, "pdftotext version")
+{:ok, [search_result]} = Lens.Search.search("営業利益")
+true = search_result.id == text.release.id
+true = search_result.extraction_id == successful.id
+:ok = Lens.Search.rebuild(batch_size: 1)
+{:ok, [^search_result]} = Lens.Search.search("営業利益")
 nil = Lens.Earnings.Extractions.latest_success(image.original.id)
 failure = Repo.get_by!(Extraction, original_id: image.original.id)
 "empty_output" = failure.failure_reason

@@ -60,7 +60,25 @@ attempts for one original are ordered by allocation sequence, not completion.
 A newer failed original leaves older successful text selected with `stale: true`.
 A release without successful text remains inspectable with `extraction: nil`.
 The latest attempt exposes pending, succeeded or failed status independently of
-the selected successful text. Search integration is the subsequent slice of #72.
+the selected successful text. `GET /api/earnings/releases/:id` exposes that
+snapshot and release identity, including selected plain text and extractor
+identification. It returns 200 for releases without text, and 404 for invalid or
+unknown release IDs. No original bytes are included in this response.
+
+Ordinary `/api/search` combines feed documents with one selected result per
+earnings release before applying ranking and pagination. `resource_type`
+distinguishes `document` from `earnings_release`; earnings results also carry
+`original_id`, `extraction_id` and `stale`. `published_at` is null for earnings:
+acquisition time must not be presented as publication time. The acquisition URL
+is chosen deterministically as the smallest URL associated with the selected
+original and release.
+
+Extraction completion writes `search_text` using the same NFKC/lowercase
+normalizer as feeds. `mix lens.search.rebuild` rebuilds that field from retained
+plain text, alongside feed search fields, without acquiring or extracting
+anything. Selection happens before matching, so a term present only in an older
+superseded successful extraction cannot match the release. Rebuild updates
+conditionally on unchanged plain text to avoid overwriting a concurrent success.
 
 ## Verification
 
@@ -115,7 +133,18 @@ CPU上限を設ける。既定は20秒・本文8 MiB。`--timeout-ms`（1〜3000
 
 新版が失敗した場合は旧版本文を `stale: true` で維持する。成功本文なしは `extraction: nil`
 として短信を確認できる。最新試行の待機・成功・失敗は、選択成功本文とは独立に確認できる。
-検索連携は #72 の後続段階。
+`GET /api/earnings/releases/:id` は、そのスナップショットと短信識別情報、選択本文、抽出器の
+識別情報を返す。本文なしの短信も200で確認でき、不正・存在しないIDは404。原本バイト列は含めない。
+
+通常の `/api/search` はフィード文書と短信ごとの選択結果1件を統合してから順位・ページングを適用する。
+`resource_type` は `document` と `earnings_release` を区別し、短信には `original_id`、
+`extraction_id`、`stale` も含める。取得日時を公開日時として扱わないため、短信の
+`published_at` はnull。取得URLは選択原本・短信に紐付くURLの最小値で決定する。
+
+抽出完了時の `search_text` はフィードと同じNFKC・小文字化の正規化を使う。
+`mix lens.search.rebuild` は取得・抽出を行わず、保存した本文からフィードと抽出の検索フィールドを再構築する。
+照合前に選択するため、成功新版で置き換えられた旧版本文だけにある語は短信に一致しない。
+再構築は本文が変わっていない場合だけ更新し、同時に完了した成功本文を上書きしない。
 
 ## 検証
 

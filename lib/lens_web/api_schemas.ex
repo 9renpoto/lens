@@ -166,9 +166,62 @@ defmodule LensWeb.ApiSchemas do
         canonical_url: %Schema{type: :string, format: :uri, nullable: true},
         published_at: %Schema{type: :string, format: :"date-time", nullable: true},
         excerpt: %Schema{type: :string, maxLength: 300},
-        provenance_url: %Schema{type: :string}
+        provenance_url: %Schema{type: :string},
+        resource_type: %Schema{type: :string, enum: ["document", "earnings_release"]},
+        original_id: %Schema{type: :string, format: :uuid, nullable: true},
+        extraction_id: %Schema{type: :integer, nullable: true},
+        stale: %Schema{type: :boolean}
       },
       required: [:id, :excerpt, :provenance_url]
+    })
+  end
+
+  defmodule EarningsExtraction do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "EarningsExtraction",
+      type: :object,
+      nullable: true,
+      properties: %{
+        id: %Schema{type: :integer},
+        original_id: %Schema{type: :string, format: :uuid},
+        status: %Schema{type: :string, enum: ["pending", "succeeded", "failed"]},
+        failure_reason: %Schema{type: :string, nullable: true},
+        text: %Schema{type: :string, nullable: true},
+        extractor: %Schema{type: :string},
+        extractor_version: %Schema{type: :string},
+        inserted_at: %Schema{type: :string, format: :"date-time"},
+        finished_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      },
+      required: [:id, :original_id, :status, :extractor, :extractor_version]
+    })
+  end
+
+  defmodule EarningsReleaseResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "EarningsReleaseResponse",
+      type: :object,
+      properties: %{
+        release: %Schema{
+          type: :object,
+          properties: %{
+            id: %Schema{type: :string, format: :uuid},
+            issuer_code: %Schema{type: :string},
+            fiscal_year_end: %Schema{type: :string, format: :date},
+            period: %Schema{type: :string},
+            category: %Schema{type: :string}
+          },
+          required: [:id, :issuer_code, :fiscal_year_end, :period, :category]
+        },
+        extraction: EarningsExtraction,
+        latest_attempt: EarningsExtraction,
+        latest_original_id: %Schema{type: :string, format: :uuid, nullable: true},
+        stale: %Schema{type: :boolean}
+      },
+      required: [:release, :extraction, :latest_attempt, :latest_original_id, :stale]
     })
   end
 
