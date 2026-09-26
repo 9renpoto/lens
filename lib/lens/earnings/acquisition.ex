@@ -19,26 +19,29 @@ defmodule Lens.Earnings.Acquisition do
 
   def changeset(acquisition, attrs) do
     acquisition
+    |> provenance_changeset(attrs)
     |> cast(attrs, [
-      :acquisition_id,
-      :issuer_code,
-      :url,
-      :acquired_at,
       :status,
       :failure_reason,
       :original_id,
       :release_id
     ])
-    |> validate_required([:acquisition_id, :issuer_code, :url, :acquired_at, :status])
-    |> validate_length(:acquisition_id, min: 1, max: 200)
-    |> validate_format(:issuer_code, ~r/^\d{4}$/)
-    |> validate_length(:url, max: 4096)
-    |> validate_url()
+    |> validate_required([:status])
     |> validate_inclusion(:status, ~w(success failed))
     |> validate_status()
     |> unique_constraint(:acquisition_id)
     |> foreign_key_constraint(:original_id)
     |> foreign_key_constraint(:release_id)
+  end
+
+  def provenance_changeset(acquisition, attrs) do
+    acquisition
+    |> cast(attrs, [:acquisition_id, :issuer_code, :url, :acquired_at])
+    |> validate_required([:acquisition_id, :issuer_code, :url, :acquired_at])
+    |> validate_length(:acquisition_id, min: 1, max: 200)
+    |> validate_format(:issuer_code, ~r/^\d{4}$/)
+    |> validate_length(:url, max: 4096)
+    |> validate_url()
   end
 
   defp validate_url(changeset) do

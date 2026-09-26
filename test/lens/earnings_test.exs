@@ -166,10 +166,14 @@ defmodule Lens.EarningsTest do
              )
 
     assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.query!("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [
-        "%PDF-changed",
-        Ecto.UUID.dump!(original.id)
-      ])
+      Repo.query!(
+        "UPDATE earnings_originals SET bytes = $1 WHERE id = $2",
+        [
+          "%PDF-changed",
+          Ecto.UUID.dump!(original.id)
+        ],
+        mode: :savepoint
+      )
     end
 
     assert Earnings.original_bytes(original.id) == {:ok, "%PDF-original"}
@@ -182,17 +186,25 @@ defmodule Lens.EarningsTest do
              )
 
     assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.query!("UPDATE earnings_acquisitions SET url = $1 WHERE id = $2", [
-        "https://example.test/changed.pdf",
-        Ecto.UUID.dump!(acquisition.id)
-      ])
+      Repo.query!(
+        "UPDATE earnings_acquisitions SET url = $1 WHERE id = $2",
+        [
+          "https://example.test/changed.pdf",
+          Ecto.UUID.dump!(acquisition.id)
+        ],
+        mode: :savepoint
+      )
     end
 
     assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.query!("UPDATE earnings_releases SET period = $1 WHERE id = $2", [
-        "q2",
-        Ecto.UUID.dump!(release.id)
-      ])
+      Repo.query!(
+        "UPDATE earnings_releases SET period = $1 WHERE id = $2",
+        [
+          "q2",
+          Ecto.UUID.dump!(release.id)
+        ],
+        mode: :savepoint
+      )
     end
   end
 
@@ -287,5 +299,41 @@ defmodule Lens.EarningsTest do
       bytes: bytes,
       release: @release
     }
+  end
+
+  test "successful attempts validate required provenance on first writes and retries" do
+    attrs = success("validated", "%PDF-valid", "https://example.test/a.pdf")
+    assert {:ok, _} = Earnings.record_success(attrs)
+
+    for key <- [:acquisition_id, :url, :acquired_at] do
+      assert {:error, %Ecto.Changeset{}} = Earnings.record_success(Map.delete(attrs, key))
+      assert {:error, %Ecto.Changeset{}} = Earnings.record_success(Map.put(attrs, key, nil))
+    end
+
+    assert Repo.aggregate(Acquisition, :count) == 1
+  end
+
+  test "cast publication attempt timestamps compare consistently across retries" do
+    attrs = success("iso-time", "%PDF-time", "https://example.test/a.pdf")
+    iso_attrs = %{attrs | acquired_at: DateTime.to_iso8601(@at)}
+    assert {:ok, first} = Earnings.record_success(iso_attrs)
+    assert {:ok, second} = Earnings.record_success(attrs)
+    assert first.acquisition.id == second.acquisition.id
+    failed = Map.merge(iso_attrs, %{acquisition_id: "iso-failure", reason: "timeout"})
+    assert {:ok, failure} = Earnings.record_failure(failed)
+    assert {:ok, ^failure} = Earnings.record_failure(%{failed | acquired_at: @at})
+  end
+
+  test "concurrent confirmations of the same identity are idempotent" do
+    attrs = success("concurrent-confirm", "%PDF-confirm", "https://example.test/a.pdf")
+    assert {:ok, _} = Earnings.record_success(Map.delete(attrs, :release))
+
+    results =
+      1..2
+      |> Task.async_stream(fn _ -> Earnings.confirm_identity(attrs.acquisition_id, @release) end)
+      |> Enum.to_list()
+
+    assert Enum.all?(results, &match?({:ok, {:ok, _}}, &1))
+    assert Repo.aggregate(Release, :count) == 1
   end
 end

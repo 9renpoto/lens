@@ -17,9 +17,10 @@ defmodule Lens.Earnings do
       end
     else
       Repo.transaction(fn ->
-        with {:ok, identity} <-
+        with {:ok, base} <- validated_common(attrs),
+             {:ok, identity} <-
                release_identity(Map.get(attrs, :release), Map.get(attrs, :issuer_code)),
-             {:ok, result} <- do_record_success(attrs, bytes, identity) do
+             {:ok, result} <- do_record_success(base, bytes, identity) do
           result
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -41,6 +42,7 @@ defmodule Lens.Earnings do
       changeset = Acquisition.changeset(%Acquisition{}, acquisition_attrs)
 
       if changeset.valid? do
+        acquisition_attrs = normalized_attempt(changeset)
         existing = Repo.get_by(Acquisition, acquisition_id: acquisition_attrs.acquisition_id)
 
         if existing do
@@ -77,9 +79,8 @@ defmodule Lens.Earnings do
     end
   end
 
-  defp do_record_success(attrs, bytes, identity) do
+  defp do_record_success(base, bytes, identity) do
     sha256 = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
-    base = common_attrs(attrs)
     existing = Repo.get_by(Acquisition, acquisition_id: base.acquisition_id)
 
     if existing do
@@ -133,14 +134,15 @@ defmodule Lens.Earnings do
           Repo.rollback(:identity_conflict)
 
         true ->
-          {count, _} =
-            Repo.update_all(
-              from(a in Acquisition, where: a.id == ^acquisition.id and is_nil(a.release_id)),
-              set: [release_id: release.id]
-            )
+          Repo.update_all(
+            from(a in Acquisition, where: a.id == ^acquisition.id and is_nil(a.release_id)),
+            set: [release_id: release.id]
+          )
 
-          if count == 1,
-            do: Repo.get!(Acquisition, acquisition.id),
+          confirmed = Repo.get!(Acquisition, acquisition.id)
+
+          if confirmed.release_id == release.id,
+            do: confirmed,
             else: Repo.rollback(:identity_conflict)
       end
     else
@@ -188,7 +190,9 @@ defmodule Lens.Earnings do
     end
   end
 
-  defp insert_acquisition_result(changeset, attrs) do
+  defp insert_acquisition_result(changeset, _attrs) do
+    attrs = normalized_attempt(changeset)
+
     case Repo.insert(changeset, on_conflict: :nothing, conflict_target: :acquisition_id) do
       {:ok, _} ->
         acquisition = Repo.get_by!(Acquisition, acquisition_id: attrs.acquisition_id)
@@ -224,6 +228,29 @@ defmodule Lens.Earnings do
 
   defp common_attrs(attrs) do
     Map.take(attrs, [:acquisition_id, :issuer_code, :url, :acquired_at])
+  end
+
+  defp validated_common(attrs) do
+    changeset = Acquisition.provenance_changeset(%Acquisition{}, common_attrs(attrs))
+
+    if changeset.valid?,
+      do: {:ok, changeset |> Ecto.Changeset.apply_changes() |> common_attrs()},
+      else: {:error, changeset}
+  end
+
+  defp normalized_attempt(changeset) do
+    changeset
+    |> Ecto.Changeset.apply_changes()
+    |> Map.take([
+      :acquisition_id,
+      :issuer_code,
+      :url,
+      :acquired_at,
+      :status,
+      :failure_reason,
+      :original_id,
+      :release_id
+    ])
   end
 
   defp same_common?(acquisition, attrs) do
