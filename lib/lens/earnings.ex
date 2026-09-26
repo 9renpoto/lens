@@ -56,10 +56,10 @@ defmodule Lens.Earnings do
     end)
   end
 
-  @doc "Explicitly attach a pending successful acquisition to a release identity."
+  @doc "Explicitly attach a pending successful acquisition to a release identity using its stable acquisition_id."
   def confirm_identity(acquisition_id, identity) do
     Repo.transaction(fn ->
-      acquisition = Repo.get(Acquisition, acquisition_id)
+      acquisition = Repo.get_by(Acquisition, acquisition_id: acquisition_id)
 
       cond do
         is_nil(acquisition) -> Repo.rollback(:not_found)
@@ -101,7 +101,16 @@ defmodule Lens.Earnings do
   end
 
   defp existing_success(existing, base, sha256, identity) do
-    original = Repo.get(Original, existing.original_id)
+    original =
+      if existing.original_id do
+        Repo.one!(
+          from(o in Original,
+            where: o.id == ^existing.original_id,
+            select: struct(o, [:id, :sha256, :byte_size, :inserted_at])
+          )
+        )
+      end
+
     release = if existing.release_id, do: Repo.get(Release, existing.release_id)
 
     if existing.status == "success" and same_common?(existing, base) and

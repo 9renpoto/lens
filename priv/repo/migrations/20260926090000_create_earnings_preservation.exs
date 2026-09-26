@@ -42,7 +42,7 @@ defmodule Lens.Repo.Migrations.CreateEarningsPreservation do
       add(:url, :text, null: false)
       add(:acquired_at, :utc_datetime_usec, null: false)
       add(:status, :string, null: false)
-      add(:failure_reason, :string)
+      add(:failure_reason, :text)
       add(:original_id, references(:earnings_originals, type: :binary_id))
       add(:release_id, references(:earnings_releases, type: :binary_id))
       timestamps(type: :utc_datetime_usec, updated_at: false)

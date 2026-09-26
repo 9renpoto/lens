@@ -27,6 +27,7 @@ defmodule Lens.EarningsTest do
     assert {:ok, first} = Earnings.record_success(attrs)
     assert {:ok, second} = Earnings.record_success(attrs)
     assert first.acquisition.id == second.acquisition.id
+    assert second.original.bytes == nil
     assert Repo.aggregate(Acquisition, :count) == 1
 
     assert {:error, :acquisition_conflict} =
@@ -48,7 +49,7 @@ defmodule Lens.EarningsTest do
     assert pending.issuer_code == "6857"
     assert Repo.aggregate(Release, :count) == 0
 
-    assert {:ok, confirmed} = Earnings.confirm_identity(pending.id, @release)
+    assert {:ok, confirmed} = Earnings.confirm_identity(pending.acquisition_id, @release)
     assert confirmed.release_id
     assert Repo.aggregate(Release, :count) == 1
   end
@@ -115,6 +116,22 @@ defmodule Lens.EarningsTest do
     assert Earnings.original_bytes(original.id) == {:ok, "%PDF-good"}
   end
 
+  test "failure details longer than 255 characters are retained" do
+    reason = String.duplicate("downloader detail ", 30)
+
+    attrs = %{
+      acquisition_id: "long-error",
+      issuer_code: "6857",
+      url: "https://example.test/a.pdf",
+      acquired_at: @at,
+      reason: reason
+    }
+
+    assert {:ok, failure} = Earnings.record_failure(attrs)
+    assert failure.failure_reason == reason
+    assert {:ok, ^failure} = Earnings.record_failure(attrs)
+  end
+
   test "concurrent downloads keep one original and two acquisitions" do
     results =
       ["concurrent-a", "concurrent-b"]
@@ -172,6 +189,69 @@ defmodule Lens.EarningsTest do
     attrs = success("bad-url", "%PDF-new", "https://user:secret@example.test/a.pdf")
     assert {:error, %Ecto.Changeset{}} = Earnings.record_success(attrs)
     assert Repo.aggregate(Release, :count) == 0
+    assert Repo.aggregate(Original, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "failed persistence retries are idempotent and reject conflicting outcomes" do
+    attrs = %{
+      acquisition_id: "failure-event",
+      issuer_code: "6857",
+      url: "https://example.test/a.pdf",
+      acquired_at: @at,
+      reason: "timeout"
+    }
+
+    assert {:ok, failure} = Earnings.record_failure(attrs)
+    assert {:ok, ^failure} = Earnings.record_failure(attrs)
+
+    assert {:error, :acquisition_conflict} =
+             Earnings.record_failure(%{attrs | reason: "not_found"})
+
+    assert {:error, :acquisition_conflict} =
+             Earnings.record_success(success("failure-event", "%PDF-late", attrs.url))
+
+    assert {:error, :not_successful} = Earnings.confirm_identity("failure-event", @release)
+    assert Repo.aggregate(Acquisition, :count) == 1
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
+  test "identity confirmation is idempotent and cannot reassign a release" do
+    attrs =
+      success("confirm", "%PDF-confirm", "https://example.test/a.pdf") |> Map.delete(:release)
+
+    assert {:ok, %{acquisition: pending}} = Earnings.record_success(attrs)
+    assert {:error, :invalid_identity} = Earnings.confirm_identity(pending.acquisition_id, nil)
+
+    assert {:error, %Ecto.Changeset{}} =
+             Earnings.confirm_identity(pending.acquisition_id, %{@release | period: "q4"})
+
+    assert {:ok, confirmed} = Earnings.confirm_identity(pending.acquisition_id, @release)
+    assert {:ok, ^confirmed} = Earnings.confirm_identity(pending.acquisition_id, @release)
+
+    assert {:error, :identity_conflict} =
+             Earnings.confirm_identity(pending.acquisition_id, %{@release | period: "q2"})
+
+    assert Repo.aggregate(Release, :count) == 1
+    assert {:error, :not_found} = Earnings.confirm_identity("missing", @release)
+  end
+
+  test "invalid bytes and invalid acquisition metadata do not create retained data" do
+    assert {:error, :invalid_bytes} = Earnings.record_success(%{bytes: nil})
+
+    assert {:error, %Ecto.Changeset{}} =
+             Earnings.record_success(success("empty", "", "https://example.test/a.pdf"))
+
+    assert {:error, %Ecto.Changeset{}} =
+             Earnings.record_failure(%{acquisition_id: "invalid", reason: "timeout"})
+
+    assert {:error, :invalid_identity} =
+             Earnings.record_success(%{
+               success("bad-identity", "%PDF-bad", "https://example.test/a.pdf")
+               | release: "unknown"
+             })
+
+    assert Earnings.original_bytes(Ecto.UUID.generate()) == :error
     assert Repo.aggregate(Original, :count) == 0
     assert Repo.aggregate(Acquisition, :count) == 0
   end
