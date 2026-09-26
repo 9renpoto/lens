@@ -165,16 +165,10 @@ defmodule Lens.EarningsTest do
                success("immutable", "%PDF-original", "https://example.test/a.pdf")
              )
 
-    assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.query!(
-        "UPDATE earnings_originals SET bytes = $1 WHERE id = $2",
-        [
-          "%PDF-changed",
-          Ecto.UUID.dump!(original.id)
-        ],
-        mode: :savepoint
-      )
-    end
+    assert_immutable_mutation("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [
+      "%PDF-changed",
+      Ecto.UUID.dump!(original.id)
+    ])
 
     assert Earnings.original_bytes(original.id) == {:ok, "%PDF-original"}
   end
@@ -185,27 +179,15 @@ defmodule Lens.EarningsTest do
                success("history", "%PDF-history", "https://example.test/a.pdf")
              )
 
-    assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.query!(
-        "UPDATE earnings_acquisitions SET url = $1 WHERE id = $2",
-        [
-          "https://example.test/changed.pdf",
-          Ecto.UUID.dump!(acquisition.id)
-        ],
-        mode: :savepoint
-      )
-    end
+    assert_immutable_mutation("UPDATE earnings_acquisitions SET url = $1 WHERE id = $2", [
+      "https://example.test/changed.pdf",
+      Ecto.UUID.dump!(acquisition.id)
+    ])
 
-    assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.query!(
-        "UPDATE earnings_releases SET period = $1 WHERE id = $2",
-        [
-          "q2",
-          Ecto.UUID.dump!(release.id)
-        ],
-        mode: :savepoint
-      )
-    end
+    assert_immutable_mutation("UPDATE earnings_releases SET period = $1 WHERE id = $2", [
+      "q2",
+      Ecto.UUID.dump!(release.id)
+    ])
   end
 
   test "invalid provenance rolls back all successful storage" do
@@ -299,6 +281,12 @@ defmodule Lens.EarningsTest do
       bytes: bytes,
       release: @release
     }
+  end
+
+  defp assert_immutable_mutation(sql, params) do
+    assert_raise Postgrex.Error, ~r/immutable/, fn ->
+      Repo.transaction(fn -> Repo.query!(sql, params) end, mode: :savepoint)
+    end
   end
 
   test "successful attempts validate required provenance on first writes and retries" do
