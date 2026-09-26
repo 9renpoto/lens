@@ -19,6 +19,34 @@ Validation: `mix test --warnings-as-errors --seed 0` passed with 148 tests.
 PDF extraction, CLI, search integration and extractor options remain subsequent
 slices; this foundation does not claim the full issue is complete.
 
+## PDF process prototype
+
+The second slice is on `codex/earnings-pdf-processing`, stacked on PR #88.
+`priv/pdf_runner.py` invokes local Poppler `pdftotext` without a shell, preserves
+reading-order text and paragraph breaks, and records the executable's version.
+The proposed fixed ceiling is 30 seconds per extraction, 512 MiB address space,
+8 MiB text output, no core dump, bounded diagnostic files and a CPU-time limit.
+The version probe has a separate two-second ceiling. Timeout and normal exit
+both clean up the process group so descendants do not remain running.
+
+This runner requires Linux, matching the production container; unsupported
+platforms fail explicitly rather than silently dropping the memory bound.
+Eight black-box process tests passed in Linux with publisher network access disabled,
+including Japanese text/paragraph extraction and an actual image-only PDF.
+Synthetic ReportLab fixtures were rendered and visually inspected. Japanese CID
+fonts require `poppler-data`; runtime and CI install it alongside `poppler-utils`
+and Python. `Lens.Earnings.Processing.extract/2` reads retained PostgreSQL bytes,
+records success or failure and supports another attempt without acquisitions.
+The Elixir suite passed with 153 tests, including process-start failure and
+invalid resource bounds. The bounded CLI and Linux end-to-end PostgreSQL
+extraction check also passed in an internal Docker network. It verified
+original bytes and acquisition counts, retry, a one-original regeneration limit
+and absence of the scheduler and endpoint. See [operations](../../earnings-extraction.md).
+An image-only PDF reports `empty_output`;
+the runner does not claim to distinguish it from other textless PDFs.
+
+Reference: [Poppler pdftotext manual](https://manpages.debian.org/bookworm/poppler-utils/pdftotext.1.en.html).
+
 ## Context map
 
 | File | Purpose and planned change |
@@ -114,6 +142,31 @@ task alone does not establish that its operating-system child has terminated.
 
 検証：`mix test --warnings-as-errors --seed 0` は148件成功。
 PDF抽出、CLI、検索連携、抽出器オプションは後続段階であり、issue全体の完成ではない。
+
+## PDFプロセスの試作
+
+第2段階はPR #88に積む `codex/earnings-pdf-processing` ブランチで進める。
+`priv/pdf_runner.py` はシェルを使わずローカルのPoppler `pdftotext` を呼び、
+読順の本文と段落区切りを保持し、実行ファイルの版を記録する。
+上限案は抽出30秒、仮想アドレス空間512 MiB、本文8 MiB、コアダンプ禁止、
+診断ファイルとCPU時間の上限。版の確認は別途2秒以内とする。
+タイムアウトと通常終了の両方でプロセス群を終了し、子プロセスを残さない。
+
+本番コンテナと同じLinuxを必要とする。非対応環境ではメモリ制限を外さず、明示的に失敗する。
+`--network none` のLinuxコンテナで、日本語本文・段落抽出と画像のみPDFを含む
+発行元通信を無効にしたLinuxで8件のプロセステストが成功した。
+ReportLabの合成固定データは描画して目視確認した。
+日本語CIDフォントには `poppler-data` が必要で、本番とCIは `poppler-utils` と
+Pythonに加えて導入する。`Lens.Earnings.Processing.extract/2` はPostgreSQLの
+保存原本から成功・失敗を記録し、取得を増やさず再試行できる。
+プロセス起動失敗と不正上限を含むElixirの153テストが成功した。
+内部Dockerネットワークで上限付きCLIとPostgreSQLからの一連の抽出検証も成功し、
+原本バイト列・取得件数、再試行、再生成1原本の上限、スケジューラ・endpoint未起動を確認した。
+[運用説明](../../earnings-extraction.md)を参照。
+画像のみのPDFは `empty_output` とし、他の本文なしPDFと
+区別できるとはしない。
+
+参照：[Poppler pdftotextマニュアル](https://manpages.debian.org/bookworm/poppler-utils/pdftotext.1.en.html)。
 
 ## 関連ファイル
 

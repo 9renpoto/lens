@@ -4,5 +4,6 @@
 /.elixir_ls/
 erl_crash.dump
 *.ez
+__pycache__/
 
 mise.toml
