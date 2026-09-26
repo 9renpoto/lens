@@ -324,4 +324,10 @@ defmodule Lens.EarningsTest do
     assert Enum.all?(results, &match?({:ok, {:ok, _}}, &1))
     assert Repo.aggregate(Release, :count) == 1
   end
+
+  test "original lookup returns an error for malformed identifiers" do
+    for id <- ["not-a-uuid", "", nil, 123] do
+      assert Earnings.original_bytes(id) == :error
+    end
+  end
 end

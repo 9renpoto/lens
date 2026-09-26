@@ -73,9 +73,12 @@ defmodule Lens.Earnings do
 
   @doc "Fetch raw bytes by original ID; ordinary acquisition queries leave the bytes unloaded."
   def original_bytes(id) do
-    case Repo.one(from(original in Original, where: original.id == ^id, select: original.bytes)) do
-      nil -> :error
-      bytes -> {:ok, bytes}
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         bytes when is_binary(bytes) <-
+           Repo.one(from(original in Original, where: original.id == ^id, select: original.bytes)) do
+      {:ok, bytes}
+    else
+      _ -> :error
     end
   end
 
