@@ -10,6 +10,7 @@ defmodule Lens.Repo.Migrations.CreateEarningsExtractions do
       add(:extractor, :text, null: false)
       add(:extractor_version, :text, null: false)
       add(:status, :text, null: false)
+      add(:extraction_options, :map, null: false, default: %{})
       add(:text, :text)
       add(:failure_reason, :text)
       add(:finished_at, :utc_datetime_usec)
@@ -17,6 +18,12 @@ defmodule Lens.Repo.Migrations.CreateEarningsExtractions do
     end
 
     create(index(:earnings_extractions, [:original_id, :id]))
+
+    create(
+      constraint(:earnings_extractions, :extraction_options_object,
+        check: "jsonb_typeof(extraction_options) = 'object'"
+      )
+    )
 
     create(
       constraint(:earnings_extractions, :extraction_outcome,

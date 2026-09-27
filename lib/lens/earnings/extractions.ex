@@ -4,8 +4,8 @@ defmodule Lens.Earnings.Extractions do
   alias Lens.Earnings.{Acquisition, Extraction, Release}
   alias Lens.Repo
 
-  def begin(original_id, extractor, version) do
-    original_id |> Extraction.pending(extractor, version) |> Repo.insert()
+  def begin(original_id, extractor, version, options \\ %{}) do
+    original_id |> Extraction.pending(extractor, version, options) |> Repo.insert()
   end
 
   def latest_success(original_id) do
