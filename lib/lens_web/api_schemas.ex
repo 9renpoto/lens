@@ -188,6 +188,13 @@ defmodule LensWeb.ApiSchemas do
         id: %Schema{type: :integer},
         original_id: %Schema{type: :string, format: :uuid},
         status: %Schema{type: :string, enum: ["pending", "succeeded", "failed"]},
+        extraction_options: %Schema{
+          type: :object,
+          properties: %{
+            timeout_ms: %Schema{type: :integer, minimum: 1, maximum: 30_000},
+            max_output_bytes: %Schema{type: :integer, minimum: 1, maximum: 8_388_608}
+          }
+        },
         search_mode: %Schema{type: :string, enum: ["none", "full_text", "substring"]},
         failure_reason: %Schema{type: :string, nullable: true},
         text: %Schema{type: :string, nullable: true},
@@ -196,7 +203,14 @@ defmodule LensWeb.ApiSchemas do
         inserted_at: %Schema{type: :string, format: :"date-time"},
         finished_at: %Schema{type: :string, format: :"date-time", nullable: true}
       },
-      required: [:id, :original_id, :status, :extractor, :extractor_version]
+      required: [
+        :id,
+        :original_id,
+        :status,
+        :extraction_options,
+        :extractor,
+        :extractor_version
+      ]
     })
   end
 

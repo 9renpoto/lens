@@ -4,6 +4,8 @@ Apply database migrations before processing. Run these commands in a fresh Mix
 process with the usual PostgreSQL configuration. The task starts only Ecto and
 the repository, and refuses to run if the collection scheduler is already
 running. It does not start the web endpoint or fetch publisher material.
+In production, `DATABASE_URL` is sufficient for this repository-only command;
+`SECRET_KEY_BASE` is required when the web endpoint starts.
 
 ```sh
 mix lens.earnings.extract --original ORIGINAL_UUID
@@ -20,7 +22,9 @@ the returned `next_after` cursor for the next batch. An empty batch returns a
 null cursor. Pending originals without completed attempts are not selected.
 
 Each JSON result identifies its attempt, original, status, failure reason and
-extractor version. A processing failure is a recorded `failed` outcome, and
+extractor version, plus the effective `timeout_ms` and `max_output_bytes` saved
+when the attempt began. Historical attempts whose bounds were not recorded have
+an empty options object. A processing failure is a recorded `failed` outcome, and
 does not make the command fail to execute; inspect the JSON status. Invalid
 arguments, missing originals and invalid retry targets raise a CLI error.
 Acquisition records and original bytes never change during processing.
@@ -98,13 +102,17 @@ only PostgreSQL available; do not use a production database.
 処理前にDBマイグレーションを適用する。通常のPostgreSQL設定を使い、新しい
 Mixプロセスで上記の4コマンドを実行する。タスクはEctoとRepoだけを起動し、
 収集スケジューラが既に動いている場合は実行を拒否する。Web endpointや発行元の取得は起動しない。
+本番環境でRepoのみを使うコマンドには `DATABASE_URL` を指定すればよく、
+`SECRET_KEY_BASE` はWeb endpointの起動時に必要となる。
 
 `--original` は保存バイト列から1試行を作る。`--retry` はその原本の最新割当試行が
 失敗している場合に使う。`--regenerate` は完了試行のある原本をUUID昇順で重複なく処理する。
 件数は1〜100を明示し、無制限モードは設けない。返された `next_after` を次の範囲に使う。
 空の範囲ではカーソルはnull。完了試行がない待機原本は選ばない。
 
-JSONは試行・原本・状態・失敗理由・抽出器の版を示す。処理失敗は `failed` として記録し、
+JSONは試行・原本・状態・失敗理由・抽出器の版と、試行開始時の実効
+`timeout_ms`・`max_output_bytes` を示す。過去の記録で上限が保存されていない場合は、
+空のオプションオブジェクトを返す。処理失敗は `failed` として記録し、
 コマンド実行自体の失敗にはしないため、JSONの状態を確認する。不正引数、存在しない原本、
 不正な再試行対象はCLIエラーになる。取得履歴と原本バイト列は変更しない。
 

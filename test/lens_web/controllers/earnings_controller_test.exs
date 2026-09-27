@@ -62,12 +62,14 @@ defmodule LensWeb.EarningsControllerTest do
     failed = build_conn() |> get(path) |> json_response(200)
     assert failed["extraction"] == nil
     assert failed["latest_attempt"]["failure_reason"] == "empty_output"
-    {:ok, success} = Extractions.begin(retained.original.id, "fixture", "2")
+    options = %{"timeout_ms" => 731, "max_output_bytes" => 12_345}
+    {:ok, success} = Extractions.begin(retained.original.id, "fixture", "2", options)
     {:ok, _} = Extractions.succeed(success.id, "売上高\n\n営業利益")
     response = build_conn() |> get(path) |> json_response(200)
     assert response["extraction"]["text"] == "売上高\n\n営業利益"
     assert response["extraction"]["original_id"] == retained.original.id
     assert response["extraction"]["extractor_version"] == "2"
+    assert response["extraction"]["extraction_options"] == options
     assert response["extraction"]["search_mode"] == "full_text"
     refute response["stale"]
     assert_response_schema(response, "EarningsReleaseResponse", LensWeb.ApiSpec.spec())
