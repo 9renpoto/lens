@@ -38,8 +38,10 @@ defmodule Lens.Earnings.ExtractionTest do
     assert {:ok, attempt} = Extractions.begin(retained.original.id, "fixture", "1")
     assert {:error, :invalid_text} = Extractions.succeed(attempt.id, " \n\t")
     assert {:error, :invalid_text} = Extractions.succeed(attempt.id, <<255>>)
+    assert {:error, :invalid_text} = Extractions.succeed(attempt.id, nil)
     assert {:error, :invalid_text} = Extractions.succeed(attempt.id, "Text\0suffix")
     assert {:error, :invalid_reason} = Extractions.fail(attempt.id, " ")
+    assert {:error, :invalid_reason} = Extractions.fail(attempt.id, nil)
     assert {:error, :invalid_reason} = Extractions.fail(attempt.id, "failure\0suffix")
     assert Repo.get!(Lens.Earnings.Extraction, attempt.id).status == "pending"
     assert {:ok, _} = Extractions.fail(attempt.id, "empty_output")
