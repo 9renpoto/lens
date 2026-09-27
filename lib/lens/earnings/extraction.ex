@@ -7,22 +7,24 @@ defmodule Lens.Earnings.Extraction do
     field(:extractor, :string)
     field(:extractor_version, :string)
     field(:status, :string)
+    field(:extraction_options, :map, default: %{})
     field(:text, :string)
     field(:failure_reason, :string)
     field(:finished_at, :utc_datetime_usec)
     timestamps(type: :utc_datetime_usec, updated_at: false)
   end
 
-  def pending(original_id, extractor, version) do
+  def pending(original_id, extractor, version, options \\ %{}) do
     %__MODULE__{}
     |> cast(
       %{
         original_id: original_id,
         extractor: extractor,
         extractor_version: version,
-        status: "pending"
+        status: "pending",
+        extraction_options: options
       },
-      [:original_id, :extractor, :extractor_version, :status]
+      [:original_id, :extractor, :extractor_version, :status, :extraction_options]
     )
     |> validate_required([:original_id, :extractor, :extractor_version, :status])
     |> foreign_key_constraint(:original_id)

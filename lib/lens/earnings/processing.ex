@@ -67,7 +67,13 @@ defmodule Lens.Earnings.Processing do
     extractor = Keyword.get(options, :extractor, PDFExtractor)
 
     with {:ok, bytes} <- retained_bytes(original_id),
-         {:ok, attempt} <- Extractions.begin(original_id, inspect(extractor), "unavailable") do
+         {:ok, attempt} <-
+           Extractions.begin(
+             original_id,
+             inspect(extractor),
+             "unavailable",
+             effective_bounds(options)
+           ) do
       case extractor.extract(bytes, options) do
         {:ok, %{text: text, version: version}} ->
           case Extractions.succeed(attempt.id, text, extractor_version: version) do
@@ -79,6 +85,13 @@ defmodule Lens.Earnings.Processing do
           Extractions.fail(attempt.id, reason, extractor_version: version)
       end
     end
+  end
+
+  defp effective_bounds(options) do
+    %{
+      "timeout_ms" => Keyword.get(options, :timeout_ms, 20_000),
+      "max_output_bytes" => Keyword.get(options, :max_output_bytes, 8_388_608)
+    }
   end
 
   defp retained_bytes(id) do

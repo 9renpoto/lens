@@ -13,6 +13,21 @@ RUNNER = pathlib.Path(__file__).resolve().parents[1] / "priv" / "pdf_runner.py"
 
 
 class PDFRunnerTest(unittest.TestCase):
+    def test_missing_unix_resource_module_still_reports_unsupported_platform(self):
+        script = (
+            "import builtins, json, runpy, sys\n"
+            "real_import = builtins.__import__\n"
+            "def guarded_import(name, *args, **kwargs):\n"
+            "    if name == 'resource': raise ImportError('unavailable')\n"
+            "    return real_import(name, *args, **kwargs)\n"
+            "builtins.__import__ = guarded_import\n"
+            f"sys.argv = [{str(RUNNER)!r}, 'pdftotext', 'fixture.pdf', '20', '100']\n"
+            f"runpy.run_path({str(RUNNER)!r}, run_name='__main__')\n"
+        )
+        result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["failure"], "unsupported_platform")
+
     def test_descendants_cannot_continue_after_timeout_or_normal_exit(self):
         for timeout, parent_delay in [(0.1, 60), (2, 0)]:
             with tempfile.TemporaryDirectory() as directory:

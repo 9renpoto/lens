@@ -3,11 +3,15 @@ import json
 import math
 import os
 import pathlib
-import resource
 import signal
 import subprocess
 import sys
 import tempfile
+
+try:
+    import resource
+except ImportError:  # Windows does not provide the Unix resource module.
+    resource = None
 
 
 MAX_OUTPUT = 8 * 1024 * 1024
@@ -16,6 +20,8 @@ MEMORY_BYTES = 512 * 1024 * 1024
 
 
 def limits(output_limit, seconds):
+    if resource is None:
+        raise OSError("resource limits are unavailable")
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_FSIZE, (output_limit + 1, output_limit + 1))
     cpu = max(1, math.ceil(seconds))
@@ -42,7 +48,7 @@ def run(command, log, seconds, output_limit):
 
 
 def extract(executable, source, seconds, output_limit):
-    if sys.platform != "linux":
+    if sys.platform != "linux" or resource is None:
         return {"version": "unavailable", "failure": "unsupported_platform"}
     with tempfile.TemporaryDirectory(prefix="lens-pdf-") as directory:
         root = pathlib.Path(directory)
