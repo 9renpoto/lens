@@ -1,6 +1,6 @@
 # Extraction search size design review
 
-Status: design phase; production implementation stopped following
+Status: option 1 selected after returning to design following
 [PR #90 review](https://github.com/9renpoto/lens/pull/90#discussion_r4113270427).
 The existing implementation and green CI do not establish completion of #72.
 
@@ -50,7 +50,15 @@ record the chosen contract, its visible indexing status and migration behavior.
 Then write regression tests for pre-existing large successful extractions,
 new completion, tail search, rebuilding and any affected operator semantics.
 
-## Concrete contract for option 1 (proposal, not selected)
+## Selected contract: option 1
+
+Implementation resumed after documenting the contract and verifying that adding
+the generated column and both indexes to pre-existing 8 MiB text preserves every
+byte and tail matching. This is an engineering decision; no user approval is
+claimed. A production regression first reproduced SQLSTATE 54000 on completion;
+the bounded-vector migration and null-rank handling now pass the five earnings
+search tests. API availability flags and the remaining regression gates below
+are still required before the draft PR becomes ready.
 
 - Retain all accepted plain text, up to the existing 8 MiB extraction ceiling,
   and its complete NFKC/lowercase search representation. Do not build a vector
@@ -91,15 +99,15 @@ Required regression gates before marking the PR ready: migration over pre-existi
 large successful text, successful new completion at the accepted ceiling, exact
 text/paragraph preservation, end-marker matching, status/detail flags, query-scope
 flag on zero results and later pages, unchanged selection/stale rules, rebuilding,
-shared normalization, and feed/CJK regressions. The semantic choice remains open.
+shared normalization, and feed/CJK regressions. The semantic choice is option 1.
 
 <details>
 <summary>日本語</summary>
 
 # 抽出本文の検索サイズ設計レビュー
 
-状態：設計フェーズ。[PR #90 の指摘](https://github.com/9renpoto/lens/pull/90#discussion_r4113270427)を受け、
-本番実装を中断した。既存実装とCI成功だけでは #72 の完成を証明できない。
+状態：[PR #90 の指摘](https://github.com/9renpoto/lens/pull/90#discussion_r4113270427)を受けて
+設計へ戻り、第1案を選択した。既存実装とCI成功だけでは #72 の完成を証明できない。
 
 ## 実証した問題
 
@@ -135,7 +143,13 @@ shared normalization, and feed/CJK regressions. The semantic choice remains open
 マイグレーション挙動を記録し、既存の大きな成功本文、新規完了、末尾検索、再構築、
 影響する検索演算子の回帰テストを書く。
 
-## 第1案の具体的契約（未選択の提案）
+## 選択した契約：第1案
+
+契約を記録し、既存の8 MiB本文へ生成列と両索引を追加しても全バイトと末尾照合を保持する
+ことを確認して、実装を再開した。これは技術上の判断であり、ユーザー承認を得たとはしない。
+本番回帰テストで完了時のSQLSTATE 54000を先に再現し、安全なベクトル生成とnull順位の
+対応後は決算検索の5テストが成功した。APIの利用可否フラグと以下の残りの回帰条件は、
+ドラフトPRをreadyに戻す前に引き続き必要。
 
 - 既存の抽出上限8 MiBまでの本文と、全文のNFKC・小文字化検索表現を保持する。
   先頭だけのベクトルや、説明なしの抽出上限引下げは使わない。
@@ -163,6 +177,6 @@ shared normalization, and feed/CJK regressions. The semantic choice remains open
 
 PRをreadyに戻す前の回帰条件は、既存大型成功本文のマイグレーション、上限サイズの新規成功、
 本文・段落の一致、末尾照合、状態・詳細フラグ、0件や別ページでの応答全体のフラグ、
-選択・旧版規則、再構築、共通正規化、フィード・CJK回帰。検索の意味の選択はまだ未決定。
+選択・旧版規則、再構築、共通正規化、フィード・CJK回帰。検索の意味は第1案を選択した。
 
 </details>

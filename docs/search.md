@@ -88,6 +88,17 @@ also regenerates extraction search fields from plain text without publisher acce
 See [earnings extraction](earnings-extraction.md) for commands, deterministic
 ordering, result fields and `GET /api/earnings/releases/:id` inspection.
 
+Successful earnings text is retained in full even when its PostgreSQL full-text
+vector exceeds the database size limit. Such text uses complete normalized
+literal substring matching and a full-text rank of zero; boolean and phrase
+full-text operators are unavailable for that text. Results expose `search_mode`
+as `full_text` or `substring`; release attempt details also use `none` for
+pending/failed attempts. Search responses include `full_text_complete`, false
+when any selected eligible earnings text lacks a vector, even when the page has
+no results. Coverage and results are computed in one database snapshot before
+matching and pagination. This flag reports vector availability, not semantic
+search completeness or Japanese morphological analysis. Feed matching is unchanged.
+
 <details>
 <summary>日本語</summary>
 
@@ -98,5 +109,13 @@ ordering, result fields and `GET /api/earnings/releases/:id` inspection.
 フィード・短信全体のページングより先に行う。既存CJK正規化を使い、再構築タスクも発行元通信なしで
 抽出本文から検索フィールドを再生成する。コマンド、決定的順序、結果項目、
 `GET /api/earnings/releases/:id` による確認は[抽出説明](earnings-extraction.md)を参照。
+
+PostgreSQLの全文検索ベクトルがDBサイズ制約を超えても、成功した決算本文は全文を保持する。
+その本文では全文の正規化済み文字列部分一致を使い、全文順位は0とする。全文検索の論理・句
+演算子は利用できない。検索結果の `search_mode` は `full_text` または `substring`。
+原本の抽出詳細では待機・失敗に `none` も使う。検索応答の `full_text_complete` は、選択済み
+対象本文にベクトルなしがあれば、0件のページでもfalseになる。対象の利用可否と結果は
+同じDBスナップショットで、照合・ページング前に計算する。これはベクトル利用可否を示し、
+意味検索の完全性や日本語形態素解析を示すものではない。フィードの照合は維持する。
 
 </details>

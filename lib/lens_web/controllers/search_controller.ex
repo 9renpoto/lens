@@ -49,8 +49,9 @@ defmodule LensWeb.SearchController do
     ]
 
   def index(conn, %{"q" => query} = params) do
-    with {:ok, options} <- pagination(params), {:ok, results} <- Search.search(query, options) do
-      json(conn, %{results: results})
+    with {:ok, options} <- pagination(params),
+         {:ok, response} <- Search.search_response(query, options) do
+      json(conn, response)
     else
       {:error, reason} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: to_string(reason)})

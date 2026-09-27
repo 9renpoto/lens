@@ -20,9 +20,16 @@ defmodule Lens.Search do
 
   @spec search(String.t(), keyword()) ::
           {:ok, [result()]} | {:error, :invalid_query | :invalid_pagination}
-  def search(query, options \\ [])
+  def search(query, options \\ []) do
+    case search_response(query, options) do
+      {:ok, response} -> {:ok, response.results}
+      error -> error
+    end
+  end
 
-  def search(query, options) when is_binary(query) do
+  def search_response(query, options \\ [])
+
+  def search_response(query, options) when is_binary(query) do
     limit = Keyword.get(options, :limit, 20)
     offset = Keyword.get(options, :offset, 0)
 
@@ -46,6 +53,7 @@ defmodule Lens.Search do
             original_id: type(^nil, Ecto.UUID),
             extraction_id: type(^nil, :id),
             stale: false,
+            search_mode: "full_text",
             title_match:
               fragment(
                 "CASE WHEN search_title ILIKE '%' || ? || '%' ESCAPE E'\\\\' THEN 1 ELSE 0 END",
@@ -62,19 +70,40 @@ defmodule Lens.Search do
       earnings = Lens.Search.Earnings.query(normalized_query)
       combined = union_all(documents, ^earnings)
 
-      documents =
+      page =
+        from(result in subquery(combined),
+          order_by: [
+            desc: result.title_match,
+            desc: result.rank,
+            asc: result.id,
+            asc: result.resource_type
+          ],
+          limit: ^limit,
+          offset: ^offset
+        )
+
+      coverage =
+        from(result in subquery(Lens.Search.Earnings.query("", false)),
+          where: result.search_mode == "substring",
+          select: %{full_text_complete: count(result.id) == 0}
+        )
+
+      rows =
         Repo.all(
-          from(result in subquery(combined),
+          from(c in subquery(coverage),
+            left_join: result in subquery(page),
+            on: true,
             order_by: [
               desc: result.title_match,
               desc: result.rank,
               asc: result.id,
               asc: result.resource_type
             ],
-            limit: ^limit,
-            offset: ^offset
+            select: %{result: result, full_text_complete: c.full_text_complete}
           )
         )
+
+      documents = rows |> Enum.map(& &1.result) |> Enum.reject(&is_nil(&1.id))
 
       results =
         Enum.map(documents, fn doc ->
@@ -86,14 +115,14 @@ defmodule Lens.Search do
           doc |> Map.drop([:rank, :title_match]) |> Map.put(:provenance_url, path)
         end)
 
-      {:ok, results}
+      {:ok, %{results: results, full_text_complete: hd(rows).full_text_complete}}
     else
       :error -> {:error, :invalid_query}
       :invalid_pagination -> {:error, :invalid_pagination}
     end
   end
 
-  def search(_, _), do: {:error, :invalid_query}
+  def search_response(_, _), do: {:error, :invalid_query}
 
   @spec rebuild(keyword()) :: :ok | {:error, :invalid_batch_size}
   def rebuild(options \\ []) do

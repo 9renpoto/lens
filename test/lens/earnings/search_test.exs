@@ -4,6 +4,26 @@ defmodule Lens.Earnings.SearchTest do
   alias Lens.Earnings.{Extraction, Extractions}
   alias Lens.Search
 
+  test "valid large text remains successful and searchable at its tail" do
+    retained = retain("large", 0)
+
+    dense = Enum.map_join(1..100_000, " ", &"word#{&1}")
+    marker = "\n\n完全保存末尾マーカー"
+
+    body =
+      binary_part(String.duplicate(dense <> " ", 9), 0, 8_388_608 - byte_size(marker)) <> marker
+
+    assert {:ok, pending} = Extractions.begin(retained.original.id, "fixture", "1")
+    assert {:ok, success} = Extractions.succeed(pending.id, body)
+    assert success.status == "succeeded"
+    assert Repo.get!(Extraction, success.id).text == body
+    assert {:ok, [result]} = Search.search("完全保存末尾マーカー")
+    assert result.extraction_id == success.id
+    assert :ok = Search.rebuild(batch_size: 1)
+    assert {:ok, [_]} = Search.search("完全保存末尾マーカー")
+    assert Repo.get!(Extraction, success.id).text == body
+  end
+
   test "shared originals yield one result per release with global feed pagination" do
     first = retain("shared", 0)
 

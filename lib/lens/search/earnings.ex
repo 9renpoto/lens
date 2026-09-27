@@ -5,7 +5,7 @@ defmodule Lens.Search.Earnings do
   alias Lens.Repo
   alias Lens.Search.Normalizer
 
-  def query(normalized_query) do
+  def query(normalized_query, match? \\ true) do
     eligible =
       from(a in Acquisition,
         where: a.status == "success" and not is_nil(a.release_id),
@@ -47,11 +47,12 @@ defmodule Lens.Search.Earnings do
       join: l in subquery(latest),
       on: l.release_id == r.id,
       where:
-        fragment(
-          "search_vector @@ websearch_to_tsquery('simple', ?) OR search_text ILIKE '%' || ? || '%' ESCAPE E'\\\\'",
-          ^normalized_query,
-          ^normalized_query
-        ),
+        not (^match?) or
+          fragment(
+            "search_vector @@ websearch_to_tsquery('simple', ?) OR search_text ILIKE '%' || ? || '%' ESCAPE E'\\\\'",
+            ^normalized_query,
+            ^normalized_query
+          ),
       select: %{
         id: r.id,
         title:
@@ -69,9 +70,14 @@ defmodule Lens.Search.Earnings do
         original_id: s.original_id,
         extraction_id: s.extraction_id,
         stale: s.original_id != l.original_id,
+        search_mode:
+          fragment("CASE WHEN ?.search_vector IS NULL THEN 'substring' ELSE 'full_text' END", e),
         title_match: 0,
         rank:
-          fragment("ts_rank(search_vector, websearch_to_tsquery('simple', ?))", ^normalized_query)
+          fragment(
+            "coalesce(ts_rank(search_vector, websearch_to_tsquery('simple', ?)), 0)",
+            ^normalized_query
+          )
       }
     )
   end

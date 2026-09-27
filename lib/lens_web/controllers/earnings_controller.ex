@@ -40,6 +40,7 @@ defmodule LensWeb.EarningsController do
       :id,
       :original_id,
       :status,
+      :search_mode,
       :failure_reason,
       :extractor,
       :extractor_version,

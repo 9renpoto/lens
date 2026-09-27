@@ -170,7 +170,8 @@ defmodule LensWeb.ApiSchemas do
         resource_type: %Schema{type: :string, enum: ["document", "earnings_release"]},
         original_id: %Schema{type: :string, format: :uuid, nullable: true},
         extraction_id: %Schema{type: :integer, nullable: true},
-        stale: %Schema{type: :boolean}
+        stale: %Schema{type: :boolean},
+        search_mode: %Schema{type: :string, enum: ["full_text", "substring"]}
       },
       required: [:id, :excerpt, :provenance_url]
     })
@@ -187,6 +188,7 @@ defmodule LensWeb.ApiSchemas do
         id: %Schema{type: :integer},
         original_id: %Schema{type: :string, format: :uuid},
         status: %Schema{type: :string, enum: ["pending", "succeeded", "failed"]},
+        search_mode: %Schema{type: :string, enum: ["none", "full_text", "substring"]},
         failure_reason: %Schema{type: :string, nullable: true},
         text: %Schema{type: :string, nullable: true},
         extractor: %Schema{type: :string},
@@ -231,8 +233,11 @@ defmodule LensWeb.ApiSchemas do
     OpenApiSpex.schema(%{
       title: "SearchResponse",
       type: :object,
-      properties: %{results: %Schema{type: :array, items: SearchResult}},
-      required: [:results]
+      properties: %{
+        results: %Schema{type: :array, items: SearchResult},
+        full_text_complete: %Schema{type: :boolean}
+      },
+      required: [:results, :full_text_complete]
     })
   end
 

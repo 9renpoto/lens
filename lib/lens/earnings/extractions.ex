@@ -40,7 +40,11 @@ defmodule Lens.Earnings.Extractions do
         where: e.status == "succeeded",
         order_by: [desc: o.first_at, desc: o.original_id, desc: e.id],
         limit: 1,
-        select: e
+        select: e,
+        select_merge: %{
+          search_mode:
+            fragment("CASE WHEN ?.search_vector IS NULL THEN 'substring' ELSE 'full_text' END", e)
+        }
       )
 
     latest_attempt =
@@ -49,7 +53,15 @@ defmodule Lens.Earnings.Extractions do
         on: e.original_id == o.original_id,
         order_by: [desc: e.id],
         limit: 1,
-        select: e
+        select: e,
+        select_merge: %{
+          search_mode:
+            fragment(
+              "CASE WHEN ? <> 'succeeded' THEN 'none' WHEN ?.search_vector IS NULL THEN 'substring' ELSE 'full_text' END",
+              e.status,
+              e
+            )
+        }
       )
 
     result =
