@@ -12,6 +12,33 @@ defmodule Lens.Earnings.ProcessingTest do
       do: {:error, %{version: "fixture 1", reason: "timeout"}}
   end
 
+  defmodule EmptyExtractor do
+    def extract(_bytes, _options), do: {:ok, %{version: "empty fixture", text: " "}}
+  end
+
+  test "invalid extractor output and runner failures preserve retained bytes" do
+    original = retain("%PDF-runner-failure").original
+    assert {:ok, failure} = Processing.extract(original.id, extractor: EmptyExtractor)
+    assert failure.status == "failed"
+    assert failure.failure_reason == "invalid_text"
+
+    for {python, reason} <- [
+          {"/usr/bin/false", "process_error"},
+          {"/usr/bin/true", "process_error"},
+          {nil, "extractor_unavailable"}
+        ] do
+      assert {:ok, failure} =
+               Processing.extract(original.id, python: python, executable: "/usr/bin/true")
+
+      assert failure.status == "failed"
+      assert failure.failure_reason == reason
+    end
+
+    assert Processing.retry_failed("invalid") == {:error, :not_found}
+    assert Repo.aggregate(Acquisition, :count) == 1
+    assert Earnings.original_bytes(original.id) == {:ok, "%PDF-runner-failure"}
+  end
+
   test "processing reads retained bytes, records outcomes, and never creates acquisitions" do
     success = retain("%PDF-success")
     failed = retain("%PDF-timeout")
