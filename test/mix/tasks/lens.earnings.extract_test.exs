@@ -6,7 +6,7 @@ defmodule Mix.Tasks.Lens.Earnings.ExtractTest do
 
   @tag skip: not match?({:unix, :linux}, :os.type())
   test "CLI extracts, retries and bounds regeneration using retained originals" do
-    assert_raise Mix.Error, ~r/fresh Mix process/, fn ->
+    assert_raise Mix.Error, ~r/without app.start/, fn ->
       Extract.run(["--original", Ecto.UUID.generate()])
     end
 

@@ -17,6 +17,7 @@ RUN mix deps.get --only prod \
 COPY config config
 COPY lib lib
 COPY priv priv
+COPY rel rel
 
 RUN mix compile \
     && mix release
