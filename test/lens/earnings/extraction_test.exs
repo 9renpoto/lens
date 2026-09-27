@@ -50,6 +50,17 @@ defmodule Lens.Earnings.ExtractionTest do
     assert errors_on(changeset).original_id == ["does not exist"]
   end
 
+  test "a pending attempt retains its normalized resource bounds" do
+    retained = retain("recorded-bounds", 0)
+    options = %{"timeout_ms" => 731, "max_output_bytes" => 12_345}
+
+    assert {:ok, attempt} =
+             apply(Extractions, :begin, [retained.original.id, "fixture", "1", options])
+
+    assert attempt.extraction_options == options
+    assert Repo.get!(Lens.Earnings.Extraction, attempt.id).extraction_options == options
+  end
+
   test "release selection keeps earlier text stale until the newer original succeeds" do
     old = retain("old", 0)
     new = retain("new", 60)
