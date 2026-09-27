@@ -6,6 +6,10 @@ defmodule Mix.Tasks.Lens.Earnings.ExtractTest do
 
   @tag skip: not match?({:unix, :linux}, :os.type())
   test "CLI extracts, retries and bounds regeneration using retained originals" do
+    assert_raise Mix.Error, ~r/fresh Mix process/, fn ->
+      Extract.run(["--original", Ecto.UUID.generate()])
+    end
+
     :ok = Supervisor.terminate_child(Lens.Supervisor, Lens.Ingestion.Scheduler)
     on_exit(fn -> Supervisor.restart_child(Lens.Supervisor, Lens.Ingestion.Scheduler) end)
 
