@@ -1,24 +1,11 @@
 defmodule Lens.Earnings.Processing do
   @moduledoc "Derive text from PostgreSQL originals without invoking acquisition."
-  alias Lens.Earnings
-  alias Lens.Earnings.{Extractions, PDFExtractor}
-  alias Lens.Earnings.Extraction
+  alias Lens.Earnings.{Extractions, Extraction, Original, PDFExtractor}
   alias Lens.Repo
   import Ecto.Query
 
   def retry_failed(original_id, options \\ []) do
-    with {:ok, id} <- Ecto.UUID.cast(original_id) do
-      latest =
-        Repo.one(
-          from(e in Extraction, where: e.original_id == ^id, order_by: [desc: e.id], limit: 1)
-        )
-
-      if latest && latest.status == "failed",
-        do: extract(id, options),
-        else: {:error, :not_failed}
-    else
-      :error -> {:error, :not_found}
-    end
+    allocate_and_process(original_id, options, true)
   end
 
   def regenerate(options) do
@@ -48,11 +35,7 @@ defmodule Lens.Earnings.Processing do
   defp valid_cursor?(id), do: match?({:ok, _}, Ecto.UUID.cast(id))
 
   def extract(original_id, options \\ []) do
-    if valid_bounds?(options) do
-      process(original_id, options)
-    else
-      {:error, :invalid_options}
-    end
+    allocate_and_process(original_id, options, false)
   end
 
   defp valid_bounds?(options) do
@@ -63,27 +46,67 @@ defmodule Lens.Earnings.Processing do
       is_integer(output) and output in 1..8_388_608
   end
 
-  defp process(original_id, options) do
-    extractor = Keyword.get(options, :extractor, PDFExtractor)
+  defp allocate_and_process(original_id, options, retry?) do
+    with {:ok, id} <- Ecto.UUID.cast(original_id),
+         true <- valid_bounds?(options),
+         {:ok, {bytes, attempt}} <- allocate_attempt(id, options, retry?) do
+      process(bytes, attempt, options)
+    else
+      :error -> {:error, :not_found}
+      false -> {:error, :invalid_options}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
-    with {:ok, bytes} <- retained_bytes(original_id),
-         {:ok, attempt} <-
-           Extractions.begin(
+  defp allocate_attempt(original_id, options, retry?) do
+    Repo.transaction(fn ->
+      original =
+        Repo.one(from(o in Original, where: o.id == ^original_id, lock: "FOR UPDATE"))
+
+      if is_nil(original), do: Repo.rollback(:not_found)
+
+      if retry? do
+        latest =
+          Repo.one(
+            from(e in Extraction,
+              where: e.original_id == ^original_id,
+              order_by: [desc: e.id],
+              limit: 1
+            )
+          )
+
+        unless latest && latest.status == "failed", do: Repo.rollback(:not_failed)
+      end
+
+      extractor = Keyword.get(options, :extractor, PDFExtractor)
+
+      case Extractions.begin(
              original_id,
              inspect(extractor),
              "unavailable",
              effective_bounds(options)
            ) do
-      case extractor.extract(bytes, options) do
-        {:ok, %{text: text, version: version}} ->
-          case Extractions.succeed(attempt.id, text, extractor_version: version) do
-            {:error, :invalid_text} -> Extractions.fail(attempt.id, "invalid_text")
-            result -> result
-          end
-
-        {:error, %{reason: reason, version: version}} ->
-          Extractions.fail(attempt.id, reason, extractor_version: version)
+        {:ok, attempt} -> {original.bytes, attempt}
+        {:error, reason} -> Repo.rollback(reason)
       end
+    end)
+  end
+
+  defp process(bytes, attempt, options) do
+    extractor = Keyword.get(options, :extractor, PDFExtractor)
+
+    case extractor.extract(bytes, options) do
+      {:ok, %{text: text, version: version}} ->
+        case Extractions.succeed(attempt.id, text, extractor_version: version) do
+          {:error, :invalid_text} ->
+            Extractions.fail(attempt.id, "invalid_text", extractor_version: version)
+
+          result ->
+            result
+        end
+
+      {:error, %{reason: reason, version: version}} ->
+        Extractions.fail(attempt.id, reason, extractor_version: version)
     end
   end
 
@@ -92,12 +115,5 @@ defmodule Lens.Earnings.Processing do
       "timeout_ms" => Keyword.get(options, :timeout_ms, 20_000),
       "max_output_bytes" => Keyword.get(options, :max_output_bytes, 8_388_608)
     }
-  end
-
-  defp retained_bytes(id) do
-    case Earnings.original_bytes(id) do
-      {:ok, bytes} -> {:ok, bytes}
-      :error -> {:error, :not_found}
-    end
   end
 end

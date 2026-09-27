@@ -12,6 +12,15 @@ mix lens.earnings.extract --regenerate --limit 10
 mix lens.earnings.extract --regenerate --limit 10 --after-original LAST_ORIGINAL_UUID
 ```
 
+The Mix task runs from a checkout. The production image includes the same
+bounded operation through its release-native entry point:
+
+```sh
+/app/bin/lens-earnings-extract --original ORIGINAL_UUID
+/app/bin/lens-earnings-extract --retry FAILED_ORIGINAL_UUID
+/app/bin/lens-earnings-extract --regenerate --limit 10
+```
+
 `--original` creates one attempt from retained bytes. `--retry` requires the
 original's most recently allocated attempt to have failed. `--regenerate`
 processes distinct originals with at least one completed attempt, in ascending
@@ -80,6 +89,14 @@ only PostgreSQL available; do not use a production database.
 処理前にDBマイグレーションを適用する。通常のPostgreSQL設定を使い、新しい
 Mixプロセスで上記の4コマンドを実行する。タスクはEctoとRepoだけを起動し、
 収集スケジューラが既に動いている場合は実行を拒否する。Web endpointや発行元の取得は起動しない。
+
+Mix taskはチェックアウトから実行する。本番イメージではrelease専用の同じ上限付き操作を使う。
+
+```sh
+/app/bin/lens-earnings-extract --original ORIGINAL_UUID
+/app/bin/lens-earnings-extract --retry FAILED_ORIGINAL_UUID
+/app/bin/lens-earnings-extract --regenerate --limit 10
+```
 
 `--original` は保存バイト列から1試行を作る。`--retry` はその原本の最新割当試行が
 失敗している場合に使う。`--regenerate` は完了試行のある原本をUUID昇順で重複なく処理する。

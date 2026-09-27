@@ -12,6 +12,7 @@ defmodule Lens.MixProject do
       preferred_cli_env: [coveralls: :test, "coveralls.lcov": :test],
       dialyzer: [plt_add_apps: [:ex_unit, :mix]],
       aliases: aliases(),
+      releases: [lens: [overlays: ["rel/overlays"]]],
       deps: deps()
     ]
   end

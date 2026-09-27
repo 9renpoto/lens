@@ -2,7 +2,7 @@ defmodule Lens.Earnings.ProcessingTest do
   use Lens.DataCase
 
   alias Lens.Earnings
-  alias Lens.Earnings.{Acquisition, Extraction, Processing}
+  alias Lens.Earnings.{Acquisition, Extraction, Extractions, Processing}
 
   defmodule FixtureExtractor do
     def extract("%PDF-success", _options),
@@ -24,6 +24,7 @@ defmodule Lens.Earnings.ProcessingTest do
     assert {:ok, failure} = Processing.extract(original.id, extractor: EmptyExtractor)
     assert failure.status == "failed"
     assert failure.failure_reason == "invalid_text"
+    assert failure.extractor_version == "empty fixture"
 
     for {python, reason} <- [
           {"/usr/bin/false", "process_error"},
@@ -161,6 +162,48 @@ defmodule Lens.Earnings.ProcessingTest do
              )
 
     assert Repo.aggregate(Acquisition, :count) == 2
+  end
+
+  test "retry refuses a newly allocated pending attempt" do
+    original = retain("%PDF-timeout").original
+    assert {:ok, _failed} = Processing.extract(original.id, extractor: FixtureExtractor)
+    assert {:ok, _pending} = Extractions.begin(original.id, "fixture", "2")
+
+    assert {:error, :not_failed} =
+             Processing.retry_failed(original.id, extractor: FixtureExtractor)
+
+    assert Repo.aggregate(Extraction, :count) == 2
+  end
+
+  test "simultaneous retries allocate only one pending attempt" do
+    original = retain("%PDF-timeout").original
+
+    assert {:ok, %{status: "failed"}} =
+             Processing.extract(original.id, extractor: FixtureExtractor)
+
+    owner = self()
+
+    tasks =
+      for _ <- 1..2 do
+        Task.async(fn ->
+          send(owner, {:ready, self()})
+
+          receive do
+            :retry -> Processing.retry_failed(original.id, extractor: FixtureExtractor)
+          end
+        end)
+      end
+
+    for task <- tasks do
+      assert_receive {:ready, pid}
+      assert pid == task.pid
+    end
+
+    Enum.each(tasks, &send(&1.pid, :retry))
+    results = Enum.map(tasks, &Task.await(&1, 5_000))
+    assert Enum.count(results, &match?({:ok, %{status: "failed"}}, &1)) == 1
+    assert Enum.count(results, &(&1 == {:error, :not_failed})) == 1
+    assert Repo.aggregate(Extraction, :count) == 2
   end
 
   defp retain(bytes) do
