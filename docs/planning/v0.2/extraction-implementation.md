@@ -3,10 +3,13 @@
 Issue: [#72](https://github.com/9renpoto/lens/issues/72). Base: #87,
 merged as `45ad24c`. This is an implementation proposal, not a completed feature.
 
-Current status: PR #90 is draft and implementation is stopped for
-[search-size design review](extraction-search-size-design.md). A generated-vector
-size failure can abort valid extraction storage; the green checks do not resolve
-this design problem.
+Current status: PR #90 remains draft after returning to
+[search-size design review](extraction-search-size-design.md). The selected
+contract preserves complete text with explicit substring fallback and query-wide
+vector availability. Implementation resumed with failing regressions first.
+Linux verification passes 161 Elixir and eight Python tests; migration over
+pre-existing 8 MiB text and offline extraction/rebuild also pass. The latest
+fix still requires automatic review before completion.
 
 ## Foundation implementation status
 
@@ -151,9 +154,11 @@ task alone does not establish that its operating-system child has terminated.
 対象は [#72](https://github.com/9renpoto/lens/issues/72)、基点は #87 の
 マージコミット `45ad24c`。この資料は実装案であり、機能の完成報告ではない。
 
-現在はPR #90をドラフトに戻し、[検索サイズの設計見直し](extraction-search-size-design.md)のため
-実装を中断している。生成ベクトルの上限超過で有効な抽出本文の保存が中断し得る。
-CI成功ではこの設計問題を解決できない。
+現在は[検索サイズの設計見直し](extraction-search-size-design.md)へ戻った後、PR #90を
+ドラフトで維持している。全文保持、明示的な部分一致への切替、検索全体のベクトル利用可否を
+契約として選び、失敗する回帰テストを先に確認して実装を再開した。LinuxではElixirの161件と
+Pythonの8件が成功し、既存8 MiB本文の移行と通信なしの抽出・再構築も成功した。
+完了には最新修正の自動レビューが引き続き必要。
 
 ## 基盤実装の状態
 

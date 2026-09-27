@@ -57,6 +57,12 @@ jobs:
       - run: node --test .github/scripts/prune-package-versions.test.js
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
+      - name: Verify search migration over existing large earnings text
+        env:
+          POSTGRES_DB: lens_search_migration_test
+        run: |
+          mix ecto.create
+          mix run --no-start test/system/earnings_search_migration_check.exs
       - run: mix dialyzer
       - run: mix coveralls.lcov
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
