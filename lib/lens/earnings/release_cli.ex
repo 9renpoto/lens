@@ -20,7 +20,13 @@ defmodule Lens.Earnings.ReleaseCLI do
       )
 
     commands = Keyword.take(options, [:original, :retry, :regenerate])
-    unique = length(Keyword.keys(options)) == length(Enum.uniq(Keyword.keys(options)))
+
+    switches =
+      args
+      |> Enum.filter(&String.starts_with?(&1, "--"))
+      |> Enum.map(&(String.split(&1, "=", parts: 2) |> hd()))
+
+    unique = length(switches) == length(Enum.uniq(switches))
     timeout = Keyword.get(options, :timeout_ms, 20_000)
     output = Keyword.get(options, :max_output_bytes, 8_388_608)
 
@@ -56,18 +62,29 @@ defmodule Lens.Earnings.ReleaseCLI do
     end
   end
 
-  def main(args) do
+  def main(args, halt \\ &System.halt/1) do
+    previous_level = Logger.level()
     Logger.configure(level: :warning)
+    result = run(args)
+    Logger.configure(level: previous_level)
+
+    case result do
+      {:ok, json} ->
+        IO.puts(json)
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, error_message(reason))
+        halt.(1)
+    end
+  end
+
+  def run(args) do
     args = Enum.drop_while(args, &(&1 == "--"))
 
     with {:ok, command} <- validate(args),
          {:ok, json} <- execute(command) do
-      IO.puts(json)
-      :ok
-    else
-      {:error, reason} ->
-        IO.puts(:stderr, error_message(reason))
-        System.halt(1)
+      {:ok, json}
     end
   end
 
@@ -116,8 +133,8 @@ defmodule Lens.Earnings.ReleaseCLI do
 
   defp encode_result({:error, reason}), do: {:error, reason}
 
-  defp render_result({:ok, attempt}), do: summary(attempt)
-  defp render_result({:error, reason}), do: %{error: to_string(reason)}
+  def render_result({:ok, attempt}), do: summary(attempt)
+  def render_result({:error, reason}), do: %{error: to_string(reason)}
 
   defp summary(attempt) do
     Map.take(attempt, [
@@ -130,7 +147,7 @@ defmodule Lens.Earnings.ReleaseCLI do
     ])
   end
 
-  defp error_message(:invalid_options), do: @usage
-  defp error_message(reason) when is_atom(reason), do: to_string(reason)
-  defp error_message(reason) when is_binary(reason), do: reason
+  def error_message(:invalid_options), do: @usage
+  def error_message(reason) when is_atom(reason), do: to_string(reason)
+  def error_message(reason) when is_binary(reason), do: reason
 end
