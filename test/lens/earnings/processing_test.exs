@@ -10,6 +10,9 @@ defmodule Lens.Earnings.ProcessingTest do
 
     def extract("%PDF-timeout", _options),
       do: {:error, %{version: "fixture 1", reason: "timeout"}}
+
+    def extract("%PDF-bounded", _options),
+      do: {:ok, %{version: "fixture 1", text: "Bounded output"}}
   end
 
   defmodule EmptyExtractor do
@@ -47,6 +50,7 @@ defmodule Lens.Earnings.ProcessingTest do
     assert text.text == "売上高\n\n営業利益"
     assert text.original_id == success.original.id
     assert text.extractor_version == "fixture 1"
+    assert text.extraction_options == %{"timeout_ms" => 20_000, "max_output_bytes" => 8_388_608}
     assert {:ok, failure} = Processing.extract(failed.original.id, extractor: FixtureExtractor)
     assert failure.status == "failed"
     assert failure.failure_reason == "timeout"
@@ -56,6 +60,34 @@ defmodule Lens.Earnings.ProcessingTest do
     assert Repo.aggregate(Acquisition, :count) == 2
     assert Earnings.original_bytes(failed.original.id) == {:ok, "%PDF-timeout"}
     assert Repo.aggregate(Extraction, :count) == 3
+  end
+
+  test "each attempt records the effective timeout and output limit before processing" do
+    retained = retain("%PDF-bounded")
+
+    assert {:ok, attempt} =
+             Processing.extract(retained.original.id,
+               extractor: FixtureExtractor,
+               timeout_ms: 731,
+               max_output_bytes: 12_345
+             )
+
+    assert Map.get(attempt, :extraction_options) == %{
+             "timeout_ms" => 731,
+             "max_output_bytes" => 12_345
+           }
+  end
+
+  test "invalid bounds create no attempt or stored options" do
+    retained = retain("%PDF-invalid-bounds")
+
+    assert {:error, :invalid_options} =
+             Processing.extract(retained.original.id,
+               timeout_ms: 30_001,
+               extractor: FixtureExtractor
+             )
+
+    assert Repo.aggregate(Extraction, :count) == 0
   end
 
   test "missing originals and invalid bounds create no extraction attempts" do
