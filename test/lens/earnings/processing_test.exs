@@ -142,6 +142,8 @@ defmodule Lens.Earnings.ProcessingTest do
     before_count = Repo.aggregate(Extraction, :count)
     assert {:ok, first} = Processing.regenerate(limit: 1, extractor: FixtureExtractor)
     assert length(first.results) == 1
+    assert [{_original_id, {:ok, summary}}] = first.results
+    refute Map.has_key?(summary, :text)
     assert Repo.aggregate(Extraction, :count) == before_count + 1
 
     assert {:ok, second} =

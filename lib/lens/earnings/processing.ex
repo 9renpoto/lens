@@ -24,7 +24,7 @@ defmodule Lens.Earnings.Processing do
 
       query = if cursor, do: where(query, [e], e.original_id > ^cursor), else: query
       ids = Repo.all(query)
-      results = Enum.map(ids, fn id -> {id, extract(id, options)} end)
+      results = Enum.map(ids, fn id -> {id, extract_summary(id, options)} end)
       {:ok, %{results: results, next_after: List.last(ids)}}
     else
       {:error, :invalid_options}
@@ -115,5 +115,23 @@ defmodule Lens.Earnings.Processing do
       "timeout_ms" => Keyword.get(options, :timeout_ms, 20_000),
       "max_output_bytes" => Keyword.get(options, :max_output_bytes, 8_388_608)
     }
+  end
+
+  defp extract_summary(original_id, options) do
+    case extract(original_id, options) do
+      {:ok, extraction} ->
+        {:ok,
+         Map.take(extraction, [
+           :id,
+           :original_id,
+           :status,
+           :failure_reason,
+           :extractor_version,
+           :extraction_options
+         ])}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 end
