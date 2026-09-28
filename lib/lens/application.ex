@@ -5,6 +5,8 @@ defmodule Lens.Application do
 
   @impl true
   def start(_type, _args) do
+    require_endpoint_secret!()
+
     children = [
       Lens.Repo,
       {Phoenix.PubSub, name: Lens.PubSub},
@@ -14,6 +16,14 @@ defmodule Lens.Application do
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: Lens.Supervisor)
+  end
+
+  defp require_endpoint_secret! do
+    endpoint_config = Application.get_env(:lens, LensWeb.Endpoint, [])
+
+    if Keyword.get(endpoint_config, :server, false) do
+      System.fetch_env!("SECRET_KEY_BASE")
+    end
   end
 
   @impl true
