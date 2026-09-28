@@ -95,6 +95,7 @@ defmodule Lens.Earnings.Extractions do
   def fail(_, _), do: {:error, :invalid_reason}
 
   defp valid_text?(text) do
+    # Extracted text must be valid UTF-8 before it is persisted.
     String.valid?(text) and not String.contains?(text, <<0>>) and String.trim(text) != ""
   end
 
