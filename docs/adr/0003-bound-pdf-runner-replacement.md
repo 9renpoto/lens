@@ -89,9 +89,8 @@ The [erlexec API](https://erlexec.hexdocs.pm/exec.html) documents its available
 options and best-effort cgroup behavior; absence of RLIMIT options there is
 an API-documentation observation, not a claim about every possible extension.
 
-See [execution plan](../planning/v0.2/P7-python-free-extraction.md) and
-[compatibility contract](../planning/v0.2/pdf-runner-contract.md) for handoff,
-requirements and stop conditions. Keep Python until replacement and release tests pass.
+See the [compatibility contract](../planning/v0.2/pdf-runner-contract.md) for
+requirements and stop conditions. #92 records the handoff to #93 and #94. Keep Python until replacement and release tests pass.
 An optional ReportLab fixture-authoring tool may remain Python-based, but extraction,
 routine CI and release verification must not depend on it.
 
@@ -170,8 +169,8 @@ Dockerfile、CI、運用資料を読んだ。Linux x86_64のoffline環境で既�
 には利用できる設定とbest-effortのcgroupが記載される。RLIMIT設定が文書化されて
 いないという観察であり、あらゆる拡張が不可能という主張ではない。
 
-[実行計画](../planning/v0.2/P7-python-free-extraction.md)と
-[互換契約](../planning/v0.2/pdf-runner-contract.md)に引継ぎ・要件・停止条件を示す。
+[互換契約](../planning/v0.2/pdf-runner-contract.md)に要件・停止条件を示す。
+#92に#93・#94への引継ぎを記録する。
 置換とreleaseの検証が成功するまではPythonを残す。任意のReportLab固定データ生成器は
 Pythonのままでもよいが、抽出・通常CI・release検証の依存にはしない。
 
