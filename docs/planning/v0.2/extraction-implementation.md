@@ -3,6 +3,14 @@
 Issue: [#72](https://github.com/9renpoto/lens/issues/72). Base: #87,
 merged as `45ad24c`. This is an implementation proposal, not a completed feature.
 
+Current status: PR #90 remains draft after returning to
+[search-size design review](extraction-search-size-design.md). The selected
+contract preserves complete text with explicit substring fallback and query-wide
+vector availability. Implementation resumed with failing regressions first.
+Linux verification passes 161 Elixir and eight Python tests; migration over
+pre-existing 8 MiB text and offline extraction/rebuild also pass. The latest
+fix still requires automatic review before completion.
+
 ## Foundation implementation status
 
 The first slice implements `Lens.Earnings.Extractions.begin/3`, `succeed/2`,
@@ -46,6 +54,22 @@ An image-only PDF reports `empty_output`;
 the runner does not claim to distinguish it from other textless PDFs.
 
 Reference: [Poppler pdftotext manual](https://manpages.debian.org/bookworm/poppler-utils/pdftotext.1.en.html).
+
+## Search slice status
+
+The third slice is on `codex/earnings-search`. Extraction attempts have derived
+`search_text` and indexed full-text vectors; successful completion and rebuilding
+share `Lens.Search.Normalizer`. Ordinary search selects one successful extraction
+per release before matching, then combines it with feeds before pagination.
+It exposes original/attempt IDs and stale status. A minimal release detail API
+provides exact plain text and pending/failed state even without a search result.
+
+Validation: 159 Elixir tests and eight PDF process tests passed on Linux.
+Fresh-database migration, real retained PDF extraction, search and rebuild also
+passed with publisher access disabled in an internal Docker network.
+The exact production Dockerfile built successfully for the second slice;
+`poppler-data 0.4.12-1` was verified available in `bookworm/main`, contradicting
+the review's proposed need for `non-free`. The evidence was posted on PR #89.
 
 ## Context map
 
@@ -130,6 +154,12 @@ task alone does not establish that its operating-system child has terminated.
 対象は [#72](https://github.com/9renpoto/lens/issues/72)、基点は #87 の
 マージコミット `45ad24c`。この資料は実装案であり、機能の完成報告ではない。
 
+現在は[検索サイズの設計見直し](extraction-search-size-design.md)へ戻った後、PR #90を
+ドラフトで維持している。全文保持、明示的な部分一致への切替、検索全体のベクトル利用可否を
+契約として選び、失敗する回帰テストを先に確認して実装を再開した。LinuxではElixirの161件と
+Pythonの8件が成功し、既存8 MiB本文の移行と通信なしの抽出・再構築も成功した。
+完了には最新修正の自動レビューが引き続き必要。
+
 ## 基盤実装の状態
 
 第1段階は `Lens.Earnings.Extractions.begin/3`、`succeed/2`、`fail/2`、
@@ -167,6 +197,18 @@ Pythonに加えて導入する。`Lens.Earnings.Processing.extract/2` はPostgre
 区別できるとはしない。
 
 参照：[Poppler pdftotextマニュアル](https://manpages.debian.org/bookworm/poppler-utils/pdftotext.1.en.html)。
+
+## 検索段階の状態
+
+第3段階は `codex/earnings-search`。抽出試行に派生 `search_text` と索引付き全文検索ベクトルを追加し、
+成功時と再構築で `Lens.Search.Normalizer` を共用する。通常検索は照合前に短信ごとの成功抽出を選び、
+フィードと統合してからページングする。原本・試行IDと旧版状態を返す。最小限の短信詳細APIで、
+検索結果がなくても正確な本文と待機・失敗を確認できる。
+
+LinuxでElixir159件・PDF処理8件成功。内部Dockerネットワークで発行元通信を無効にし、
+空DBマイグレーション、実保存PDFの抽出、検索、再構築も成功した。
+第2段階の本番Dockerfile全体もビルド成功。`poppler-data 0.4.12-1` は `bookworm/main` にあり、
+レビューの `non-free` 必要という指摘とは異なることを実証し、PR #89に返信した。
 
 ## 関連ファイル
 

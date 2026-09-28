@@ -20,9 +20,16 @@ defmodule Lens.Search do
 
   @spec search(String.t(), keyword()) ::
           {:ok, [result()]} | {:error, :invalid_query | :invalid_pagination}
-  def search(query, options \\ [])
+  def search(query, options \\ []) do
+    case search_response(query, options) do
+      {:ok, response} -> {:ok, response.results}
+      error -> error
+    end
+  end
 
-  def search(query, options) when is_binary(query) do
+  def search_response(query, options \\ [])
+
+  def search_response(query, options) when is_binary(query) do
     limit = Keyword.get(options, :limit, 20)
     offset = Keyword.get(options, :offset, 0)
 
@@ -36,51 +43,94 @@ defmodule Lens.Search do
               ^normalized_query,
               ^normalized_query
             ),
-          order_by: [
-            desc:
-              fragment(
-                "CASE WHEN search_title ILIKE '%' || ? || '%' ESCAPE E'\\\\' THEN 1 ELSE 0 END",
-                ^normalized_query
-              ),
-            desc:
-              fragment(
-                "ts_rank(search_vector, websearch_to_tsquery('simple', ?))",
-                ^normalized_query
-              ),
-            asc: document.id
-          ],
-          limit: ^limit,
-          offset: ^offset,
           select: %{
             id: document.id,
             title: document.title,
             canonical_url: document.canonical_url,
             published_at: document.published_at,
-            excerpt: fragment("left(regexp_replace(content, '\\s+', ' ', 'g'), 300)")
+            excerpt: fragment("left(regexp_replace(content, '\\s+', ' ', 'g'), 300)"),
+            resource_type: "document",
+            original_id: type(^nil, Ecto.UUID),
+            extraction_id: type(^nil, :id),
+            stale: false,
+            search_mode: "full_text",
+            title_match:
+              fragment(
+                "CASE WHEN search_title ILIKE '%' || ? || '%' ESCAPE E'\\\\' THEN 1 ELSE 0 END",
+                ^normalized_query
+              ),
+            rank:
+              fragment(
+                "ts_rank(search_vector, websearch_to_tsquery('simple', ?))",
+                ^normalized_query
+              )
           }
         )
-        |> Repo.all()
+
+      earnings = Lens.Search.Earnings.query(normalized_query)
+      combined = union_all(documents, ^earnings)
+
+      page =
+        from(result in subquery(combined),
+          order_by: [
+            desc: result.title_match,
+            desc: result.rank,
+            asc: result.id,
+            asc: result.resource_type
+          ],
+          limit: ^limit,
+          offset: ^offset
+        )
+
+      coverage =
+        from(result in subquery(Lens.Search.Earnings.query("", false)),
+          where: result.search_mode == "substring",
+          select: %{full_text_complete: count(result.id) == 0}
+        )
+
+      rows =
+        Repo.all(
+          from(c in subquery(coverage),
+            left_join: result in subquery(page),
+            on: true,
+            order_by: [
+              desc: result.title_match,
+              desc: result.rank,
+              asc: result.id,
+              asc: result.resource_type
+            ],
+            select: %{result: result, full_text_complete: c.full_text_complete}
+          )
+        )
+
+      documents = rows |> Enum.map(& &1.result) |> Enum.reject(&is_nil(&1.id))
 
       results =
         Enum.map(documents, fn doc ->
-          Map.put(doc, :provenance_url, "/api/documents/#{doc.id}/provenance")
+          path =
+            if doc.resource_type == "document",
+              do: "/api/documents/#{doc.id}/provenance",
+              else: "/api/earnings/releases/#{doc.id}"
+
+          doc |> Map.drop([:rank, :title_match]) |> Map.put(:provenance_url, path)
         end)
 
-      {:ok, results}
+      {:ok, %{results: results, full_text_complete: hd(rows).full_text_complete}}
     else
       :error -> {:error, :invalid_query}
       :invalid_pagination -> {:error, :invalid_pagination}
     end
   end
 
-  def search(_, _), do: {:error, :invalid_query}
+  def search_response(_, _), do: {:error, :invalid_query}
 
   @spec rebuild(keyword()) :: :ok | {:error, :invalid_batch_size}
   def rebuild(options \\ []) do
     batch_size = Keyword.get(options, :batch_size, @default_rebuild_batch_size)
 
     if is_integer(batch_size) and batch_size > 0 do
-      rebuild_batches(nil, batch_size)
+      :ok = rebuild_batches(nil, batch_size)
+      Lens.Search.Earnings.rebuild(batch_size)
     else
       {:error, :invalid_batch_size}
     end

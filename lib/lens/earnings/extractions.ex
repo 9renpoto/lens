@@ -40,7 +40,11 @@ defmodule Lens.Earnings.Extractions do
         where: e.status == "succeeded",
         order_by: [desc: o.first_at, desc: o.original_id, desc: e.id],
         limit: 1,
-        select: e
+        select: e,
+        select_merge: %{
+          search_mode:
+            fragment("CASE WHEN ?.search_vector IS NULL THEN 'substring' ELSE 'full_text' END", e)
+        }
       )
 
     latest_attempt =
@@ -49,7 +53,15 @@ defmodule Lens.Earnings.Extractions do
         on: e.original_id == o.original_id,
         order_by: [desc: e.id],
         limit: 1,
-        select: e
+        select: e,
+        select_merge: %{
+          search_mode:
+            fragment(
+              "CASE WHEN ? <> 'succeeded' THEN 'none' WHEN ?.search_vector IS NULL THEN 'substring' ELSE 'full_text' END",
+              e.status,
+              e
+            )
+        }
       )
 
     result =
@@ -80,7 +92,14 @@ defmodule Lens.Earnings.Extractions do
 
   def succeed(id, text, metadata) when is_binary(text) do
     if valid_text?(text) do
-      finish(id, Keyword.merge(metadata, status: "succeeded", text: text))
+      finish(
+        id,
+        Keyword.merge(metadata,
+          status: "succeeded",
+          text: text,
+          search_text: Lens.Search.Normalizer.document_text(nil, text)
+        )
+      )
     else
       {:error, :invalid_text}
     end
@@ -106,7 +125,7 @@ defmodule Lens.Earnings.Extractions do
   defp finish(id, fields) do
     fields =
       fields
-      |> Keyword.take([:status, :text, :failure_reason, :extractor_version])
+      |> Keyword.take([:status, :text, :search_text, :failure_reason, :extractor_version])
       |> Keyword.put(:finished_at, DateTime.utc_now())
 
     query = from(e in Extraction, where: e.id == ^id and e.status == "pending", select: e)

@@ -64,7 +64,7 @@ defmodule Lens.Earnings.ProcessingTest do
   end
 
   test "each attempt records the effective timeout and output limit before processing" do
-    retained = retain("%PDF-bounded")
+    retained = retain("%PDF-timeout")
 
     assert {:ok, attempt} =
              Processing.extract(retained.original.id,
@@ -72,6 +72,9 @@ defmodule Lens.Earnings.ProcessingTest do
                timeout_ms: 731,
                max_output_bytes: 12_345
              )
+
+    assert attempt.status == "failed"
+    assert attempt.failure_reason == "timeout"
 
     assert Map.get(attempt, :extraction_options) == %{
              "timeout_ms" => 731,

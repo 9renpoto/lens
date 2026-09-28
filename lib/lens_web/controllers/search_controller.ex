@@ -16,7 +16,7 @@ defmodule LensWeb.SearchController do
   tags(["Search"])
 
   operation :index,
-    summary: "Search canonical documents",
+    summary: "Search feed documents and earnings releases",
     parameters: [
       q: [in: :query, required: true, schema: %Schema{type: :string, maxLength: 500}],
       limit: [in: :query, schema: %Schema{type: :integer, minimum: 1, maximum: 100}],
@@ -49,8 +49,9 @@ defmodule LensWeb.SearchController do
     ]
 
   def index(conn, %{"q" => query} = params) do
-    with {:ok, options} <- pagination(params), {:ok, results} <- Search.search(query, options) do
-      json(conn, %{results: results})
+    with {:ok, options} <- pagination(params),
+         {:ok, response} <- Search.search_response(query, options) do
+      json(conn, response)
     else
       {:error, reason} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: to_string(reason)})

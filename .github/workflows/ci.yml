@@ -51,12 +51,20 @@ jobs:
           key: dialyzer-${{ runner.os }}-otp-27.3.4-elixir-1.18.3-${{ hashFiles('mix.exs', 'mix.lock') }}
           lookup-only: true
       - run: mix deps.get
+      - name: Verify production repository configuration needs no endpoint secret
+        run: env -u SECRET_KEY_BASE MIX_ENV=prod DATABASE_URL=ecto://lens:unused@localhost/lens mix app.config
       - name: Install PDF extraction tools
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y python3 poppler-utils poppler-data
       - run: python3 -m unittest discover -s test -p pdf_runner_test.py
       - run: node --test .github/scripts/prune-package-versions.test.js
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
+      - name: Verify search migration over existing large earnings text
+        env:
+          POSTGRES_DB: lens_search_migration_test
+        run: |
+          mix ecto.create
+          mix run --no-start test/system/earnings_search_migration_check.exs
       - run: mix dialyzer
       - run: mix coveralls.lcov
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0

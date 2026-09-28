@@ -166,9 +166,78 @@ defmodule LensWeb.ApiSchemas do
         canonical_url: %Schema{type: :string, format: :uri, nullable: true},
         published_at: %Schema{type: :string, format: :"date-time", nullable: true},
         excerpt: %Schema{type: :string, maxLength: 300},
-        provenance_url: %Schema{type: :string}
+        provenance_url: %Schema{type: :string},
+        resource_type: %Schema{type: :string, enum: ["document", "earnings_release"]},
+        original_id: %Schema{type: :string, format: :uuid, nullable: true},
+        extraction_id: %Schema{type: :integer, nullable: true},
+        stale: %Schema{type: :boolean},
+        search_mode: %Schema{type: :string, enum: ["full_text", "substring"]}
       },
       required: [:id, :excerpt, :provenance_url]
+    })
+  end
+
+  defmodule EarningsExtraction do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "EarningsExtraction",
+      type: :object,
+      nullable: true,
+      properties: %{
+        id: %Schema{type: :integer},
+        original_id: %Schema{type: :string, format: :uuid},
+        status: %Schema{type: :string, enum: ["pending", "succeeded", "failed"]},
+        extraction_options: %Schema{
+          type: :object,
+          properties: %{
+            timeout_ms: %Schema{type: :integer, minimum: 1, maximum: 30_000},
+            max_output_bytes: %Schema{type: :integer, minimum: 1, maximum: 8_388_608}
+          }
+        },
+        search_mode: %Schema{type: :string, enum: ["none", "full_text", "substring"]},
+        failure_reason: %Schema{type: :string, nullable: true},
+        text: %Schema{type: :string, nullable: true},
+        extractor: %Schema{type: :string},
+        extractor_version: %Schema{type: :string},
+        inserted_at: %Schema{type: :string, format: :"date-time"},
+        finished_at: %Schema{type: :string, format: :"date-time", nullable: true}
+      },
+      required: [
+        :id,
+        :original_id,
+        :status,
+        :extraction_options,
+        :extractor,
+        :extractor_version
+      ]
+    })
+  end
+
+  defmodule EarningsReleaseResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "EarningsReleaseResponse",
+      type: :object,
+      properties: %{
+        release: %Schema{
+          type: :object,
+          properties: %{
+            id: %Schema{type: :string, format: :uuid},
+            issuer_code: %Schema{type: :string},
+            fiscal_year_end: %Schema{type: :string, format: :date},
+            period: %Schema{type: :string},
+            category: %Schema{type: :string}
+          },
+          required: [:id, :issuer_code, :fiscal_year_end, :period, :category]
+        },
+        extraction: EarningsExtraction,
+        latest_attempt: EarningsExtraction,
+        latest_original_id: %Schema{type: :string, format: :uuid, nullable: true},
+        stale: %Schema{type: :boolean}
+      },
+      required: [:release, :extraction, :latest_attempt, :latest_original_id, :stale]
     })
   end
 
@@ -178,8 +247,11 @@ defmodule LensWeb.ApiSchemas do
     OpenApiSpex.schema(%{
       title: "SearchResponse",
       type: :object,
-      properties: %{results: %Schema{type: :array, items: SearchResult}},
-      required: [:results]
+      properties: %{
+        results: %Schema{type: :array, items: SearchResult},
+        full_text_complete: %Schema{type: :boolean}
+      },
+      required: [:results, :full_text_complete]
     })
   end
 
