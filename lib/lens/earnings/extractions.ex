@@ -76,23 +76,27 @@ defmodule Lens.Earnings.Extractions do
     end
   end
 
-  def succeed(id, text) when is_binary(text) do
+  def succeed(id, text, metadata \\ [])
+
+  def succeed(id, text, metadata) when is_binary(text) do
     if valid_text?(text) do
-      finish(id, status: "succeeded", text: text)
+      finish(id, Keyword.merge(metadata, status: "succeeded", text: text))
     else
       {:error, :invalid_text}
     end
   end
 
-  def succeed(_, _), do: {:error, :invalid_text}
+  def succeed(_, _, _), do: {:error, :invalid_text}
 
-  def fail(id, reason) when is_binary(reason) do
+  def fail(id, reason, metadata \\ [])
+
+  def fail(id, reason, metadata) when is_binary(reason) do
     if valid_text?(reason),
-      do: finish(id, status: "failed", failure_reason: reason),
+      do: finish(id, Keyword.merge(metadata, status: "failed", failure_reason: reason)),
       else: {:error, :invalid_reason}
   end
 
-  def fail(_, _), do: {:error, :invalid_reason}
+  def fail(_, _, _), do: {:error, :invalid_reason}
 
   defp valid_text?(text) do
     # Extracted text must be valid UTF-8 before it is persisted.
@@ -100,7 +104,11 @@ defmodule Lens.Earnings.Extractions do
   end
 
   defp finish(id, fields) do
-    fields = Keyword.put(fields, :finished_at, DateTime.utc_now())
+    fields =
+      fields
+      |> Keyword.take([:status, :text, :failure_reason, :extractor_version])
+      |> Keyword.put(:finished_at, DateTime.utc_now())
+
     query = from(e in Extraction, where: e.id == ^id and e.status == "pending", select: e)
 
     case Repo.update_all(query, set: fields) do

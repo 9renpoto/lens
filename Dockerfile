@@ -17,6 +17,7 @@ RUN mix deps.get --only prod \
 COPY config config
 COPY lib lib
 COPY priv priv
+COPY rel rel
 
 RUN mix compile \
     && mix release
@@ -24,7 +25,7 @@ RUN mix compile \
 FROM debian:bookworm-20260824-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates curl libncurses5 libstdc++6 openssl \
+    && apt-get install --no-install-recommends -y ca-certificates curl libncurses5 libstdc++6 openssl python3 poppler-utils poppler-data \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system lens \
     && useradd --system --gid lens --home-dir /app lens

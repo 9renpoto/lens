@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+release_bin="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lens"
+exec "$release_bin" eval 'Lens.Earnings.ReleaseCLI.main(System.argv())' -- "$@"
