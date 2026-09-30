@@ -1,5 +1,4 @@
 ExUnit.start()
-Code.compile_file("lib/lens/earnings/pdf_extractor.ex")
 
 defmodule PDFAdapterCheck do
   use ExUnit.Case
@@ -179,6 +178,68 @@ defmodule PDFAdapterCheck do
       )
 
     for result <- results, do: assert(result == {:ok, {:ok, expected}})
+  end
+
+  test "missing Poppler and unlaunchable helper fail closed" do
+    assert {:error, %{reason: "extractor_unavailable"}} =
+             PDFExtractor.extract("pdf", helper: Path.expand("priv/pdf_runner"), executable: nil)
+
+    root = Path.join(System.tmp_dir!(), Ecto.UUID.generate())
+    File.mkdir!(root)
+    helper = Path.join(root, "helper")
+    File.write!(helper, "not executable")
+
+    try do
+      assert {:error, %{reason: "process_error"}} = PDFExtractor.extract("pdf", helper: helper)
+    after
+      File.rm_rf!(root)
+    end
+  end
+
+  test "success without output metadata is rejected and enumerated failure is preserved" do
+    root = Path.join(System.tmp_dir!(), Ecto.UUID.generate())
+    File.mkdir!(root)
+    helper = Path.join(root, "helper")
+    File.chmod!(root, 0o700)
+
+    try do
+      for {record, reason} <- [{"ok", "process_error"}, {"timeout", "timeout"}] do
+        File.write!(helper, "#!/bin/sh\necho " <> record <> "\n")
+        File.chmod!(helper, 0o700)
+        assert {:error, %{reason: ^reason}} = PDFExtractor.extract("pdf", helper: helper)
+      end
+    after
+      File.rm_rf!(root)
+    end
+  end
+
+  test "invalid version bytes retain reference replacement for every UTF-8 lead width" do
+    root = Path.join(System.tmp_dir!(), Ecto.UUID.generate())
+    File.mkdir!(root)
+    executable = Path.join(root, "extractor")
+    payload = Path.join(root, "version")
+
+    File.write!(
+      executable,
+      "#!/bin/sh\nif [ \"$1\" = -v ]; then cat '" <>
+        payload <> "'; exit 0; fi\nprintf text > \"$7\"\n"
+    )
+
+    File.chmod!(executable, 0o700)
+
+    try do
+      for bytes <- [<<0xF0, 0x90>>, <<0xF4, 0x8F>>, <<0xF1, 0x80>>, <<255>>] do
+        File.write!(payload, bytes)
+
+        assert {:ok, %{version: "�"}} =
+                 PDFExtractor.extract("pdf",
+                   helper: Path.expand("priv/pdf_runner"),
+                   executable: executable
+                 )
+      end
+    after
+      File.rm_rf!(root)
+    end
   end
 
   test "missing native helper fails closed" do
