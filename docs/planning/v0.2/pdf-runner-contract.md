@@ -83,22 +83,36 @@ version files and emits one ASCII status record of at most 256 bytes on stdout
 after cleanup. A single enumerated status maps to the existing failure codes;
 unknown/duplicate/oversized records or helper nonzero exit map to
 `process_error`. The adapter checks file size before reading, limits text to
-8,388,608 bytes and version to the existing 2048-byte decoded prefix, and
-rejects inconsistent metadata. The status record must never contain PDF text or
+the caller's text-byte limit and rejects inconsistent metadata. The version file
+contains at most the first 2048 raw probe-log bytes. Decode that prefix with
+UTF-8 replacement, then trim using Python-compatible whitespace semantics.
+The decoded UTF-8 value may occupy up to 6144 bytes; do not truncate it again. The status record must never contain PDF text or
 diagnostics. The adapter deletes the directory after helper termination.
 Version metadata remains the Poppler `-v` output, not a helper version.
 
 New hardening: use an outer monotonic budget of
 `min(timeout_ms, 2000) + timeout_ms + 2000` ms from helper start. The extra
-2000 ms covers startup/cleanup, not additional Poppler execution. On owner
-termination, protocol violation or outer expiry, request cancellation through
-the Port; the helper must observe pipe closure and kill/reap its active group.
-The adapter must confirm helper termination before returning. If pipe closure
-does not enforce this in Linux tests, #93 must add an explicit group-signal
-control path before #94 removes Python. Do not claim that VM SIGKILL, kernel
-uninterruptible sleep or a child that escapes its group is covered. Ordinary
-phase timeouts retain `timeout`; an outer deadline caused by a stuck helper
-maps to `process_error` after confirmed cleanup, since it is a runner failure.
+2000 ms covers startup/cleanup, not additional Poppler execution. A dedicated
+supervision worker owns the Port and monitors the caller; it survives caller
+termination long enough to finish cancellation and directory cleanup. On caller
+termination, protocol violation or outer expiry, send a fixed cancellation
+command on helper stdin while keeping the Port open with `exit_status` enabled.
+The helper monitors cancellation concurrently with child waiting, kills its
+active group and reaps its direct child before exiting. Do not treat Port
+closure, EOF or a Port monitor notification as proof of OS helper termination;
+the worker waits for the helper's `exit_status` before deleting files or returning.
+
+Cancellation and exit confirmation must fit within the outer budget; reserve
+cleanup time rather than starting another unbounded wait after expiry. #93 must
+prove cancellation during both phases, caller death, malformed responses and an
+unresponsive helper. If the helper cannot respond, an independent, bounded OS
+control path must terminate the active group and helper and confirm termination;
+its process identities must be recorded before Poppler executes. Specify and
+test that path in #93 before accepting the replacement. Failure to prove it
+stops #94; closing the Port alone is not an acceptable fallback. Do not claim
+that VM SIGKILL, kernel uninterruptible sleep or a child that escapes its group
+is covered. Ordinary phase timeouts retain `timeout`; an outer deadline caused
+by a stuck helper maps to `process_error` after confirmed cleanup.
 
 The production release target is Linux amd64, matching the current GitHub
 Actions image build. Build and link the helper in the builder stage against
@@ -199,19 +213,30 @@ UTF-8不正・NULは `invalid_text`、Unicode空白のみは `empty_output`。
 固定パスを渡す。ヘルパーは本文と版をファイルへ書き、後始末の完了後に256 bytes以内の
 ASCII状態レコード1件だけをstdoutへ出す。列挙状態を既存失敗コードへ対応し、未知・重複・
 過大レコード、ヘルパー非ゼロ終了は `process_error`。アダプターは読み込み前にサイズを調べ、
-本文8388608 bytes、版は従来のデコード済み先頭2048 bytesに制限し、不整合を拒否する。
+本文は呼出元のバイト上限に制限し、不整合を拒否する。版ファイルには版確認ログの
+生データ先頭2048 bytesまでを保存する。その先頭部分をUTF-8置換デコードしてから、
+Python互換の空白規則でtrimする。デコード後のUTF-8値は最大6144 bytesになり得るため、
+再度切り捨てない。
 状態レコードにPDF本文・診断を含めず、ヘルパー終了後にディレクトリを削除する。
 保存版はヘルパー版ではなくPoppler `-v` の結果。
 
 新しい強化として、ヘルパー起動から
 `min(timeout_ms, 2000) + timeout_ms + 2000` msの単調時計による外側期限を設定。
-追加2000 msは起動・後始末用でPopplerの実行延長ではない。呼出元終了、通信違反、外側期限で
-Portから取消を要求し、ヘルパーはpipe閉鎖を検出して実行中の群を終了・回収する。
-アダプターはヘルパー終了を確認してから返す。Linuxテストでpipe閉鎖が十分でなければ、
-#93は#94のPython削除前に明示的な群シグナル制御を追加する。
-VM SIGKILL、kernelの割込み不能待機、別群へ移動した子孫は対象外。
-通常の処理期限は `timeout`、ヘルパー自身の停止による外側期限は後始末確認後
-`process_error` とする。
+追加2000 msは起動・後始末用でPopplerの実行延長ではない。専用の監督workerが
+Portを所有して呼出元を監視し、呼出元終了後も取消とディレクトリ削除を完了するまで存続する。
+呼出元終了、通信違反、外側期限では、`exit_status` を有効にしたPortを開いたまま、
+ヘルパーstdinへ固定の取消コマンドを送る。ヘルパーは子のwaitと並行して取消を監視し、
+実行中の群を終了して直接の子を回収してから終了する。Port閉鎖、EOF、Portの監視通知を
+OSヘルパー終了の証拠とせず、workerはヘルパーの `exit_status` を待ってからファイル削除・返却する。
+
+取消と終了確認は外側期限内に収める。期限後に無期限のwaitを始めず、後始末時間を確保する。
+#93では両段階の取消、呼出元終了、不正応答、応答しないヘルパーを検証する。
+ヘルパーが応答できない場合は、独立した期限付きOS制御経路で実行中の群とヘルパーを
+終了し、終了を確認する必要がある。対象のプロセス識別情報はPoppler実行前に記録する。
+#93でこの経路を具体化・検証してから置換を受け入れる。実証できなければ#94を停止し、
+Port閉鎖だけをfallbackにしない。VM SIGKILL、kernelの割込み不能待機、別群へ移動した
+子孫は対象外。通常の処理期限は `timeout`、ヘルパー自身の停止による外側期限は
+後始末確認後 `process_error` とする。
 
 本番release対象は現行GitHub Actionsビルドと同じLinux amd64。builderでruntimeの
 glibcに合わせてリンクし、バイナリだけをreleaseへコピーし、非特権`lens`ユーザーで

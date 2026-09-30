@@ -158,8 +158,9 @@ Popplerと `Lens.Earnings.PDFExtractor.extract/2` を境界に保ち、原本・
 
 ## 根拠と影響
 
-ランナー、PDFExtractor、Processing、Extractions、Python・Processingテスト、
-Dockerfile、CI、運用資料を読んだ。Linux x86_64のoffline環境で既存ランナー9試験が成功し、
+`priv/pdf_runner.py`、`lib/lens/earnings/pdf_extractor.ex`、
+`processing.ex`、`extractions.ex`、`test/pdf_runner_test.py`、processing tests、
+`Dockerfile`、CI、`docs/earnings-extraction.md` を読んだ。Linux x86_64のoffline環境で既存ランナー9試験が成功し、
 使い捨てprobeで本文上限・超過優先・本文なし・不正本文・版確認失敗を確認した。
 置換実装、性能測定、新規回帰試験は行っていない。
 [OTP 27 Port API](https://www.erlang.org/docs/27/apps/erts/erlang.html#open_port/2)は通信の説明であり、
