@@ -55,10 +55,14 @@ death, outer deadline, protocol violations, invalid text and concurrent runs.
 The top PR reruns the checks after removing Python installs and reference tests.
 The checked-in PDFs are unchanged. ReportLab regeneration is developer-only.
 
-To reproduce the developer-only comparison, first restore the reference outside
-the runtime source tree:
+To reproduce the developer-only comparison on Linux amd64, install a C compiler,
+Elixir 1.18.3/OTP 27, Python 3 and Poppler/poppler-data. Compile the application
+and native helper, then restore the reference outside the runtime source tree:
 
 ```sh
+MIX_ENV=test mix deps.get
+MIX_ENV=test mix compile --warnings-as-errors
+cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner
 git show 1466dcd:priv/pdf_runner.py > /tmp/lens-reference-pdf-runner.py
 git show c041647:lib/lens/earnings/pdf_extractor.ex | sed -e 's/Lens.Earnings.PDFExtractor/PDFReferenceExtractor/g' -e 's@Application.app_dir(:lens, "priv/pdf_runner.py")@System.fetch_env!("PDF_REFERENCE_RUNNER")@' > /tmp/lens-reference-pdf-extractor.ex
 PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
@@ -116,9 +120,13 @@ endpoint・収集schedulerは起動せず発行元通信もできない。本番
 native/adapter検証は呼出元終了、外側期限、不正通信、本文不正、並行実行を含む。
 上段PRでPython導入設定と旧テストを削除した後に再実行する。コミット済みPDFは不変、ReportLabは開発用のみ。
 
-任意の比較では旧ランナーをruntimeソース外へ復元する。
+任意比較はLinux amd64、Cコンパイラー、Elixir 1.18.3/OTP 27、Python 3、Poppler/poppler-dataで実行する。
+アプリとnativeヘルパーをビルドしてから、旧ランナーをruntimeソース外へ復元する。
 
 ```sh
+MIX_ENV=test mix deps.get
+MIX_ENV=test mix compile --warnings-as-errors
+cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner
 git show 1466dcd:priv/pdf_runner.py > /tmp/lens-reference-pdf-runner.py
 git show c041647:lib/lens/earnings/pdf_extractor.ex | sed -e 's/Lens.Earnings.PDFExtractor/PDFReferenceExtractor/g' -e 's@Application.app_dir(:lens, "priv/pdf_runner.py")@System.fetch_env!("PDF_REFERENCE_RUNNER")@' > /tmp/lens-reference-pdf-extractor.ex
 PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
