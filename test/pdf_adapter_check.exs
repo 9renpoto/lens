@@ -141,6 +141,46 @@ defmodule PDFAdapterCheck do
     end
   end
 
+  test "version replacement groups incomplete UTF-8 like the reference runner" do
+    root = Path.join(System.tmp_dir!(), Ecto.UUID.generate())
+    File.mkdir!(root)
+    executable = Path.join(root, "extractor")
+    payload = Path.join(root, "version")
+    File.write!(payload, <<"fixture ", 0xE3, 0x81>>)
+
+    File.write!(
+      executable,
+      "#!/bin/sh\nif [ \"$1\" = -v ]; then cat '" <>
+        payload <> "'; exit 0; fi\nprintf text > \"$7\"\n"
+    )
+
+    File.chmod!(executable, 0o700)
+
+    try do
+      assert {:ok, %{version: "fixture �"}} =
+               PDFExtractor.extract("pdf",
+                 helper: Path.expand("priv/pdf_runner"),
+                 executable: executable
+               )
+    after
+      File.rm_rf!(root)
+    end
+  end
+
+  test "concurrent extractions keep independent files and exact bytes" do
+    pdf = File.read!("test/fixtures/earnings-text.pdf")
+    {:ok, expected} = PDFExtractor.extract(pdf, helper: Path.expand("priv/pdf_runner"))
+
+    results =
+      Task.async_stream(
+        1..12,
+        fn _ -> PDFExtractor.extract(pdf, helper: Path.expand("priv/pdf_runner")) end,
+        max_concurrency: 6
+      )
+
+    for result <- results, do: assert(result == {:ok, {:ok, expected}})
+  end
+
   test "missing native helper fails closed" do
     assert {:error, %{reason: "extractor_unavailable", version: "unavailable"}} =
              PDFExtractor.extract("pdf", helper: nil, executable: "/usr/bin/true")

@@ -42,13 +42,13 @@ static int phase(char *const args[], const char *log, long milliseconds, long by
             bound(RLIMIT_CPU, (milliseconds + 999) / 1000) ||
             bound(RLIMIT_FSIZE, (rlim_t)bytes + 1)) {
             int error = EIO;
-            (void)write(errors[1], &error, sizeof(error));
+            if (write(errors[1], &error, sizeof(error)) != sizeof(error)) _exit(126);
             _exit(126);
         }
         close(input); close(fd);
         execv(args[0], args);
         int error = errno;
-        (void)write(errors[1], &error, sizeof(error));
+        if (write(errors[1], &error, sizeof(error)) != sizeof(error)) _exit(126);
         _exit(127);
     }
     close(fd); close(errors[1]);

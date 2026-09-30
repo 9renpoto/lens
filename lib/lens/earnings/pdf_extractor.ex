@@ -136,11 +136,15 @@ defmodule Lens.Earnings.PDFExtractor do
   defp decode("ok\n", text_path, version_path, limit) do
     version = read_version(version_path)
 
-    case File.stat(text_path) do
-      {:ok, %{type: :regular, size: size}} when size <= limit ->
-        text = File.read!(text_path)
+    case {File.lstat(text_path), File.lstat(version_path)} do
+      {{:ok, %{type: :regular, size: size}}, {:ok, %{type: :regular, size: version_size}}}
+      when size <= limit and version_size <= 2048 ->
+        text = bounded_read!(text_path, limit)
 
         cond do
+          byte_size(text) > limit ->
+            failure("process_error", version)
+
           not String.valid?(text) or String.contains?(text, <<0>>) ->
             failure("invalid_text", version)
 
@@ -165,13 +169,35 @@ defmodule Lens.Earnings.PDFExtractor do
   end
 
   defp read_version(path) do
-    case File.stat(path) do
+    case File.lstat(path) do
       {:ok, %{type: :regular, size: size}} when size <= 2048 ->
-        path |> File.read!() |> replace_invalid_utf8() |> String.trim()
+        path |> bounded_read!(2048) |> replace_invalid_utf8() |> trim_whitespace()
 
       _ ->
         "unavailable"
     end
+  end
+
+  defp bounded_read!(path, limit) do
+    {:ok, text} =
+      File.open(path, [:read, :binary], fn file ->
+        case IO.binread(file, limit + 1) do
+          :eof -> ""
+          data when is_binary(data) -> data
+        end
+      end)
+
+    text
+  end
+
+  defp trim_whitespace(text) do
+    text
+    |> String.to_charlist()
+    |> Enum.drop_while(&whitespace?/1)
+    |> Enum.reverse()
+    |> Enum.drop_while(&whitespace?/1)
+    |> Enum.reverse()
+    |> List.to_string()
   end
 
   defp replace_invalid_utf8(<<>>), do: ""
@@ -179,16 +205,34 @@ defmodule Lens.Earnings.PDFExtractor do
   defp replace_invalid_utf8(<<point::utf8, rest::binary>>),
     do: <<point::utf8>> <> replace_invalid_utf8(rest)
 
-  defp replace_invalid_utf8(<<_byte, rest::binary>>), do: "�" <> replace_invalid_utf8(rest)
+  defp replace_invalid_utf8(<<lead, rest::binary>>) do
+    {continuations, low, high} =
+      cond do
+        lead in 0xC2..0xDF -> {1, 0x80, 0xBF}
+        lead == 0xE0 -> {2, 0xA0, 0xBF}
+        lead == 0xED -> {2, 0x80, 0x9F}
+        lead in 0xE1..0xEF -> {2, 0x80, 0xBF}
+        lead == 0xF0 -> {3, 0x90, 0xBF}
+        lead == 0xF4 -> {3, 0x80, 0x8F}
+        lead in 0xF1..0xF3 -> {3, 0x80, 0xBF}
+        true -> {0, 0, 0}
+      end
 
-  defp blank?(text) do
-    text
-    |> String.to_charlist()
-    |> Enum.all?(fn point ->
-      point in 9..13 or point in 28..32 or
-        point in [0x85, 0xA0, 0x1680, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000] or
-        point in 0x2000..0x200A
-    end)
+    "�" <> replace_invalid_utf8(skip_invalid_prefix(rest, continuations, low, high))
+  end
+
+  defp skip_invalid_prefix(<<byte, rest::binary>>, remaining, low, high)
+       when remaining > 0 and byte >= low and byte <= high,
+       do: skip_invalid_prefix(rest, remaining - 1, 0x80, 0xBF)
+
+  defp skip_invalid_prefix(rest, _remaining, _low, _high), do: rest
+
+  defp blank?(text), do: text |> String.to_charlist() |> Enum.all?(&whitespace?/1)
+
+  defp whitespace?(point) do
+    point in 9..13 or point in 28..32 or
+      point in [0x85, 0xA0, 0x1680, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000] or
+      point in 0x2000..0x200A
   end
 
   defp failure(reason, version \\ "unavailable"),
