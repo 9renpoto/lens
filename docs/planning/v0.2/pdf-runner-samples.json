@@ -1,237 +1,240 @@
 {
   "summary": {
     "old_ms": {
-      "median": 53.852,
-      "p95": 58.812
+      "median": 52.772,
+      "p95": 60.439
     },
     "new_ms": {
-      "median": 21.419,
-      "p95": 22.441
+      "median": 21.107,
+      "p95": 27.127
     },
     "old_start_ms": {
-      "median": 26.72,
-      "p95": 30.674
+      "median": 26.155,
+      "p95": 27.838
     },
     "new_start_ms": {
-      "median": 1.347,
-      "p95": 2.146
+      "median": 1.331,
+      "p95": 1.464
     }
   },
   "samples": [
     {
       "iteration": 1,
-      "old_ms": 53.322,
-      "new_ms": 21.256,
-      "old_start_ms": 27.241,
-      "new_start_ms": 1.413
+      "old_ms": 52.575,
+      "new_ms": 21.358,
+      "old_start_ms": 25.263,
+      "new_start_ms": 1.251
     },
     {
       "iteration": 2,
-      "old_ms": 58.359,
-      "new_ms": 21.419,
-      "old_start_ms": 26.424,
-      "new_start_ms": 1.459
+      "old_ms": 52.027,
+      "new_ms": 20.471,
+      "old_start_ms": 28.399,
+      "new_start_ms": 1.33
     },
     {
       "iteration": 3,
-      "old_ms": 54.004,
-      "new_ms": 23.157,
-      "old_start_ms": 26.354,
-      "new_start_ms": 1.403
+      "old_ms": 84.783,
+      "new_ms": 27.127,
+      "old_start_ms": 25.493,
+      "new_start_ms": 1.355
     },
     {
       "iteration": 4,
-      "old_ms": 52.56,
-      "new_ms": 21.521,
-      "old_start_ms": 25.908,
-      "new_start_ms": 1.362
-    },
-    {
-      "iteration": 5,
-      "old_ms": 58.029,
-      "new_ms": 22.0,
-      "old_start_ms": 27.296,
-      "new_start_ms": 1.198
-    },
-    {
-      "iteration": 6,
-      "old_ms": 50.885,
-      "new_ms": 21.592,
-      "old_start_ms": 26.974,
-      "new_start_ms": 1.425
-    },
-    {
-      "iteration": 7,
-      "old_ms": 52.338,
-      "new_ms": 21.073,
-      "old_start_ms": 26.769,
-      "new_start_ms": 1.467
-    },
-    {
-      "iteration": 8,
-      "old_ms": 53.324,
-      "new_ms": 22.441,
-      "old_start_ms": 27.266,
-      "new_start_ms": 1.433
-    },
-    {
-      "iteration": 9,
-      "old_ms": 52.553,
-      "new_ms": 21.73,
-      "old_start_ms": 26.086,
-      "new_start_ms": 1.295
-    },
-    {
-      "iteration": 10,
-      "old_ms": 56.423,
-      "new_ms": 20.218,
-      "old_start_ms": 25.959,
-      "new_start_ms": 1.248
-    },
-    {
-      "iteration": 11,
-      "old_ms": 52.403,
-      "new_ms": 22.177,
-      "old_start_ms": 26.58,
-      "new_start_ms": 1.314
-    },
-    {
-      "iteration": 12,
-      "old_ms": 52.205,
-      "new_ms": 22.171,
-      "old_start_ms": 28.125,
-      "new_start_ms": 1.399
-    },
-    {
-      "iteration": 13,
-      "old_ms": 50.358,
-      "new_ms": 22.036,
-      "old_start_ms": 26.543,
+      "old_ms": 51.071,
+      "new_ms": 21.872,
+      "old_start_ms": 26.705,
       "new_start_ms": 1.282
     },
     {
+      "iteration": 5,
+      "old_ms": 50.908,
+      "new_ms": 22.222,
+      "old_start_ms": 25.963,
+      "new_start_ms": 1.239
+    },
+    {
+      "iteration": 6,
+      "old_ms": 57.486,
+      "new_ms": 20.186,
+      "old_start_ms": 25.518,
+      "new_start_ms": 1.295
+    },
+    {
+      "iteration": 7,
+      "old_ms": 60.141,
+      "new_ms": 22.232,
+      "old_start_ms": 26.138,
+      "new_start_ms": 1.376
+    },
+    {
+      "iteration": 8,
+      "old_ms": 59.434,
+      "new_ms": 20.949,
+      "old_start_ms": 25.704,
+      "new_start_ms": 1.277
+    },
+    {
+      "iteration": 9,
+      "old_ms": 56.914,
+      "new_ms": 22.125,
+      "old_start_ms": 26.155,
+      "new_start_ms": 1.352
+    },
+    {
+      "iteration": 10,
+      "old_ms": 52.531,
+      "new_ms": 21.089,
+      "old_start_ms": 26.373,
+      "new_start_ms": 1.296
+    },
+    {
+      "iteration": 11,
+      "old_ms": 59.501,
+      "new_ms": 20.79,
+      "old_start_ms": 25.603,
+      "new_start_ms": 1.393
+    },
+    {
+      "iteration": 12,
+      "old_ms": 58.786,
+      "new_ms": 20.407,
+      "old_start_ms": 25.85,
+      "new_start_ms": 1.461
+    },
+    {
+      "iteration": 13,
+      "old_ms": 51.836,
+      "new_ms": 21.457,
+      "old_start_ms": 26.177,
+      "new_start_ms": 1.433
+    },
+    {
       "iteration": 14,
-      "old_ms": 57.493,
-      "new_ms": 21.664,
-      "old_start_ms": 29.4,
-      "new_start_ms": 1.36
+      "old_ms": 60.439,
+      "new_ms": 22.002,
+      "old_start_ms": 26.637,
+      "new_start_ms": 1.412
     },
     {
       "iteration": 15,
-      "old_ms": 53.852,
-      "new_ms": 21.004,
-      "old_start_ms": 26.202,
-      "new_start_ms": 1.359
+      "old_ms": 58.655,
+      "new_ms": 27.612,
+      "old_start_ms": 27.613,
+      "new_start_ms": 1.343
     },
     {
       "iteration": 16,
-      "old_ms": 51.688,
-      "new_ms": 19.82,
-      "old_start_ms": 42.264,
-      "new_start_ms": 2.224
+      "old_ms": 53.404,
+      "new_ms": 22.491,
+      "old_start_ms": 26.082,
+      "new_start_ms": 1.161
     },
     {
       "iteration": 17,
-      "old_ms": 71.492,
-      "new_ms": 22.146,
-      "old_start_ms": 27.651,
-      "new_start_ms": 1.094
+      "old_ms": 52.292,
+      "new_ms": 20.951,
+      "old_start_ms": 26.238,
+      "new_start_ms": 1.308
     },
     {
       "iteration": 18,
-      "old_ms": 54.109,
-      "new_ms": 20.456,
-      "old_start_ms": 27.119,
-      "new_start_ms": 1.405
+      "old_ms": 55.535,
+      "new_ms": 20.73,
+      "old_start_ms": 26.047,
+      "new_start_ms": 1.249
     },
     {
       "iteration": 19,
-      "old_ms": 58.142,
-      "new_ms": 20.902,
-      "old_start_ms": 26.72,
-      "new_start_ms": 2.146
+      "old_ms": 52.654,
+      "new_ms": 20.934,
+      "old_start_ms": 27.838,
+      "new_start_ms": 1.261
     },
     {
       "iteration": 20,
-      "old_ms": 57.376,
-      "new_ms": 21.9,
-      "old_start_ms": 26.923,
-      "new_start_ms": 1.237
+      "old_ms": 52.215,
+      "new_ms": 20.841,
+      "old_start_ms": 26.25,
+      "new_start_ms": 1.408
     },
     {
       "iteration": 21,
-      "old_ms": 58.303,
-      "new_ms": 21.831,
-      "old_start_ms": 26.505,
-      "new_start_ms": 1.347
+      "old_ms": 52.848,
+      "new_ms": 20.62,
+      "old_start_ms": 26.479,
+      "new_start_ms": 1.331
     },
     {
       "iteration": 22,
-      "old_ms": 56.838,
-      "new_ms": 20.947,
-      "old_start_ms": 25.492,
-      "new_start_ms": 1.151
+      "old_ms": 52.457,
+      "new_ms": 20.078,
+      "old_start_ms": 26.367,
+      "new_start_ms": 1.297
     },
     {
       "iteration": 23,
-      "old_ms": 56.923,
-      "new_ms": 22.078,
-      "old_start_ms": 26.471,
-      "new_start_ms": 1.178
+      "old_ms": 57.076,
+      "new_ms": 22.255,
+      "old_start_ms": 25.475,
+      "new_start_ms": 1.352
     },
     {
       "iteration": 24,
-      "old_ms": 52.103,
-      "new_ms": 20.312,
-      "old_start_ms": 26.417,
-      "new_start_ms": 1.116
+      "old_ms": 51.583,
+      "new_ms": 22.254,
+      "old_start_ms": 26.267,
+      "new_start_ms": 1.464
     },
     {
       "iteration": 25,
-      "old_ms": 50.43,
-      "new_ms": 20.675,
-      "old_start_ms": 26.793,
-      "new_start_ms": 1.162
+      "old_ms": 52.772,
+      "new_ms": 20.453,
+      "old_start_ms": 25.732,
+      "new_start_ms": 1.451
     },
     {
       "iteration": 26,
-      "old_ms": 56.912,
-      "new_ms": 20.772,
-      "old_start_ms": 30.674,
-      "new_start_ms": 1.386
+      "old_ms": 60.226,
+      "new_ms": 22.555,
+      "old_start_ms": 26.406,
+      "new_start_ms": 1.308
     },
     {
       "iteration": 27,
-      "old_ms": 51.657,
-      "new_ms": 22.376,
-      "old_start_ms": 26.494,
-      "new_start_ms": 1.212
+      "old_ms": 52.551,
+      "new_ms": 20.48,
+      "old_start_ms": 25.887,
+      "new_start_ms": 1.496
     },
     {
       "iteration": 28,
-      "old_ms": 57.973,
-      "new_ms": 20.134,
-      "old_start_ms": 26.23,
-      "new_start_ms": 1.179
+      "old_ms": 56.85,
+      "new_ms": 22.015,
+      "old_start_ms": 27.275,
+      "new_start_ms": 1.332
     },
     {
       "iteration": 29,
-      "old_ms": 52.692,
-      "new_ms": 21.181,
-      "old_start_ms": 27.805,
-      "new_start_ms": 1.341
+      "old_ms": 51.966,
+      "new_ms": 21.15,
+      "old_start_ms": 26.044,
+      "new_start_ms": 1.294
     },
     {
       "iteration": 30,
-      "old_ms": 58.812,
-      "new_ms": 21.247,
-      "old_start_ms": 27.275,
-      "new_start_ms": 1.363
+      "old_ms": 52.119,
+      "new_ms": 21.107,
+      "old_start_ms": 26.57,
+      "new_start_ms": 1.449
     }
   ],
   "environment": {
     "poppler": "pdftotext version 22.12.0\nCopyright 2005-2022 The Poppler Developers - http://poppler.freedesktop.org\nCopyright 1996-2011, 2022 Glyph & Cog, LLC\n",
     "architecture": "x86_64-pc-linux-gnu"
   },
-  "warmup_runs": 5
+  "warmup_runs": 5,
+  "helper_sha256": "96d41170dcc56d85e318d90eb2e0d6d1016a0e9ac45d634239af4c14e24c3267",
+  "helper_image": "sha256:3a0cd4e7c07de0b1b08e6cd2f387f2fb95fe9a2a389395e53f1f1a6edfc80517",
+  "implementation_commit": "9d9b60f"
 }

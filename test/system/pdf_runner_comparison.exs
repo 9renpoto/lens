@@ -115,6 +115,7 @@ report = %{
     architecture: to_string(:erlang.system_info(:system_architecture)),
     poppler: elem(System.cmd(poppler, ["-v"], stderr_to_stdout: true), 0)
   },
+  helper_sha256: Base.encode16(:crypto.hash(:sha256, File.read!(helper)), case: :lower),
   warmup_runs: 5
 }
 

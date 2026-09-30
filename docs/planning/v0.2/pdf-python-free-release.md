@@ -16,8 +16,8 @@ Raw samples: [pdf-runner-samples.json](pdf-runner-samples.json).
 
 | Milliseconds | Python median / p95 | Native median / p95 |
 | --- | --- | --- |
-| End-to-end small PDF | 53.852 / 58.812 | 21.419 / 22.441 |
-| Startup to argument rejection | 26.720 / 30.674 | 1.347 / 2.146 |
+| End-to-end small PDF | 52.772 / 60.439 | 21.107 / 27.127 |
+| Startup to argument rejection | 26.155 / 27.838 | 1.331 / 1.464 |
 
 Startup measures invocation and invalid-argument rejection, not Poppler work.
 The small-fixture sample is not a throughput or large-document benchmark. The
@@ -25,13 +25,13 @@ contract's material p95 regression threshold is not crossed in this sample.
 C source, compiler build and process-control maintenance replace the runtime
 Python package; no new runtime package or process library is added.
 
-Same pinned bases, Linux amd64 Dockerfiles and application source: the image
-with Python was 184737080 bytes (`79592679be9b`), and the candidate without
-Python was 151150001 bytes (`5a41bb93bb9b`), a 33587079-byte reduction. These
-are local uncompressed image sizes, not registry transfer sizes. The candidate
-was built before removing the reference `.py` source; the final source build
-passed the same offline CLI/history checks: `2c2b183663f0`, 151146151 bytes. The candidate runs as uid/gid 999 (`lens`) and has no
-`python3` executable. Real Japanese extraction passed with network disabled.
+Same pinned bases and application source after the subreaper correction, Linux
+amd64: Python-installed comparison image `ef1cd85413aa` is 184733736 bytes;
+Python-free release `3a0cd4e7c07d` is 151146657 bytes, a 33587079-byte reduction.
+These are local uncompressed sizes, not registry transfer sizes. The packaged
+release helper itself was used for the measurements above; its SHA-256 and
+image identity are in the raw sample artifact. It runs as uid/gid 999 (`lens`),
+has no Python/reference runner and passed the offline CLI/history check again.
 
 ## Persistence and checks
 
@@ -82,18 +82,18 @@ Poppler 22.12.0。5回ウォームアップ後、小型PDFを旧・新交互に�
 
 | ms | Python 中央値 / p95 | Native 中央値 / p95 |
 | --- | --- | --- |
-| 小型PDF全体 | 53.852 / 58.812 | 21.419 / 22.441 |
-| 起動から不正引数拒否 | 26.720 / 30.674 | 1.347 / 2.146 |
+| 小型PDF全体 | 52.772 / 60.439 | 21.107 / 27.127 |
+| 起動から不正引数拒否 | 26.155 / 27.838 | 1.331 / 1.464 |
 
 起動測定は引数拒否まででPoppler処理ではない。小型標本であり、大規模・throughputの性能保証ではない。
 契約のp95悪化しきい値は超えていない。Cソース、コンパイル、プロセス制御の保守が増えるが、
 新しいruntimeパッケージ・ライブラリーは追加しない。
 
-同じ固定ベース・Linux amd64・アプリソースで、Python入り184737080 bytes
-(`79592679be9b`)、Pythonなし候補151150001 bytes (`5a41bb93bb9b`)。
-33587079 bytes削減。ローカル非圧縮容量でregistry転送量ではない。
-候補は旧 `.py` 削除前に作り、最終ソースも同じoffline CLI/履歴を検証した：`2c2b183663f0`、151146151 bytes。
-uid/gid 999 (`lens`)、`python3` 不在、通信なし実日本語抽出が成功。
+subreaper修正後の同じ固定ベース・アプリソース・Linux amd64で比較。
+Python入り `ef1cd85413aa` は184733736 bytes、Pythonなしrelease `3a0cd4e7c07d` は
+151146657 bytes。33587079 bytes削減。ローカル非圧縮容量でregistry転送量ではない。
+上記測定は実release同梱のヘルパーを使用し、SHA-256とイメージ識別を生データに記録。
+uid/gid 999 (`lens`)、Python・旧ランナー不在で、offline CLI/履歴の再検証も成功。
 
 ## 保存と検証
 
