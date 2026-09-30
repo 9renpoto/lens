@@ -11,9 +11,13 @@ measure = fn operation ->
   {result, (System.monotonic_time(:microsecond) - started) / 1000}
 end
 
+Code.compile_file(System.fetch_env!("PDF_REFERENCE_ADAPTER"))
+
 old = fn source ->
-  {json, 0} = System.cmd("python3", [reference, poppler, source, "20", "8388608"])
-  Jason.decode!(json)
+  case PDFReferenceExtractor.extract(File.read!(source), executable: poppler) do
+    {:ok, value} -> %{"text" => value.text, "version" => value.version}
+    {:error, value} -> %{"failure" => value.reason, "version" => value.version}
+  end
 end
 
 new = fn source ->
@@ -127,6 +131,10 @@ report = %{
     architecture: to_string(:erlang.system_info(:system_architecture)),
     poppler: elem(System.cmd(poppler, ["-v"], stderr_to_stdout: true), 0)
   },
+  reference_adapter_sha256:
+    Base.encode16(:crypto.hash(:sha256, File.read!(System.fetch_env!("PDF_REFERENCE_ADAPTER"))),
+      case: :lower
+    ),
   helper_sha256: Base.encode16(:crypto.hash(:sha256, File.read!(helper)), case: :lower),
   warmup_runs: 5
 }

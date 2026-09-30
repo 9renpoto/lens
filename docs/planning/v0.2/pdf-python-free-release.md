@@ -12,12 +12,16 @@ interleaved old/new small-PDF runs. Japanese/paragraph and image-only fixtures
 and seven boundary cases matched exactly (text, version and failure reason).
 The boundary cases include exactly-at-limit, overflow before nonzero exit,
 nonzero with small valid text, absent output, blank text, NUL and invalid UTF-8.
-Raw samples: [pdf-runner-samples.json](pdf-runner-samples.json).
+Both sides call their `extract/2` adapter boundary, including the same input
+read, private input-file lifecycle and result decoding. The old adapter is
+restored from `c041647`, changing only its module name to `PDFReferenceExtractor`
+and the reference runner path for coexistence. Raw samples and adapter/binary
+identities: [pdf-runner-samples.json](pdf-runner-samples.json).
 
 | Milliseconds | Python median / p95 | Native median / p95 |
 | --- | --- | --- |
-| End-to-end small PDF | 52.810 / 60.439 | 21.1285 / 27.127 |
-| Startup to argument rejection | 26.166 / 27.838 | 1.3315 / 1.464 |
+| End-to-end small PDF | 54.1325 / 59.512 | 20.812 / 21.901 |
+| Startup to argument rejection | 26.347 / 34.937 | 1.2245 / 1.542 |
 
 For the 30 samples, median averages the two middle observations; p95 uses
 nearest rank. Startup measures invocation and invalid-argument rejection, not Poppler work.
@@ -56,7 +60,8 @@ the runtime source tree:
 
 ```sh
 git show 1466dcd:priv/pdf_runner.py > /tmp/lens-reference-pdf-runner.py
-PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
+git show c041647:lib/lens/earnings/pdf_extractor.ex | sed -e 's/Lens.Earnings.PDFExtractor/PDFReferenceExtractor/g' -e 's@Application.app_dir(:lens, "priv/pdf_runner.py")@System.fetch_env!("PDF_REFERENCE_RUNNER")@' > /tmp/lens-reference-pdf-extractor.ex
+PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
 ```
 
 Python is needed only for that optional migration comparison. Routine CI and
@@ -79,12 +84,14 @@ Poppler、既存スキーマ、抽出器名、原本、取得、抽出履歴を�
 Poppler 22.12.0。5回ウォームアップ後、小型PDFを旧・新交互に各30回測定。
 日本語・段落、画像のみPDFと7境界ケースで本文・版・失敗理由が完全一致した。
 上限ちょうど、非ゼロより超過優先、小さい有効本文付き非ゼロ、本文不在、空白、NUL、
-不正UTF-8を含む。生データは [pdf-runner-samples.json](pdf-runner-samples.json)。
+不正UTF-8を含む。両側とも `extract/2` 境界を呼び、入力読込み・非公開ファイルの作成/削除・結果decodeを含める。
+旧adapterは `c041647` から復元し、同時実行用の `PDFReferenceExtractor` というmodule名と
+旧runner参照先だけ変更。生データとadapter/binary識別は [pdf-runner-samples.json](pdf-runner-samples.json)。
 
 | ms | Python 中央値 / p95 | Native 中央値 / p95 |
 | --- | --- | --- |
-| 小型PDF全体 | 52.810 / 60.439 | 21.1285 / 27.127 |
-| 起動から不正引数拒否 | 26.166 / 27.838 | 1.3315 / 1.464 |
+| 小型PDF全体 | 54.1325 / 59.512 | 20.812 / 21.901 |
+| 起動から不正引数拒否 | 26.347 / 34.937 | 1.2245 / 1.542 |
 
 30件の中央値は中央2件の平均、p95はnearest rankを使用する。
 起動測定は引数拒否まででPoppler処理ではない。小型標本であり、大規模・throughputの性能保証ではない。
@@ -113,7 +120,8 @@ native/adapter検証は呼出元終了、外側期限、不正通信、本文不
 
 ```sh
 git show 1466dcd:priv/pdf_runner.py > /tmp/lens-reference-pdf-runner.py
-PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
+git show c041647:lib/lens/earnings/pdf_extractor.ex | sed -e 's/Lens.Earnings.PDFExtractor/PDFReferenceExtractor/g' -e 's@Application.app_dir(:lens, "priv/pdf_runner.py")@System.fetch_env!("PDF_REFERENCE_RUNNER")@' > /tmp/lens-reference-pdf-extractor.ex
+PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
 ```
 
 Pythonはこの任意比較だけに必要で、通常CI・release抽出はnativeを使う。
