@@ -1,19 +1,19 @@
 {
   "summary": {
     "old_ms": {
-      "median": 52.772,
+      "median": 52.81,
       "p95": 60.439
     },
     "new_ms": {
-      "median": 21.107,
+      "median": 21.1285,
       "p95": 27.127
     },
     "old_start_ms": {
-      "median": 26.155,
+      "median": 26.166,
       "p95": 27.838
     },
     "new_start_ms": {
-      "median": 1.331,
+      "median": 1.3315000000000001,
       "p95": 1.464
     }
   },

@@ -7,7 +7,7 @@ Baseline: `361e1fe6b192a5a23297c596c0032a79302ad0c0`, reviewed 2026-09-28.
 ## Review stack and evidence
 
 #96 review references are corrected at `c041647`. Native implementation is in
-[#103](https://github.com/9renpoto/lens/pull/103) (`1466dcd`); Python removal and
+[#103](https://github.com/9renpoto/lens/pull/103) (`9d9b60f`); Python removal and
 release evidence are in [#104](https://github.com/9renpoto/lens/pull/104).
 Read [implementation evidence](pdf-native-implementation.md) and
 [release evidence](pdf-python-free-release.md), including raw samples and
@@ -80,7 +80,7 @@ Use their latest committed revision when starting #93.
 ## レビュー用スタックと根拠
 
 #96の参照修正は `c041647`。native実装は
-[#103](https://github.com/9renpoto/lens/pull/103) (`1466dcd`)、Python削除・release根拠は
+[#103](https://github.com/9renpoto/lens/pull/103) (`9d9b60f`)、Python削除・release根拠は
 [#104](https://github.com/9renpoto/lens/pull/104)。
 [実装根拠](pdf-native-implementation.md)と[release根拠](pdf-python-free-release.md)の
 生データ・限界も参照する。未マージで、Issue終了はレビュー・マージ後に判断する。

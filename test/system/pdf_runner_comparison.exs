@@ -102,10 +102,22 @@ percentile = fn values, fraction ->
   Enum.at(Enum.sort(values), ceil(length(values) * fraction) - 1)
 end
 
+median = fn values ->
+  sorted = Enum.sort(values)
+  middle = div(length(sorted), 2)
+
+  if rem(length(sorted), 2) == 0,
+    do: (Enum.at(sorted, middle - 1) + Enum.at(sorted, middle)) / 2,
+    else: Enum.at(sorted, middle)
+end
+
+2.0 = median.([1, 3])
+2 = median.([1, 2, 3])
+
 summary =
   for key <- [:old_ms, :new_ms, :old_start_ms, :new_start_ms], into: %{} do
     values = Enum.map(rows, &Map.fetch!(&1, key))
-    {key, %{median: percentile.(values, 0.5), p95: percentile.(values, 0.95)}}
+    {key, %{median: median.(values), p95: percentile.(values, 0.95)}}
   end
 
 report = %{

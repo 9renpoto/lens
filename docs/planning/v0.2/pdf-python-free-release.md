@@ -16,10 +16,11 @@ Raw samples: [pdf-runner-samples.json](pdf-runner-samples.json).
 
 | Milliseconds | Python median / p95 | Native median / p95 |
 | --- | --- | --- |
-| End-to-end small PDF | 52.772 / 60.439 | 21.107 / 27.127 |
-| Startup to argument rejection | 26.155 / 27.838 | 1.331 / 1.464 |
+| End-to-end small PDF | 52.810 / 60.439 | 21.1285 / 27.127 |
+| Startup to argument rejection | 26.166 / 27.838 | 1.3315 / 1.464 |
 
-Startup measures invocation and invalid-argument rejection, not Poppler work.
+For the 30 samples, median averages the two middle observations; p95 uses
+nearest rank. Startup measures invocation and invalid-argument rejection, not Poppler work.
 The small-fixture sample is not a throughput or large-document benchmark. The
 contract's material p95 regression threshold is not crossed in this sample.
 C source, compiler build and process-control maintenance replace the runtime
@@ -82,9 +83,10 @@ Poppler 22.12.0。5回ウォームアップ後、小型PDFを旧・新交互に�
 
 | ms | Python 中央値 / p95 | Native 中央値 / p95 |
 | --- | --- | --- |
-| 小型PDF全体 | 52.772 / 60.439 | 21.107 / 27.127 |
-| 起動から不正引数拒否 | 26.155 / 27.838 | 1.331 / 1.464 |
+| 小型PDF全体 | 52.810 / 60.439 | 21.1285 / 27.127 |
+| 起動から不正引数拒否 | 26.166 / 27.838 | 1.3315 / 1.464 |
 
+30件の中央値は中央2件の平均、p95はnearest rankを使用する。
 起動測定は引数拒否まででPoppler処理ではない。小型標本であり、大規模・throughputの性能保証ではない。
 契約のp95悪化しきい値は超えていない。Cソース、コンパイル、プロセス制御の保守が増えるが、
 新しいruntimeパッケージ・ライブラリーは追加しない。
@@ -105,7 +107,7 @@ endpoint・収集schedulerは起動せず発行元通信もできない。本番
 
 #103 CIでwarnings-as-errors compile、format、dialyzer、coverage、回帰が成功。
 native/adapter検証は呼出元終了、外側期限、不正通信、本文不正、並行実行を含む。
-上段PRでPython導入・旧テスト削除後に再実行する。コミット済みPDFは不変、ReportLabは開発用のみ。
+上段PRでPython導入設定と旧テストを削除した後に再実行する。コミット済みPDFは不変、ReportLabは開発用のみ。
 
 任意の比較では旧ランナーをruntimeソース外へ復元する。
 
