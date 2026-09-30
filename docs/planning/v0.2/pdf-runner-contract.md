@@ -86,7 +86,8 @@ unknown/duplicate/oversized records or helper nonzero exit map to
 the caller's text-byte limit and rejects inconsistent metadata. The version file
 contains at most the first 2048 raw probe-log bytes. Decode that prefix with
 UTF-8 replacement, then trim using Python-compatible whitespace semantics.
-The decoded UTF-8 value may occupy up to 6144 bytes; do not truncate it again. The status record must never contain PDF text or
+The decoded UTF-8 value may occupy up to 6144 bytes; do not truncate it again.
+The status record must never contain PDF text or
 diagnostics. The adapter deletes the directory after helper termination.
 Version metadata remains the Poppler `-v` output, not a helper version.
 
@@ -95,7 +96,8 @@ New hardening: use an outer monotonic budget of
 2000 ms covers startup/cleanup, not additional Poppler execution. A dedicated
 supervision worker owns the Port and monitors the caller; it survives caller
 termination long enough to finish cancellation and directory cleanup. On caller
-termination, protocol violation or outer expiry, send a fixed cancellation
+termination, protocol violation or the reserved cleanup interval starting,
+send a fixed cancellation
 command on helper stdin while keeping the Port open with `exit_status` enabled.
 The helper monitors cancellation concurrently with child waiting, kills its
 active group and reaps its direct child before exiting. Do not treat Port
@@ -224,7 +226,8 @@ Python互換の空白規則でtrimする。デコード後のUTF-8値は最大61
 `min(timeout_ms, 2000) + timeout_ms + 2000` msの単調時計による外側期限を設定。
 追加2000 msは起動・後始末用でPopplerの実行延長ではない。専用の監督workerが
 Portを所有して呼出元を監視し、呼出元終了後も取消とディレクトリ削除を完了するまで存続する。
-呼出元終了、通信違反、外側期限では、`exit_status` を有効にしたPortを開いたまま、
+呼出元終了、通信違反、確保した後始末時間の開始時には、
+`exit_status` を有効にしたPortを開いたまま、
 ヘルパーstdinへ固定の取消コマンドを送る。ヘルパーは子のwaitと並行して取消を監視し、
 実行中の群を終了して直接の子を回収してから終了する。Port閉鎖、EOF、Portの監視通知を
 OSヘルパー終了の証拠とせず、workerはヘルパーの `exit_status` を待ってからファイル削除・返却する。
