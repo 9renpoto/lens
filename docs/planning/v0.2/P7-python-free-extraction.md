@@ -108,8 +108,11 @@ GitHubの正式な親子関係とblocked-by（#93 → #92、#94 → #93）を設
 
 ## 引継ぎと資料の状態
 
-最新AGENTS.mdと基準以降の差分を確認してから着手。主な参照は上記ランナー、PDFExtractor、
-Processing、Extractions、テスト、offline検証、Dockerfile、CI、運用資料。
+最新 `AGENTS.md` と基準以降の差分を確認してから着手。主な参照は
+`priv/pdf_runner.py`、`lib/lens/earnings/pdf_extractor.ex`、
+`processing.ex`、`extractions.ex`、`test/pdf_runner_test.py`、processing tests、
+`test/system/earnings_offline_check.exs`、`Dockerfile`、CI、
+`docs/earnings-extraction.md`。
 現行運用資料は置換リリースまで正しく、#94で更新する。本計画・ADR・互換契約は#92の資料変更に含める。#93着手時は最新のコミットを参照する。
 
 </details>
