@@ -40,7 +40,7 @@ Acquisition records and original bytes never change during processing.
 
 ## Runtime and bounds
 
-Extraction requires Linux, Python 3, Poppler `pdftotext` and `poppler-data` for
+Extraction requires Linux amd64, the bundled C11 helper, Poppler `pdftotext` and `poppler-data` for
 Japanese CID-font mappings. The production image and CI install these packages.
 OCR is not performed. Image-only or otherwise textless PDFs report
 `empty_output`; malformed or unreadable PDFs report `unreadable`.
@@ -52,7 +52,13 @@ files and a CPU limit derived from the timeout. The default timeout is 20 second
 and the text limit is 8 MiB; use `--timeout-ms` (1–30000) and
 `--max-output-bytes` (1–8388608) to lower or adjust them within those ceilings.
 Version probing takes at most two additional seconds. Both timeout and ordinary
-exit terminate the process group. Unsupported platforms fail explicitly.
+exit terminate descendants remaining in the same process group. Limits are per
+process/per file, not aggregate tree limits; descendants escaping their group,
+VM/helper SIGKILL and kernel uninterruptible sleep are excluded. The adapter
+caps status transport at 256 bytes and has an outer budget of probe + extraction
++ 2000 ms; cancellation waits for termination before deleting temporary files.
+Ordinary caller death requests group cleanup. Runner failures return `process_error`.
+Unsupported platforms fail explicitly.
 
 Useful failure codes include `timeout`, `output_limit`, `invalid_text`,
 `extractor_unavailable`, `process_error` and `unsupported_platform`.
@@ -96,8 +102,11 @@ conditionally on unchanged plain text to avoid overwriting a concurrent success.
 ## Verification
 
 Synthetic PDFs and their ReportLab generator live in `test/fixtures/`.
-`python3 -m unittest discover -s test -p pdf_runner_test.py` checks real Japanese
-text, image-only input, process failures, output limits and descendant cleanup.
+Build the helper with `cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner`
+for checkout development on Linux. `test/pdf_native_runner_check.sh` checks
+process bounds and cleanup; `elixir -pa "_build/test/lib/*/ebin" test/pdf_adapter_check.exs`
+checks real PDFs, text validity and adapter lifecycle. The ReportLab generator
+is optional developer tooling; ordinary CI uses the checked-in PDF bytes.
 `test/system/earnings_offline_check.exs` is a scratch-database check run with
 `mix run --no-start`. It migrates an empty test database and verifies the real
 CLI, bytes and acquisition counts. Run it in an internal Docker network with
@@ -135,7 +144,7 @@ JSONは試行・原本・状態・失敗理由・抽出器の版と、試行開�
 
 ## 実行環境と上限
 
-Linux、Python 3、Poppler `pdftotext`、日本語CIDフォント用の `poppler-data` を必要とする。
+Linux amd64、同梱C11ヘルパー、Poppler `pdftotext`、日本語CIDフォント用の `poppler-data` を必要とする。
 本番イメージとCIで導入する。OCRは行わない。画像のみ・本文なしは `empty_output`、
 破損・読取不能は `unreadable` として記録する。
 
@@ -143,7 +152,10 @@ Linux、Python 3、Poppler `pdftotext`、日本語CIDフォント用の `poppler
 仮想アドレス空間512 MiB、コアダンプ禁止、本文・診断ファイルの上限、タイムアウトに基づく
 CPU上限を設ける。既定は20秒・本文8 MiB。`--timeout-ms`（1〜30000）と
 `--max-output-bytes`（1〜8388608）で上限内の設定ができる。版の確認は追加で最大2秒。
-タイムアウトと通常終了でプロセス群を終了する。非対応環境は明示的に失敗する。
+タイムアウトと通常終了で同じ群に残る子孫を終了する。上限はプロセス・ファイル単位で総量ではない。
+群から離れる子孫、VM/ヘルパーSIGKILL、kernelの割込み不能待機は保証外。
+状態通信256 bytes、外側期限は版確認＋抽出＋2000 ms。取消後は終了を確認して一時ファイルを削除する。
+通常の呼出元終了では群終了を要求し、ランナー失敗は `process_error`。非対応環境は明示的に失敗する。
 
 失敗コードには `timeout`、`output_limit`、`invalid_text`、`extractor_unavailable`、
 `process_error`、`unsupported_platform` がある。NUL、不正UTF-8、空白のみの本文を拒否する。
@@ -174,8 +186,11 @@ CPU上限を設ける。既定は20秒・本文8 MiB。`--timeout-ms`（1〜3000
 ## 検証
 
 合成PDFとReportLab生成器は `test/fixtures/` にある。
-`python3 -m unittest discover -s test -p pdf_runner_test.py` で日本語本文、画像のみ、
-プロセス失敗、出力上限、子プロセス終了を検証する。
+Linuxのチェックアウト開発では
+`cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner` でビルドする。
+`test/pdf_native_runner_check.sh` で資源上限・終了、
+`elixir -pa "_build/test/lib/*/ebin" test/pdf_adapter_check.exs` で実PDF・本文・ライフサイクルを確認する。
+ReportLab生成器は任意の開発用で、通常CIはコミット済みPDFを使用する。
 `test/system/earnings_offline_check.exs` は `mix run --no-start` で実行する使い捨てDB用の検証。
 空のテストDBをマイグレーションし、実CLI・原本バイト列・取得件数を確認する。
 PostgreSQLだけがある内部Dockerネットワークで実行し、本番DBは使わない。
