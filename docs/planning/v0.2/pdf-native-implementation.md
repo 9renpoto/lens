@@ -5,7 +5,10 @@ and its reference runner/tests remain available until the #94 gates pass.
 
 The C11 helper runs probe and extraction in separate sessions with pre-exec
 RLIMITs, monotonic phase deadlines and group cleanup after every phase. Its
-stdout carries one status line, never PDF text. The adapter limits the status
+stdout carries one status line, never PDF text. It sets Linux
+`PR_SET_CHILD_SUBREAPER` and reaps adopted same-group descendants after killing
+the group, so cleanup does not depend on PID 1 reaping zombies. Unavailable
+subreaper support fails closed with `unsupported_platform`. The adapter limits the status
 to 256 bytes and reads text/version files after helper exit. Unicode blankness
 matches Python's whitespace set, including U+001C–U+001F.
 
@@ -36,7 +39,8 @@ access disabled. Adapter checks ran in `lens-extraction-check` with network
 access disabled. Fourteen adapter cases cover real Japanese/paragraph text,
 image-only PDF, blank/invalid text, missing helper, unsupported OS, malformed
 and oversized responses, caller death and a stuck helper's outer deadline.
-The process checks cover probe/extraction descendants on normal and timeout
+The process checks also passed with Docker `--init=false` and PID 1 set to
+`/bin/sleep`, after reproducing the pre-fix zombie leak there. They cover probe/extraction descendants on normal and timeout
 exit (no delayed marker and no `/proc` entry), actual AS/CORE/CPU/FSIZE values,
 AS failure, CPU termination, overflow precedence and pipe closure.
 
@@ -58,6 +62,8 @@ before dependencies are removed. No originals or historical attempts are rewritt
 
 C11ヘルパーは版確認と抽出を別セッションで実行し、exec前のRLIMIT、単調時計の期限、
 全段階終了後の群終了を適用する。stdoutは状態1行のみで本文を流さない。
+Linux `PR_SET_CHILD_SUBREAPER` で同じ群の子孫を引き取り、群終了後に回収するため、
+PID 1のゾンビ回収に依存しない。subreaperが利用できなければ `unsupported_platform`。
 アダプターは状態256 bytes、終了後の本文・版ファイルを扱う。Unicode空白判定は
 U+001C–U+001Fを含むPythonの空白集合に対応する。
 
@@ -82,7 +88,8 @@ mix test
 コンパイル・プロセス検証は通信なしの `lens-pdf-tools`、アダプターは通信なしの
 `lens-extraction-check` で実行。14ケースで実日本語・段落、画像のみPDF、空白・不正本文、
 ヘルパー不在、非対応OS、不正・過大応答、呼出元終了、停止ヘルパーの外側期限を検証する。
-プロセス検証は版確認・抽出の通常終了/期限超過時の子孫について遅延markerと `/proc` 不在、
+Docker `--init=false`、PID 1を `/bin/sleep` にした環境で修正前のゾンビ残留を再現し、
+修正後のプロセス検証が成功した。版確認・抽出の通常終了/期限超過時の子孫について遅延markerと `/proc` 不在、
 AS/CORE/CPU/FSIZE実値、AS失敗、CPU終了、超過優先順位、pipe閉鎖を確認する。
 
 内部Dockerネットワークの使い捨てPostgreSQL 17.6で

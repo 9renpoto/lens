@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -73,6 +76,13 @@ static int phase(char *const args[], const char *log, long milliseconds, long by
         (void)kill(pid, SIGKILL);
         while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
     }
+    /* As a subreaper, adopt and reap same-group descendants before responding. */
+    for (;;) {
+        pid_t adopted = waitpid(-pid, &status, 0);
+        if (adopted > 0 || (adopted < 0 && errno == EINTR)) continue;
+        if (adopted < 0 && errno != ECHILD) result = -3;
+        break;
+    }
     int launch_error = 0;
     ssize_t length = read(errors[0], &launch_error, sizeof(launch_error));
     close(errors[0]);
@@ -99,6 +109,11 @@ int main(int argc, char **argv) {
     if (milliseconds < 0 || bytes < 0) { puts("invalid_options"); return 0; }
 #ifndef __linux__
     puts("unsupported_platform"); return 0;
+#endif
+#ifdef __linux__
+    if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
+        puts("unsupported_platform"); return 0;
+    }
 #endif
     signal(SIGTERM, cancel); signal(SIGINT, cancel); signal(SIGHUP, cancel);
     signal(SIGPIPE, SIG_IGN);
