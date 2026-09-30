@@ -6,7 +6,8 @@ status: accepted
 
 Issue: [#91](https://github.com/9renpoto/lens/issues/91). Review date: 2026-09-28.
 Reviewed source: `361e1fe6b192a5a23297c596c0032a79302ad0c0` (includes merged PR #89).
-This is an accepted implementation design, not an implemented or benchmark-validated replacement.
+The original design review below is historical. Implementation and release evidence
+for the unmerged review stack are recorded in [#94 evidence](../planning/v0.2/pdf-python-free-release.md).
 
 ## Decision and value
 
@@ -14,8 +15,8 @@ Use a small C11/POSIX Linux helper invoked through an Erlang Port. It owns
 Poppler startup, pre-exec limits, deadlines, wait and process-group cleanup.
 The Elixir adapter owns a private directory, bounded result parsing and the
 existing `PDFExtractor.extract/2` interface. Retaining Python remains the
-fallback if the implementation or release gates fail. No speed or image-size
-benefit has yet been measured.
+fallback if the implementation or release gates fail. The original decision preceded measurement; see the linked release evidence for
+small-fixture timings, image sizes and sample limitations.
 This refactor is not a prerequisite for collection, API delivery, or pilot verification
 (#71, #73, #74); those tasks can use the existing runner.
 
@@ -100,8 +101,8 @@ routine CI and release verification must not depend on it.
 # Python削除時もPDFの実行境界を維持する
 
 対象は [#91](https://github.com/9renpoto/lens/issues/91)。2026-09-28に、PR #89を含む
-`361e1fe6b192a5a23297c596c0032a79302ad0c0` を確認した。これは採用した実装設計であり、
-置換の実装や性能検証が完了したという意味ではない。
+`361e1fe6b192a5a23297c596c0032a79302ad0c0` を確認した。以下は当初の設計レビュー記録。未マージのレビュー用スタックの実装・release根拠は
+[#94の検証資料](../planning/v0.2/pdf-python-free-release.md)に記載する。
 
 ## 判断と価値
 
@@ -109,7 +110,7 @@ routine CI and release verification must not depend on it.
 Poppler起動、実行前の上限、期限、wait、プロセス群終了はヘルパーが担当する。
 Elixirアダプターは非公開ディレクトリ、有界の結果解析、既存の
 `PDFExtractor.extract/2` を担当する。実装・releaseゲートを通らなければPythonを維持する。
-速度・イメージサイズの改善は未計測。
+当初の判断は測定前であり、小型標本の速度・容量・限界はリンク先のrelease資料を参照。
 #71・#73・#74の収集・API・パイロット検証の前提条件にはせず、既存ランナーを使える。
 
 Popplerと `Lens.Earnings.PDFExtractor.extract/2` を境界に保ち、原本・取得・短信・
