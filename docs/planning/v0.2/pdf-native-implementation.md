@@ -33,7 +33,7 @@ mix test
 
 The compiler and native process checks ran in `lens-pdf-tools` with network
 access disabled. Adapter checks ran in `lens-extraction-check` with network
-access disabled. Nine adapter cases cover real Japanese/paragraph text,
+access disabled. Fourteen adapter cases cover real Japanese/paragraph text,
 image-only PDF, blank/invalid text, missing helper, unsupported OS, malformed
 and oversized responses, caller death and a stuck helper's outer deadline.
 The process checks cover probe/extraction descendants on normal and timeout
@@ -80,7 +80,7 @@ mix test
 ```
 
 コンパイル・プロセス検証は通信なしの `lens-pdf-tools`、アダプターは通信なしの
-`lens-extraction-check` で実行。9ケースで実日本語・段落、画像のみPDF、空白・不正本文、
+`lens-extraction-check` で実行。14ケースで実日本語・段落、画像のみPDF、空白・不正本文、
 ヘルパー不在、非対応OS、不正・過大応答、呼出元終了、停止ヘルパーの外側期限を検証する。
 プロセス検証は版確認・抽出の通常終了/期限超過時の子孫について遅延markerと `/proc` 不在、
 AS/CORE/CPU/FSIZE実値、AS失敗、CPU終了、超過優先順位、pipe閉鎖を確認する。
