@@ -19,7 +19,8 @@ COPY lib lib
 COPY priv priv
 COPY rel rel
 
-RUN mix compile \
+RUN cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner \
+    && mix compile \
     && mix release
 
 FROM debian:bookworm-20260918-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251

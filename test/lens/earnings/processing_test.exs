@@ -26,13 +26,17 @@ defmodule Lens.Earnings.ProcessingTest do
     assert failure.failure_reason == "invalid_text"
     assert failure.extractor_version == "empty fixture"
 
-    for {python, reason} <- [
+    for {helper, reason} <- [
           {"/usr/bin/false", "process_error"},
           {"/usr/bin/true", "process_error"},
           {nil, "extractor_unavailable"}
         ] do
       assert {:ok, failure} =
-               Processing.extract(original.id, python: python, executable: "/usr/bin/true")
+               Processing.extract(original.id,
+                 helper: helper,
+                 platform: {:unix, :linux},
+                 executable: "/usr/bin/true"
+               )
 
       assert failure.status == "failed"
       assert failure.failure_reason == reason
@@ -110,17 +114,17 @@ defmodule Lens.Earnings.ProcessingTest do
     assert Repo.aggregate(Extraction, :count) == 0
   end
 
-  test "a missing process executable records a failure instead of leaving pending work" do
+  test "a missing helper records a failure instead of leaving pending work" do
     original = retain("%PDF-success").original
 
     assert {:ok, failure} =
              Processing.extract(original.id,
-               python: "/nonexistent/lens-python",
+               helper: "/nonexistent/lens-helper",
                executable: "/nonexistent/pdftotext"
              )
 
     assert failure.status == "failed"
-    assert failure.failure_reason == "process_error"
+    assert failure.failure_reason == "extractor_unavailable"
     assert Repo.aggregate(Extraction, :count) == 1
     assert Earnings.original_bytes(original.id) == {:ok, "%PDF-success"}
   end

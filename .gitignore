@@ -7,3 +7,5 @@ erl_crash.dump
 __pycache__/
 
 mise.toml
+
+/priv/pdf_runner
