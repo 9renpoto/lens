@@ -4,6 +4,26 @@ Parent: [#91](https://github.com/9renpoto/lens/issues/91).
 Decision: [ADR 0003](../../adr/0003-bound-pdf-runner-replacement.md), accepted. Contract: [PDF runner contract](pdf-runner-contract.md).
 Baseline: `361e1fe6b192a5a23297c596c0032a79302ad0c0`, reviewed 2026-09-28.
 
+## Review stack and evidence
+
+#96 review references are corrected at `c041647`. Native implementation is in
+[#103](https://github.com/9renpoto/lens/pull/103) (`9d9b60f`); Python removal and
+release evidence are in [#104](https://github.com/9renpoto/lens/pull/104).
+Read [implementation evidence](pdf-native-implementation.md) and
+[release evidence](pdf-python-free-release.md), including raw samples and
+limitations. Current code is `priv/pdf_runner.c`,
+`lib/lens/earnings/pdf_extractor.ex`, `test/pdf_adapter_check.exs` and
+`test/pdf_native_runner_check.sh`; release proof uses
+`test/system/earnings_release_check.exs`. The stack is unmerged; issue closure
+awaits review and merge.
+
+## Historical #92 handoff snapshot (2026-09-28)
+
+The remaining original plan below records the state before #93/#94 implementation
+and measurement. Its future/blocked statuses, retain-Python instructions and
+Python file paths are historical, not current checkout instructions. Use the
+review stack and current files above for further work.
+
 ## Execution decision
 
 Gate #92 selected a C11/POSIX Linux helper via an Erlang Port. Python removal
@@ -67,6 +87,23 @@ Use their latest committed revision when starting #93.
 親は[#91](https://github.com/9renpoto/lens/issues/91)、判断は採用状態の
 [ADR 0003](../../adr/0003-bound-pdf-runner-replacement.md)。2026-09-28に
 `361e1fe6b192a5a23297c596c0032a79302ad0c0` を確認した。
+
+## レビュー用スタックと根拠
+
+#96の参照修正は `c041647`。native実装は
+[#103](https://github.com/9renpoto/lens/pull/103) (`9d9b60f`)、Python削除・release根拠は
+[#104](https://github.com/9renpoto/lens/pull/104)。
+[実装根拠](pdf-native-implementation.md)と[release根拠](pdf-python-free-release.md)の
+生データ・限界も参照する。現行コードは `priv/pdf_runner.c`、
+`lib/lens/earnings/pdf_extractor.ex`、`test/pdf_adapter_check.exs`、
+`test/pdf_native_runner_check.sh`。release根拠は `test/system/earnings_release_check.exs`。
+未マージで、Issue終了はレビュー・マージ後に判断する。
+
+## 過去の#92引継ぎ記録 (2026-09-28)
+
+以下の当初計画は#93/#94の実装・測定前の状態を記録する。
+将来・blocked状態、Python維持の指示、Pythonファイル参照は過去時点の情報であり、
+現在のcheckoutへの指示ではない。後続作業は上記スタックと現行ファイルを使う。
 
 ## 実行判断
 

@@ -26,7 +26,7 @@ RUN cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner \
 FROM debian:bookworm-20260918-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates curl libncurses5 libstdc++6 openssl python3 poppler-utils poppler-data \
+    && apt-get install --no-install-recommends -y ca-certificates curl libncurses5 libstdc++6 openssl poppler-utils poppler-data \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system lens \
     && useradd --system --gid lens --home-dir /app lens

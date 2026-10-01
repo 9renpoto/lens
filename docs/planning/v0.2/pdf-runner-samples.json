@@ -1,0 +1,242 @@
+{
+  "summary": {
+    "old_ms": {
+      "median": 54.1325,
+      "p95": 59.512
+    },
+    "new_ms": {
+      "median": 20.811999999999998,
+      "p95": 21.901
+    },
+    "old_start_ms": {
+      "median": 26.347,
+      "p95": 34.937
+    },
+    "new_start_ms": {
+      "median": 1.2245,
+      "p95": 1.542
+    }
+  },
+  "samples": [
+    {
+      "iteration": 1,
+      "old_ms": 54.578,
+      "new_ms": 20.467,
+      "old_start_ms": 26.827,
+      "new_start_ms": 1.254
+    },
+    {
+      "iteration": 2,
+      "old_ms": 60.146,
+      "new_ms": 20.834,
+      "old_start_ms": 26.839,
+      "new_start_ms": 1.338
+    },
+    {
+      "iteration": 3,
+      "old_ms": 53.012,
+      "new_ms": 21.901,
+      "old_start_ms": 26.363,
+      "new_start_ms": 1.226
+    },
+    {
+      "iteration": 4,
+      "old_ms": 58.681,
+      "new_ms": 21.04,
+      "old_start_ms": 26.42,
+      "new_start_ms": 1.223
+    },
+    {
+      "iteration": 5,
+      "old_ms": 52.512,
+      "new_ms": 19.176,
+      "old_start_ms": 26.019,
+      "new_start_ms": 1.487
+    },
+    {
+      "iteration": 6,
+      "old_ms": 54.377,
+      "new_ms": 20.161,
+      "old_start_ms": 36.916,
+      "new_start_ms": 1.192
+    },
+    {
+      "iteration": 7,
+      "old_ms": 59.512,
+      "new_ms": 19.885,
+      "old_start_ms": 31.784,
+      "new_start_ms": 1.2
+    },
+    {
+      "iteration": 8,
+      "old_ms": 58.514,
+      "new_ms": 21.043,
+      "old_start_ms": 27.366,
+      "new_start_ms": 1.2
+    },
+    {
+      "iteration": 9,
+      "old_ms": 58.291,
+      "new_ms": 22.486,
+      "old_start_ms": 27.653,
+      "new_start_ms": 1.277
+    },
+    {
+      "iteration": 10,
+      "old_ms": 58.231,
+      "new_ms": 20.709,
+      "old_start_ms": 25.193,
+      "new_start_ms": 1.154
+    },
+    {
+      "iteration": 11,
+      "old_ms": 51.758,
+      "new_ms": 21.698,
+      "old_start_ms": 26.294,
+      "new_start_ms": 1.15
+    },
+    {
+      "iteration": 12,
+      "old_ms": 54.091,
+      "new_ms": 20.378,
+      "old_start_ms": 25.863,
+      "new_start_ms": 1.165
+    },
+    {
+      "iteration": 13,
+      "old_ms": 58.132,
+      "new_ms": 20.964,
+      "old_start_ms": 26.115,
+      "new_start_ms": 1.216
+    },
+    {
+      "iteration": 14,
+      "old_ms": 56.359,
+      "new_ms": 21.534,
+      "old_start_ms": 26.509,
+      "new_start_ms": 1.218
+    },
+    {
+      "iteration": 15,
+      "old_ms": 52.879,
+      "new_ms": 21.142,
+      "old_start_ms": 27.387,
+      "new_start_ms": 1.256
+    },
+    {
+      "iteration": 16,
+      "old_ms": 53.362,
+      "new_ms": 20.004,
+      "old_start_ms": 25.586,
+      "new_start_ms": 1.112
+    },
+    {
+      "iteration": 17,
+      "old_ms": 51.561,
+      "new_ms": 19.881,
+      "old_start_ms": 25.407,
+      "new_start_ms": 1.113
+    },
+    {
+      "iteration": 18,
+      "old_ms": 53.952,
+      "new_ms": 19.44,
+      "old_start_ms": 25.535,
+      "new_start_ms": 1.365
+    },
+    {
+      "iteration": 19,
+      "old_ms": 59.055,
+      "new_ms": 20.79,
+      "old_start_ms": 34.937,
+      "new_start_ms": 1.42
+    },
+    {
+      "iteration": 20,
+      "old_ms": 54.174,
+      "new_ms": 20.893,
+      "old_start_ms": 25.622,
+      "new_start_ms": 1.213
+    },
+    {
+      "iteration": 21,
+      "old_ms": 50.677,
+      "new_ms": 19.425,
+      "old_start_ms": 26.476,
+      "new_start_ms": 1.299
+    },
+    {
+      "iteration": 22,
+      "old_ms": 52.04,
+      "new_ms": 21.237,
+      "old_start_ms": 25.379,
+      "new_start_ms": 1.542
+    },
+    {
+      "iteration": 23,
+      "old_ms": 53.594,
+      "new_ms": 20.204,
+      "old_start_ms": 25.52,
+      "new_start_ms": 1.757
+    },
+    {
+      "iteration": 24,
+      "old_ms": 56.316,
+      "new_ms": 20.413,
+      "old_start_ms": 25.754,
+      "new_start_ms": 1.188
+    },
+    {
+      "iteration": 25,
+      "old_ms": 54.222,
+      "new_ms": 20.525,
+      "old_start_ms": 26.354,
+      "new_start_ms": 1.256
+    },
+    {
+      "iteration": 26,
+      "old_ms": 53.078,
+      "new_ms": 21.672,
+      "old_start_ms": 27.279,
+      "new_start_ms": 1.193
+    },
+    {
+      "iteration": 27,
+      "old_ms": 53.342,
+      "new_ms": 21.136,
+      "old_start_ms": 25.475,
+      "new_start_ms": 1.51
+    },
+    {
+      "iteration": 28,
+      "old_ms": 57.275,
+      "new_ms": 21.065,
+      "old_start_ms": 25.638,
+      "new_start_ms": 1.538
+    },
+    {
+      "iteration": 29,
+      "old_ms": 53.828,
+      "new_ms": 20.942,
+      "old_start_ms": 26.34,
+      "new_start_ms": 1.118
+    },
+    {
+      "iteration": 30,
+      "old_ms": 51.83,
+      "new_ms": 19.589,
+      "old_start_ms": 28.593,
+      "new_start_ms": 1.261
+    }
+  ],
+  "environment": {
+    "poppler": "pdftotext version 22.12.0\nCopyright 2005-2022 The Poppler Developers - http://poppler.freedesktop.org\nCopyright 1996-2011, 2022 Glyph & Cog, LLC\n",
+    "architecture": "x86_64-pc-linux-gnu"
+  },
+  "helper_sha256": "96d41170dcc56d85e318d90eb2e0d6d1016a0e9ac45d634239af4c14e24c3267",
+  "warmup_runs": 5,
+  "helper_image": "sha256:3a0cd4e7c07de0b1b08e6cd2f387f2fb95fe9a2a389395e53f1f1a6edfc80517",
+  "implementation_commit": "9d9b60f",
+  "reference_adapter_commit": "c041647",
+  "reference_adapter_sha256": "47d9212f993f2bbe0751a8e9c3920612d8a7a062410b30073f5675a21f65ad8f"
+}

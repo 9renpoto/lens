@@ -54,12 +54,11 @@ jobs:
       - name: Verify production repository configuration needs no endpoint secret
         run: env -u SECRET_KEY_BASE MIX_ENV=prod DATABASE_URL=ecto://lens:unused@localhost/lens mix app.config
       - name: Install PDF extraction tools
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y python3 poppler-utils poppler-data
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y poppler-utils poppler-data
       - name: Build and verify native PDF runner
         run: |
           cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner
           test/pdf_native_runner_check.sh
-      - run: python3 -m unittest discover -s test -p pdf_runner_test.py
       - run: node --test .github/scripts/prune-package-versions.test.js
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
