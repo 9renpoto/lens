@@ -3,6 +3,9 @@ Code.compile_file("lib/lens/earnings/pdf_extractor.ex")
 alias Lens.Earnings.PDFExtractor
 helper = Path.expand("priv/pdf_runner")
 reference = System.fetch_env!("PDF_REFERENCE_RUNNER")
+helper_image = System.fetch_env!("PDF_HELPER_IMAGE")
+implementation_commit = System.fetch_env!("PDF_IMPLEMENTATION_COMMIT")
+reference_adapter_commit = System.fetch_env!("PDF_REFERENCE_ADAPTER_COMMIT")
 poppler = System.find_executable("pdftotext")
 
 measure = fn operation ->
@@ -125,6 +128,9 @@ summary =
   end
 
 report = %{
+  helper_image: helper_image,
+  implementation_commit: implementation_commit,
+  reference_adapter_commit: reference_adapter_commit,
   samples: rows,
   summary: summary,
   environment: %{

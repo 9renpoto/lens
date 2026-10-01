@@ -65,8 +65,12 @@ MIX_ENV=test mix compile --warnings-as-errors
 cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner
 git show 1466dcd:priv/pdf_runner.py > /tmp/lens-reference-pdf-runner.py
 git show c041647:lib/lens/earnings/pdf_extractor.ex | sed -e 's/Lens.Earnings.PDFExtractor/PDFReferenceExtractor/g' -e 's@Application.app_dir(:lens, "priv/pdf_runner.py")@System.fetch_env!("PDF_REFERENCE_RUNNER")@' > /tmp/lens-reference-pdf-extractor.ex
-PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
+PDF_HELPER_IMAGE=local-build PDF_IMPLEMENTATION_COMMIT=$(git rev-parse HEAD) PDF_REFERENCE_ADAPTER_COMMIT=c041647 PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
 ```
+
+The comparison requires explicit image and source identities before measuring and
+writes them into every report. `local-build` identifies the helper compiled above;
+when copying a packaged helper, set `PDF_HELPER_IMAGE` to its actual image digest.
 
 Python is needed only for that optional migration comparison. Routine CI and
 release extraction use the native helper. Rollback uses the prior compatible
@@ -129,8 +133,12 @@ MIX_ENV=test mix compile --warnings-as-errors
 cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner
 git show 1466dcd:priv/pdf_runner.py > /tmp/lens-reference-pdf-runner.py
 git show c041647:lib/lens/earnings/pdf_extractor.ex | sed -e 's/Lens.Earnings.PDFExtractor/PDFReferenceExtractor/g' -e 's@Application.app_dir(:lens, "priv/pdf_runner.py")@System.fetch_env!("PDF_REFERENCE_RUNNER")@' > /tmp/lens-reference-pdf-extractor.ex
-PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
+PDF_HELPER_IMAGE=local-build PDF_IMPLEMENTATION_COMMIT=$(git rev-parse HEAD) PDF_REFERENCE_ADAPTER_COMMIT=c041647 PDF_REFERENCE_RUNNER=/tmp/lens-reference-pdf-runner.py PDF_REFERENCE_ADAPTER=/tmp/lens-reference-pdf-extractor.ex elixir -pa "_build/test/lib/*/ebin" test/system/pdf_runner_comparison.exs
 ```
+
+比較は測定前にイメージ・ソースの識別情報を明示的に要求し、毎回レポートへ記録する。
+`local-build` は上でコンパイルしたヘルパーを示す。release同梱ヘルパーをコピーする場合は、
+`PDF_HELPER_IMAGE` に実際のイメージdigestを設定する。
 
 Pythonはこの任意比較だけに必要で、通常CI・release抽出はnativeを使う。
 rollbackは過去の互換releaseへ戻し、原本・履歴を書き換えない。
