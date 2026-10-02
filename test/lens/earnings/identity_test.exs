@@ -30,6 +30,25 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.published_on == ~D[2026-07-29]
   end
 
+  test "ignores wrapped prior-release references when selecting the latest release" do
+    prior = candidate("https://example.test/prior", "2026年3月期 決算短信")
+
+    for separator <- ["\n", "\n\n", "\r\n"],
+        suffix <- ["をご参照ください", "に記載しています", "をご確認ください"] do
+      latest =
+        candidate(
+          "https://example.test/latest",
+          "2027年3月期 第1四半期決算短信\n比較対象は次の短信です。\n2026年3月期 決算短信" <>
+            separator <> suffix
+        )
+
+      assert latest.status == :identified
+      assert latest.release.fiscal_year_end == ~D[2027-03-31]
+      assert latest.release.period == "q1"
+      assert Identity.select_initial([prior, latest]) == {:ok, latest}
+    end
+  end
+
   test "accepts CRLF-delimited regular release headings and dates" do
     result =
       Identity.from_text("6857", "2027年3月期 第1四半期決算短信\r\n2026年7月29日\r\nコード番号 6857")
@@ -124,7 +143,7 @@ defmodule Lens.Earnings.IdentityTest do
 
   test "correction labels after a regular title remain pending" do
     for separator <- ["\n", "\n\n", "\r\n"],
-        label <- ["(訂正版)", "〔訂正〕", "訂正について", "一部訂正"] do
+        label <- ["(訂正版)", "〔訂正〕", "訂正について", "一部訂正", "訂正に関するお知らせ"] do
       result =
         Identity.from_text(
           "6857",
@@ -133,6 +152,21 @@ defmodule Lens.Earnings.IdentityTest do
 
       assert result.status == :pending_confirmation
       assert result.release == nil
+      assert Identity.select_initial([result]) == :empty
+    end
+  end
+
+  test "recognized correction notices after the title remain excluded from initial selection" do
+    for separator <- ["\n", "\n\n", "\r\n"],
+        label <- ["一部訂正に関するお知らせ", "決算数値の訂正に関するお知らせ"] do
+      result =
+        Identity.from_text(
+          "6857",
+          "2027年3月期 第1四半期決算短信" <> separator <> label <> "\nコード番号 6857"
+        )
+
+      assert result.status == :identified
+      assert result.release.category == "correction"
       assert Identity.select_initial([result]) == :empty
     end
   end
