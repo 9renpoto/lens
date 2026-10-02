@@ -94,7 +94,8 @@
           "category": "earnings_release",
           "published_on": "2020-01-30",
           "selected_as_regular_release": true,
-          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html"
+          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html",
+          "status": "identified"
         }
       },
       {
@@ -108,7 +109,8 @@
           "category": "correction",
           "published_on": "2020-02-04",
           "selected_as_regular_release": false,
-          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html"
+          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html",
+          "status": "identified"
         }
       }
     ],
