@@ -129,7 +129,8 @@ defmodule Lens.Earnings.HTTPCheck do
 
         "not_modified" ->
           http_status == 304 and is_nil(reason) and is_nil(size) and is_nil(sha) and
-            is_integer(requests) and requests > 0
+            is_integer(requests) and requests > 0 and
+            not is_nil(get_field(changeset, :final_url))
 
         "failed" ->
           is_binary(reason) and is_nil(size) and is_nil(sha) and is_integer(requests) and
