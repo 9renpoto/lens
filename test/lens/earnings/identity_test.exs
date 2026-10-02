@@ -195,6 +195,31 @@ defmodule Lens.Earnings.IdentityTest do
     end
   end
 
+  test "repeated regular titles cannot override an unsupported correction heading" do
+    for heading <- [
+          "「2027年3月期 第1四半期決算短信」の訂正について",
+          "2027年3月期 第1四半期決算短信(訂正版)",
+          "2027年3月期 第1四半期決算短信\n(訂正版)",
+          "2027年3月期 第1四半期決算短信\n訂正に関するお知らせ",
+          "訂正に関するお知らせ",
+          "訂正について",
+          "(訂正版)",
+          "〔訂正〕"
+        ],
+        separator <- ["\n", "\n\n", "\r\n"] do
+      result =
+        Identity.from_text(
+          "6857",
+          heading <> separator <> "2027年3月期 第1四半期決算短信\nコード番号 6857"
+        )
+
+      assert result.status == :pending_confirmation
+      assert result.release == nil
+      assert result.fields.category == nil
+      assert Identity.select_initial([result]) == :empty
+    end
+  end
+
   test "a narrative notice reference does not discard the latest regular release" do
     prior = candidate("https://example.test/prior", "2026年3月期 決算短信")
 
