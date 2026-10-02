@@ -111,6 +111,32 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.release.category == "earnings_release"
   end
 
+  test "a correction prefix on a narrative line does not reclassify a regular release" do
+    result =
+      Identity.from_text(
+        "6857",
+        "2027年3月期 第1四半期決算短信\nコード番号 6857\n(訂正) 前期比較の表示を修正しています"
+      )
+
+    assert result.status == :identified
+    assert result.release.category == "earnings_release"
+  end
+
+  test "correction labels after a regular title remain pending" do
+    for separator <- ["\n", "\n\n", "\r\n"],
+        label <- ["(訂正版)", "〔訂正〕", "訂正について", "一部訂正"] do
+      result =
+        Identity.from_text(
+          "6857",
+          "2027年3月期 第1四半期決算短信" <> separator <> label <> "\nコード番号 6857"
+        )
+
+      assert result.status == :pending_confirmation
+      assert result.release == nil
+      assert Identity.select_initial([result]) == :empty
+    end
+  end
+
   test "a narrative notice reference does not discard the latest regular release" do
     prior = candidate("https://example.test/prior", "2026年3月期 決算短信")
 
