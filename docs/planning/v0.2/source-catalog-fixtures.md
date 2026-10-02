@@ -45,8 +45,10 @@ filing period, or local fetch timestamp.
 
 ## Selection rule
 
-Group candidates by issuer first. Within each issuer, among candidates with
-confirmed fiscal year-end, reporting period, and `earnings_release` category,
+Group candidates with a confirmed issuer code by issuer first; candidates with
+missing or unsupported issuer codes remain pending and cannot be selected.
+Within each issuer, among candidates with confirmed fiscal year-end, reporting
+period, and `earnings_release` category,
 order by fiscal year-end descending and then period ordinal descending
 (`Q1` < `Q2` < `Q3` < `FY`). Select one first candidate per issuer for
 initialization. Corrections are separate materials and never
@@ -56,6 +58,9 @@ not break the tie by URL order. A later regular-period release is a new
 identity, not a replacement of the prior quarter.
 
 ## Expected fixture cases
+
+Each document-level `expected` result, including single-document cases, records
+both its original `url` and the `listing_url` used to discover that URL.
 
 | Case | Fixture facts | Expected result |
 | --- | --- | --- |
@@ -108,9 +113,11 @@ evaluation ledger are historical reference points, not present-day verification.
 
 ## 選択規則
 
-候補を企業ごとに分けてから、各企業内で決算期末・対象期間・`earnings_release`が確定したものを、決算期末の降順、次に対象期間の序数降順（`Q1` < `Q2` < `Q3` < `FY`）で並べ、企業ごとに先頭を初期資料として選ぶ。訂正資料は別資料として扱い、通常資料の代わりに選ばない。二つの候補が同じ論理識別情報を主張する場合、またはメタデータが矛盾する場合は両方を確認待ちにし、URL順で決着させない。後続期の通常資料は新しい識別情報であり、前期資料を置換しない。
+企業コードを確定できた候補だけを企業ごとに分ける。企業コードが不明または未対応の候補は確認待ちにし、選択しない。各企業内で決算期末・対象期間・`earnings_release`が確定したものを、決算期末の降順、次に対象期間の序数降順（`Q1` < `Q2` < `Q3` < `FY`）で並べ、企業ごとに先頭を初期資料として選ぶ。訂正資料は別資料として扱い、通常資料の代わりに選ばない。二つの候補が同じ論理識別情報を主張する場合、またはメタデータが矛盾する場合は両方を確認待ちにし、URL順で決着させない。後続期の通常資料は新しい識別情報であり、前期資料を置換しない。
 
 ## 期待する固定データケース
+
+各資料の`expected`には、単一資料のケースも含め、原本`url`とリンク発見元の`listing_url`を記録する。
 
 | ケース | 固定データの事実 | 期待結果 |
 | --- | --- | --- |

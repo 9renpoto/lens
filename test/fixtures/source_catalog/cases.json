@@ -26,7 +26,8 @@
         "source_fiscal_year_label": "2026年度",
         "source_fiscal_year_designation": "FY2026"
       },
-      "listing_url": "https://www.advantest.com/ja/investors/ir-library/result/"
+      "listing_url": "https://www.advantest.com/ja/investors/ir-library/result/",
+      "url": "https://www.advantest.com/document/ja/investors/ir-library/result/J_FR_FY2026_1Q.pdf"
     }
   },
   {
@@ -48,7 +49,8 @@
       "published_on": "2026-07-09",
       "status": "identified",
       "selected_as_initial_regular_release": true,
-      "listing_url": "https://www.fastretailing.com/jp/ir/library/tanshin.html"
+      "listing_url": "https://www.fastretailing.com/jp/ir/library/tanshin.html",
+      "url": "https://www.fastretailing.com/jp/ir/library/pdf/tanshin202608_3q.pdf"
     }
   },
   {
@@ -70,7 +72,8 @@
       "published_on": "2026-07-30",
       "status": "identified",
       "selected_as_initial_regular_release": true,
-      "listing_url": "https://www.tel.co.jp/ir/calendar/"
+      "listing_url": "https://www.tel.co.jp/ir/calendar/",
+      "url": "https://www.tel.co.jp/ir/library/report/negqvb0000000eqw-att/fy27q1tanshin-j.pdf"
     }
   },
   {
@@ -133,7 +136,8 @@
       "published_on": null,
       "status": "identified",
       "selection_over": "live-advantest-fy2026-q1",
-      "listing_url": "https://ir.example.test/advantest/results/"
+      "listing_url": "https://ir.example.test/advantest/results/",
+      "url": "https://ir.example.test/documents/adv-q2.pdf"
     }
   },
   {
@@ -154,7 +158,8 @@
       "published_on": null,
       "status": "pending_confirmation",
       "selected_as_regular_release": false,
-      "listing_url": "https://ir.example.test/tel/calendar/"
+      "listing_url": "https://ir.example.test/tel/calendar/",
+      "url": "https://ir.example.test/documents/2027/tel-correction.pdf"
     }
   },
   {
@@ -221,7 +226,8 @@
       "comparison_urls": [
         "https://ir.example.test/documents/adv-q1.pdf?download=1"
       ],
-      "listing_url": "https://ir.example.test/advantest/results/"
+      "listing_url": "https://ir.example.test/advantest/results/",
+      "url": "https://IR.Example.Test:443/documents/adv-q1.pdf?download=1#page=2"
     }
   },
   {

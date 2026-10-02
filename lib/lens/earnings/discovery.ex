@@ -56,7 +56,7 @@ defmodule Lens.Earnings.Discovery do
     walk(children, %{state | headings: headings}, listing_url)
   end
 
-  defp visit({"a", attrs, _} = node, state, listing_url) do
+  defp visit({"a", attrs, children} = node, state, listing_url) do
     with {"href", href} <- List.keyfind(attrs, "href", 0),
          {:ok, url, comparison_url} <- resolve_pdf(listing_url, href),
          false <- MapSet.member?(state.seen, comparison_url) do
@@ -76,7 +76,7 @@ defmodule Lens.Earnings.Discovery do
           count: state.count + 1
       }
     else
-      _ -> state
+      _ -> walk(children, state, listing_url)
     end
   end
 
