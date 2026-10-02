@@ -9,7 +9,8 @@ three current initial candidates and a historical Tokyo Electron regular-release
 `synthetic-*` cases are deliberately fictional parser inputs and are not
 publisher evidence. The synthetic initial Tokyo Electron case combines a regular
 Q1 release with an ambiguous correction to verify that discovery retains both
-while initial selection chooses only the regular release.
+while initial selection chooses only the regular release. A conflicting-identity
+case verifies that two otherwise identified regular releases remain pending.
 
 To reproduce expectations, parse each case's `listing_html` anchors relative to
 `listing_url`, then compare the discovered URLs and each document's `expected`
@@ -34,7 +35,7 @@ from this directory. No publisher network access is needed.
 企業のページ全体や原本PDFは含めない。4件の`live-*`ケースは2026-09-30に
 確認した3社の初期候補と東京エレクトロンの過去の通常短信・訂正資料の組に
 由来する。`synthetic-*`は架空の入力で、発行元の証跡ではない。syntheticの東京エレクトロン初回ケースでは通常Q1短信と
-曖昧な訂正資料を組み合わせ、両方の発見と通常短信だけの初回選択を検証する。
+曖昧な訂正資料を組み合わせ、両方の発見と通常短信だけの初回選択を検証する。同一識別情報が競合するケースでは、識別済みの通常資料2件を確認待ちにする。
 
 各`listing_html`のアンカーを`listing_url`から解決し、発見URLと各資料の
 `expected`を比較する。PDF識別文字列に明示された値だけを対応付け、欠落値は
