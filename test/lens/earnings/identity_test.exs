@@ -224,6 +224,28 @@ defmodule Lens.Earnings.IdentityTest do
       assert wrapped.status == :pending_confirmation
       assert wrapped.release == nil
       assert wrapped.fields.category == nil
+
+      separated =
+        Identity.from_text(
+          "8035",
+          "2027年3月期 第1四半期決算短信\n\n" <> suffix <> "\nコード番号 8035"
+        )
+
+      assert separated.status == :pending_confirmation
+      assert separated.release == nil
+      assert separated.fields.category == nil
+    end
+
+    for qualifier <- ["（訂正）", "〔訂正〕"] do
+      result =
+        Identity.from_text(
+          "8035",
+          "2027年3月期 第1四半期決算短信" <> qualifier <> "\nコード番号 8035"
+        )
+
+      assert result.status == :pending_confirmation
+      assert result.release == nil
+      assert result.fields.category == nil
     end
   end
 
@@ -237,6 +259,10 @@ defmodule Lens.Earnings.IdentityTest do
       assert Identity.from_text("8035", wrapped).published_on == nil
       assert Identity.from_text("8035", "2020年2月4日\n" <> wrapped).published_on == ~D[2020-02-04]
     end
+
+    separated = String.replace(base, "\nに公表", "\n\nに公表")
+    assert Identity.from_text("8035", separated).published_on == nil
+    assert Identity.from_text("8035", "2020年2月4日\n" <> separated).published_on == ~D[2020-02-04]
   end
 
   test "unsupported issuers return an explicit error" do
