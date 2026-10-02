@@ -96,7 +96,7 @@ defmodule Lens.Earnings.Identity do
         "correction"
 
       Regex.match?(
-        ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信/mu,
+        ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\n]*〕|\([^\)\n]*\)))*[ \t]*$/mu,
         text
       ) ->
         "earnings_release"
@@ -108,7 +108,7 @@ defmodule Lens.Earnings.Identity do
 
   defp publication_date(text) do
     Regex.scan(
-      ~r/^\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日[ \t]*$(?!\s*[をにはがともでへ])/mu,
+      ~r/^\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日[ \t]*\r?$(?!\n[ \t]*(?:[をにはがともでへ付]|公表|ご?参照))/mu,
       text,
       capture: :all_but_first
     )

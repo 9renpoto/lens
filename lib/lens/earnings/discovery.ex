@@ -114,7 +114,17 @@ defmodule Lens.Earnings.Discovery do
   defp resolved_url(listing_url, target, _href),
     do: listing_url |> URI.merge(target) |> URI.to_string()
 
-  defp valid_http_url?(url) do
+  defp valid_http_url?(url) when is_binary(url) do
+    if String.valid?(url) do
+      valid_http_uri?(url)
+    else
+      false
+    end
+  end
+
+  defp valid_http_url?(_), do: false
+
+  defp valid_http_uri?(url) do
     case URI.new(url) do
       {:ok, %{scheme: scheme, host: host, userinfo: nil}} when is_binary(host) and host != "" ->
         String.downcase(scheme || "") in ["http", "https"]

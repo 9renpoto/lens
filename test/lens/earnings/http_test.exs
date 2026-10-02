@@ -73,6 +73,24 @@ defmodule Lens.Earnings.HTTPTest do
     assert HTTP.fetch(url, allowed_url?: allow(url)).failure_reason == :too_large
   end
 
+  test "rejects oversized Content-Length as soon as headers arrive" do
+    owner = self()
+
+    url =
+      server(fn socket, _ ->
+        :gen_tcp.send(socket, "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n")
+        send(owner, :oversized_headers_sent)
+        Process.sleep(300)
+      end)
+
+    started = System.monotonic_time(:millisecond)
+    result = HTTP.fetch(url, allowed_url?: allow(url), max_bytes: 16, timeout_ms: 1_000)
+
+    assert_receive :oversized_headers_sent
+    assert result.failure_reason == :too_large
+    assert System.monotonic_time(:millisecond) - started < 250
+  end
+
   test "distinguishes 304, HTTP failures, non-PDF and interrupted downloads" do
     for {status, body, expected} <- [
           {304, "", :not_modified},
@@ -136,6 +154,19 @@ defmodule Lens.Earnings.HTTPTest do
       assert result.requests == 1
       refute result.retryable
     end
+  end
+
+  test "non HTTP redirect targets are reported as disallowed with the evaluated URL" do
+    url =
+      server(fn socket, _ ->
+        respond(socket, 302, "", [{"Location", "mailto:test@example.com"}])
+      end)
+
+    result = HTTP.fetch(url, allowed_url?: allow(url))
+
+    assert result.failure_reason == :url_not_allowed
+    assert result.final_url == "mailto:test@example.com"
+    assert result.requests == 1
   end
 
   test "a redirect policy process failure is contained in the monitored worker" do
