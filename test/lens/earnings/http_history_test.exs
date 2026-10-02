@@ -137,7 +137,13 @@ defmodule Lens.Earnings.HTTPHistoryTest do
 
     assert listing.acquisition_id == nil
     assert listing.byte_size > 0
-    input = attrs("disabled", :failed, nil) |> put_in([:result, :requests], 0)
+
+    input =
+      attrs("disabled", :failed, nil)
+      |> put_in([:result, :requests], 0)
+      |> put_in([:result, :http_status], nil)
+      |> put_in([:result, :headers], %{})
+
     assert {:ok, rejected} = HTTPHistory.record(input)
     assert rejected.acquisition_id == nil
     assert Repo.aggregate(Acquisition, :count) == 0
@@ -215,7 +221,12 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       attrs("marker", :success, "not a PDF") |> Map.put(:kind, "pdf"),
       put_in(attrs("outcome", :success, "%PDF-first"), [:result, :outcome], :unknown),
       put_in(attrs("url", :success, "%PDF-first"), [:url], "https://user:secret@example.test"),
-      attrs("identity", :success, "%PDF-first") |> Map.put(:release, %{period: "invalid"})
+      attrs("identity", :success, "%PDF-first") |> Map.put(:release, %{period: "invalid"}),
+      put_in(attrs("zero-status", :failed, nil), [:result, :requests], 0)
+      |> put_in([:result, :headers], %{}),
+      put_in(attrs("zero-header", :failed, nil), [:result, :requests], 0)
+      |> put_in([:result, :http_status], nil)
+      |> put_in([:result, :headers], %{"etag" => "impossible"})
     ]
 
     for input <- inputs, do: assert({:error, _} = HTTPHistory.record(input))

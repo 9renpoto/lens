@@ -118,7 +118,9 @@ defmodule Lens.Earnings.HTTPCheck do
             is_integer(requests) and requests > 0
 
         "failed" ->
-          is_binary(reason) and is_nil(size) and is_nil(sha)
+          is_binary(reason) and is_nil(size) and is_nil(sha) and is_integer(requests) and
+            (requests > 0 or
+               (is_nil(http_status) and get_field(changeset, :response_headers) == %{}))
 
         _ ->
           false
