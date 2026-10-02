@@ -42,6 +42,37 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Acquisition, :count) == 0
   end
 
+  test "started failures require a valid final response URL" do
+    for final_url <- [nil, "mailto:failure@example.test"] do
+      input =
+        attrs("failure-final-url-#{inspect(final_url)}", :failed, nil)
+        |> put_in([:result, :final_url], final_url)
+
+      assert {:error, _} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "completed successful outcomes cannot be retryable" do
+    inputs =
+      for outcome <- [:success, :not_modified] do
+        put_in(
+          attrs("retryable-#{outcome}", outcome, if(outcome == :success, do: "%PDF", else: nil)),
+          [:result, :retryable],
+          true
+        )
+      end
+
+    for input <- inputs do
+      assert {:error, _} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
   test "identical reacquisition adds history while changed bytes preserve old originals" do
     for {id, bytes} <- [{"one", "%PDF-one"}, {"two", "%PDF-one"}, {"three", "%PDF-two"}] do
       assert {:ok, _} = HTTPHistory.record(attrs(id, :success, bytes))
