@@ -77,6 +77,16 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.release.category == "earnings_release"
   end
 
+  test "a narrative notice reference does not discard the latest regular release" do
+    prior = candidate("https://example.test/prior", "2026年3月期 決算短信")
+
+    latest =
+      candidate("https://example.test/latest", "2027年3月期 第1四半期決算短信\n詳細は一部訂正に関するお知らせを参照してください。")
+
+    assert latest.release.category == "earnings_release"
+    assert Identity.select_initial([prior, latest]) == {:ok, latest}
+  end
+
   test "quarter and full-year titles claiming different identities remain pending" do
     text = "2027年3月期 第1四半期決算短信\n2027年3月期 決算短信\nコード番号 6857"
     assert Identity.from_text("6857", text).status == :pending_confirmation
