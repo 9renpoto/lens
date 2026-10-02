@@ -272,15 +272,27 @@ defmodule Lens.Earnings.HTTP do
 
   defp encoded?(values) do
     case Map.get(headers(values), "content-encoding", "identity") do
-      value when is_binary(value) -> String.downcase(String.trim(value)) != "identity"
-      _ -> true
+      value when is_binary(value) ->
+        value |> String.split(",") |> Enum.any?(&(String.downcase(String.trim(&1)) != "identity"))
+
+      _ ->
+        true
     end
   end
 
   defp headers(values),
     do:
       Map.new(values, fn {key, values} ->
-        {String.downcase(key), if(is_list(values), do: List.first(values), else: values)}
+        key = String.downcase(key)
+
+        value =
+          cond do
+            key == "content-encoding" and is_list(values) -> Enum.join(values, ", ")
+            is_list(values) -> List.first(values)
+            true -> values
+          end
+
+        {key, value}
       end)
 
   defp failure(reason, url, count),

@@ -311,6 +311,35 @@ defmodule Lens.Earnings.HTTPTest do
     end
   end
 
+  test "all repeated content-coding fields are validated before retaining listing bytes" do
+    for encodings <- [["identity", "gzip"], ["gzip", "identity"], ["identity, gzip"]] do
+      url =
+        server(fn socket, _ ->
+          respond(
+            socket,
+            200,
+            :zlib.gzip("<html>listing</html>"),
+            Enum.map(encodings, &{"Content-Encoding", &1})
+          )
+        end)
+
+      result = HTTP.fetch(url, kind: :listing, allowed_url?: allow(url))
+      assert result.failure_reason == :unsupported_encoding
+      assert result.bytes == nil
+    end
+
+    url =
+      server(fn socket, _ ->
+        respond(socket, 200, "<html>listing</html>", [
+          {"Content-Encoding", "identity"},
+          {"Content-Encoding", "Identity"}
+        ])
+      end)
+
+    assert HTTP.fetch(url, kind: :listing, allowed_url?: allow(url)).bytes ==
+             "<html>listing</html>"
+  end
+
   test "cross-origin redirects discard origin-scoped and custom credentials" do
     owner = self()
 
