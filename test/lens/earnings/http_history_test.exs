@@ -83,11 +83,21 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   test "JSON-backed atom keys and values survive insertion and persistence retries" do
     input =
       attrs("json", :success, "%PDF-first")
-      |> Map.put(:metadata, %{listing: %{label: :pending}, dates: [~D[2026-07-29]]})
+      |> Map.put(:metadata, %{
+        listing: %{label: :pending},
+        dates: [~D[2026-07-29]],
+        escaped_nul: "\\u0000"
+      })
       |> put_in([:result, :headers], %{etag: "v1"})
 
     assert {:ok, check} = HTTPHistory.record(input)
-    assert check.metadata == %{"listing" => %{"label" => "pending"}, "dates" => ["2026-07-29"]}
+
+    assert check.metadata == %{
+             "listing" => %{"label" => "pending"},
+             "dates" => ["2026-07-29"],
+             "escaped_nul" => "\\u0000"
+           }
+
     assert check.response_headers == %{"etag" => "v1"}
     assert {:ok, ^check} = HTTPHistory.record(input)
     assert Repo.aggregate(HTTPCheck, :count) == 1
@@ -154,6 +164,23 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     for input <- [
           attrs("null-metadata", :success, "%PDF-first") |> Map.put(:metadata, nil),
           put_in(attrs("null-headers", :success, "%PDF-first"), [:result, :headers], nil)
+        ] do
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
+  test "NUL in JSON keys or nested strings is rejected before PostgreSQL insertion" do
+    for input <- [
+          attrs("nul-value", :success, "%PDF-first")
+          |> Map.put(:metadata, %{"nested" => ["a\0b"]}),
+          attrs("nul-key", :success, "%PDF-first") |> Map.put(:metadata, %{"a\0b" => "value"}),
+          put_in(attrs("nul-header", :success, "%PDF-first"), [:result, :headers], %{
+            "etag" => "a\0b"
+          })
         ] do
       assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
     end
