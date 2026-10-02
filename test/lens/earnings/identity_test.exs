@@ -17,6 +17,28 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.published_on == ~D[2026-07-29]
   end
 
+  test "ignores prior release titles mentioned in the regular release narrative" do
+    result =
+      Identity.from_text(
+        "6857",
+        "2027年3月期 第1四半期決算短信\n2026年7月29日\n比較対象は2026年3月期 決算短信をご参照ください\nコード番号 6857"
+      )
+
+    assert result.status == :identified
+    assert result.release.fiscal_year_end == ~D[2027-03-31]
+    assert result.release.period == "q1"
+    assert result.published_on == ~D[2026-07-29]
+  end
+
+  test "accepts CRLF-delimited regular release headings and dates" do
+    result =
+      Identity.from_text("6857", "2027年3月期 第1四半期決算短信\r\n2026年7月29日\r\nコード番号 6857")
+
+    assert result.status == :identified
+    assert result.release.category == "earnings_release"
+    assert result.published_on == ~D[2026-07-29]
+  end
+
   test "normalizes full-width digits and identifies Fast Retailing" do
     result = Identity.from_text("9983", "2026年８月期 第３四半期決算短信〔ＩＦＲＳ〕\n2026年７月９日\nコード番号 9983")
     assert result.release.fiscal_year_end == ~D[2026-08-31]
