@@ -204,7 +204,10 @@ defmodule Lens.Earnings.IdentityTest do
           "訂正に関するお知らせ",
           "訂正について",
           "(訂正版)",
-          "〔訂正〕"
+          "〔訂正〕",
+          "(訂正・数値データ訂正)「2027年3月期 第1四半期決算短信」の一部訂正について",
+          "(一部訂正)2027年3月期 第1四半期決算短信",
+          "〔訂正・数値データ訂正〕2027年3月期 第1四半期決算短信"
         ],
         separator <- ["\n", "\n\n", "\r\n"] do
       result =
@@ -217,6 +220,21 @@ defmodule Lens.Earnings.IdentityTest do
       assert result.release == nil
       assert result.fields.category == nil
       assert Identity.select_initial([result]) == :empty
+    end
+  end
+
+  test "compound correction prefixes in narrative references do not block the regular release" do
+    for separator <- ["", "\n", "\n\n", "\r\n"] do
+      result =
+        Identity.from_text(
+          "6857",
+          "2027年3月期 第1四半期決算短信\nコード番号 6857\n(訂正・数値データ訂正)「2026年3月期 決算短信」の一部訂正について" <>
+            separator <> "をご確認ください"
+        )
+
+      assert result.status == :identified
+      assert result.release.fiscal_year_end == ~D[2027-03-31]
+      assert result.release.category == "earnings_release"
     end
   end
 
@@ -416,6 +434,23 @@ defmodule Lens.Earnings.IdentityTest do
     separated = String.replace(base, "\nに公表", "\n\nに公表")
     assert Identity.from_text("8035", separated).published_on == nil
     assert Identity.from_text("8035", "2020年2月4日\n" <> separated).published_on == ~D[2020-02-04]
+  end
+
+  test "financial-statement dates after issuer metadata cannot replace the header publication date" do
+    for separator <- ["\n", "\n\n", "\r\n"],
+        suffix <- ["現在", "時点", "残高", "発表の短信を参照", ""] do
+      text = "2027年3月期 第1四半期決算短信\nコード番号 6857\n2026年6月30日" <> separator <> suffix
+      assert Identity.from_text("6857", text).published_on == nil
+      assert Identity.from_text("6857", "2026年7月29日\n" <> text).published_on == ~D[2026-07-29]
+    end
+  end
+
+  test "header as-of dates remain excluded without clearing the own publication date" do
+    for suffix <- ["現在", "時点", "残高"] do
+      text = "2027年3月期 第1四半期決算短信\n2026年6月30日\n" <> suffix <> "\nコード番号 6857"
+      assert Identity.from_text("6857", text).published_on == nil
+      assert Identity.from_text("6857", "2026年7月29日\n" <> text).published_on == ~D[2026-07-29]
+    end
   end
 
   test "unsupported issuers return an explicit error" do

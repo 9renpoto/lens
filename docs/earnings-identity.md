@@ -23,7 +23,9 @@ An identified result contains `release`, `fields`, `status: :identified`, and
 `published_on`. Missing or contradictory identity returns
 `status: :pending_confirmation` and `release: nil`, retaining partial fields.
 Unsupported issuers return `{:error, :unsupported_issuer}`. Publication dates
-must be standalone explicit date lines; invalid or competing date lines leave
+must be standalone explicit date lines in the header before the first
+`コード番号` field. Dates in financial statements or later narrative are outside
+this supported layout and remain unknown. Invalid or competing header date lines leave
 `published_on` unknown. Dates embedded in a reference to an earlier release do
 not become the correction's publication date. An unknown date does not prevent
 otherwise complete identity. No dates are inferred from URLs or acquisition time.
@@ -69,7 +71,9 @@ HTTP取得・PDF抽出・保存は行わない。収集側は実際の抽出文�
 識別済みの結果は`release`・`fields`・`status: :identified`・`published_on`を含む。
 欠落や矛盾がある識別情報は`status: :pending_confirmation`・`release: nil`とし、
 部分的な値を保持する。対象外企業は`{:error, :unsupported_issuer}`。
-公表日は独立した明示的な日付行から読み、不正または複数の異なる日付行がある場合は
+公表日は最初の`コード番号`欄より前のヘッダーにある独立した明示的な日付行から読む。
+財務諸表や後続本文の日付は対応レイアウトの範囲外として不明のままにする。
+ヘッダーの日付行が不正または複数の異なる値を持つ場合は
 不明のままにする。旧短信を参照する文章中の日付は訂正資料の公表日としない。
 公表日が不明でも他の識別値が完全なら識別済みにできる。
 URLや取得時刻から日付を推測しない。未対応のレイアウトは運用者の確認待ちとし、
