@@ -89,9 +89,17 @@ defmodule Lens.Earnings.Identity do
 
   defp category(text) do
     cond do
-      Regex.match?(~r/^[ \t]*(?:\(訂正\)|(?:一部|決算数値の)訂正に関するお知らせ[ \t]*$)/mu, text) -> "correction"
-      String.contains?(text, "決算短信") -> "earnings_release"
-      true -> nil
+      Regex.match?(
+        ~r/^[ \t]*(?:\(訂正\)|(?:「[^\n」]*決算短信[^\n」]*」の)?(?:一部|決算数値の)訂正に関するお知らせ[ \t]*$)/mu,
+        text
+      ) ->
+        "correction"
+
+      String.contains?(text, "決算短信") ->
+        "earnings_release"
+
+      true ->
+        nil
     end
   end
 

@@ -47,7 +47,7 @@ defmodule Lens.Earnings.DiscoveryTest do
     end
   end
 
-  test "discovers the exact URL sets from all six source fixtures" do
+  test "discovers the exact URL sets from all source fixtures" do
     fixtures =
       File.read!(Path.expand("../../fixtures/source_catalog/cases.json", __DIR__))
       |> Jason.decode!()
@@ -63,6 +63,15 @@ defmodule Lens.Earnings.DiscoveryTest do
         )
 
       assert Enum.map(links, & &1.url) == expected
+    end
+  end
+
+  test "walks PDF anchors inside every heading level with heading provenance" do
+    for level <- 1..6 do
+      html = "<h#{level}><span><a href='release.pdf'>決算短信</a></span></h#{level}>"
+      assert {:ok, [link]} = Discovery.links("https://example.test/", html)
+      assert link.url == "https://example.test/release.pdf"
+      assert link.headings == [{level, "決算短信"}]
     end
   end
 
