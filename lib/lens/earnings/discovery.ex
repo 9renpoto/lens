@@ -45,7 +45,7 @@ defmodule Lens.Earnings.Discovery do
     end)
   end
 
-  defp visit({tag, _, _} = node, state, _listing_url) when tag in ~w(h1 h2 h3 h4 h5 h6) do
+  defp visit({tag, _, children} = node, state, listing_url) when tag in ~w(h1 h2 h3 h4 h5 h6) do
     level = tag |> String.last() |> String.to_integer()
 
     headings =
@@ -53,7 +53,7 @@ defmodule Lens.Earnings.Discovery do
       |> Map.reject(fn {key, _} -> key >= level end)
       |> Map.put(level, text(node))
 
-    %{state | headings: headings}
+    walk(children, %{state | headings: headings}, listing_url)
   end
 
   defp visit({"a", attrs, _} = node, state, listing_url) do
