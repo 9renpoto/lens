@@ -43,7 +43,7 @@ New hosts/paths require source review. The bounded HTTP transport, per-company
 initial candidate filtering, acquisition state, schedule, and manual CLI remain
 subsequent work for [#71](https://github.com/9renpoto/lens/issues/71).
 
-Tests compare the exact discovered URL sets from all six source fixtures and
+Tests compare the exact discovered URL sets from all bundled source fixtures and
 exercise HTML parsing, relative links, provenance, heading transitions,
 duplicate fragments, input bounds, and reviewed route boundaries. Reduced
 fixtures do not prove compatibility with a publisher's complete live page or
@@ -88,7 +88,7 @@ HTML実体参照はパーサーで復号する。リンクはHTTP(S)、認証情
 新しいホスト・パスは取得元レビューが必要。上限付きHTTP取得、企業別初期候補選別、
 取得状態、日次実行、手動CLIは[#71](https://github.com/9renpoto/lens/issues/71)の後続作業。
 
-テストは6件の取得元固定データのリンク集合を完全比較し、HTML解析、相対リンク、
+テストは同梱されたすべての取得元固定データのリンク集合を完全比較し、HTML解析、相対リンク、
 出典保持、見出し遷移、フラグメント重複、入力上限、検証済み経路境界を確認する。
 縮小した固定データだけで発行元の実ページ全体との互換性やPDF取得・保存の許可を
 実証したとは扱わない。新しい実サイト確認を行ったとは主張しない。
