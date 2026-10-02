@@ -213,5 +213,46 @@
         "https://ir.example.test/documents/adv-q1.pdf?download=1"
       ]
     }
+  },
+  {
+    "id": "synthetic-conflicting-regular-identities",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/tel/results/",
+    "listing_html": "<a href=\"/documents/tel-q1-original.pdf\">第1四半期決算短信</a><a href=\"/documents/tel-q1-revised.pdf\">第1四半期決算短信</a>",
+    "documents": [
+      {
+        "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年7月30日\n東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "url": "https://ir.example.test/documents/tel-q1-original.pdf",
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2027-03-31",
+          "period": "Q1",
+          "category": "earnings_release",
+          "published_on": "2026-07-30",
+          "status": "identified",
+          "selected_as_regular_release": false
+        }
+      },
+      {
+        "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年8月1日\n東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "url": "https://ir.example.test/documents/tel-q1-revised.pdf",
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2027-03-31",
+          "period": "Q1",
+          "category": "earnings_release",
+          "published_on": "2026-08-01",
+          "status": "identified",
+          "selected_as_regular_release": false
+        }
+      }
+    ],
+    "expected_discovered_urls": [
+      "https://ir.example.test/documents/tel-q1-original.pdf",
+      "https://ir.example.test/documents/tel-q1-revised.pdf"
+    ],
+    "expected_initial_regular_release": null
   }
 ]

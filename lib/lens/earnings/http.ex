@@ -122,10 +122,10 @@ defmodule Lens.Earnings.HTTP do
             retry: false,
             receive_timeout: remaining,
             connect_options: [timeout: 30_000],
-            into: fn {:data, chunk}, {req, resp} -> stream(req, resp, chunk, config.limit) end
+            into: :self
           )
 
-        finish(response, url, config, deadline, count, owner, ref)
+        stream_response(response, url, config, deadline, count, owner, ref)
     end
   rescue
     _ -> failure(:transport_error, url, count)
@@ -136,28 +136,82 @@ defmodule Lens.Earnings.HTTP do
     allowed?(url, policy)
   end
 
-  defp stream(req, resp, chunk, limit) do
-    size = Map.get(resp.private, :lens_size, 0) + byte_size(chunk)
+  defp stream_response({:ok, resp}, url, config, deadline, count, owner, ref) do
+    cond do
+      resp.status != 200 ->
+        Req.cancel_async_response(resp)
+        finish({:ok, resp}, url, config, deadline, count, owner, ref)
 
-    reason =
-      cond do
-        resp.status != 200 -> nil
-        oversized?(resp.headers, limit) or size > limit -> :too_large
-        encoded?(resp.headers) -> :unsupported_encoding
-        true -> nil
-      end
+      oversized?(resp.headers, config.limit) ->
+        Req.cancel_async_response(resp)
+        resp = %{resp | private: Map.put(resp.private, :lens_failure, :too_large)}
+        finish({:ok, resp}, url, config, deadline, count, owner, ref)
 
-    if resp.status != 200 or reason do
-      {:halt, {req, %{resp | private: Map.put(resp.private, :lens_failure, reason)}}}
-    else
-      private =
-        resp.private
-        |> Map.put(:lens_size, size)
-        |> Map.update(:lens_chunks, [chunk], &[chunk | &1])
+      encoded?(resp.headers) ->
+        Req.cancel_async_response(resp)
+        resp = %{resp | private: Map.put(resp.private, :lens_failure, :unsupported_encoding)}
+        finish({:ok, resp}, url, config, deadline, count, owner, ref)
 
-      {:cont, {req, %{resp | private: private}}}
+      true ->
+        collect_body(resp, url, config, deadline, count, owner, ref, %{
+          lens_size: 0,
+          lens_chunks: []
+        })
     end
   end
+
+  defp stream_response({:error, error}, url, config, deadline, count, owner, ref),
+    do: finish({:error, error}, url, config, deadline, count, owner, ref)
+
+  defp collect_body(resp, url, config, deadline, count, owner, ref, private) do
+    receive do
+      message ->
+        case Req.parse_message(resp, message) do
+          {:ok, events} ->
+            case collect_events(events, private, config.limit) do
+              {:continue, private} ->
+                collect_body(resp, url, config, deadline, count, owner, ref, private)
+
+              {:done, private} ->
+                resp = %{resp | body: "", private: private}
+                finish({:ok, resp}, url, config, deadline, count, owner, ref)
+
+              {:error, reason} ->
+                Req.cancel_async_response(resp)
+                failure(reason, url, count)
+            end
+
+          {:error, reason} ->
+            finish({:error, %{reason: reason}}, url, config, deadline, count, owner, ref)
+
+          :unknown ->
+            collect_body(resp, url, config, deadline, count, owner, ref, private)
+        end
+    after
+      max(deadline - now(), 0) ->
+        Req.cancel_async_response(resp)
+        failure(:timeout, url, count)
+    end
+  end
+
+  defp collect_events([], private, _limit), do: {:continue, private}
+  defp collect_events([:done | _], private, _limit), do: {:done, private}
+
+  defp collect_events([{:trailers, _} | rest], private, limit),
+    do: collect_events(rest, private, limit)
+
+  defp collect_events([{:data, chunk} | rest], private, limit) do
+    size = private.lens_size + byte_size(chunk)
+
+    if size > limit do
+      {:error, :too_large}
+    else
+      private = %{private | lens_size: size, lens_chunks: [chunk | private.lens_chunks]}
+      collect_events(rest, private, limit)
+    end
+  end
+
+  defp collect_events([_event | rest], private, limit), do: collect_events(rest, private, limit)
 
   defp finish({:ok, resp}, url, config, deadline, count, owner, ref) do
     base = %{
@@ -199,7 +253,7 @@ defmodule Lens.Earnings.HTTP do
 
   defp finish({:error, error}, url, _config, _deadline, count, _owner, _ref) do
     reason =
-      case Map.get(error, :reason) do
+      case error_reason(error) do
         :timeout -> :timeout
         :closed -> :interrupted
         _ -> :transport_error
@@ -253,7 +307,7 @@ defmodule Lens.Earnings.HTTP do
 
   defp origin(url) do
     uri = URI.parse(url)
-    {String.downcase(uri.scheme), String.downcase(uri.host), uri.port}
+    {String.downcase(uri.scheme || ""), String.downcase(uri.host || ""), uri.port}
   end
 
   defp allowed?(url, policy) when is_binary(url) do
@@ -314,6 +368,10 @@ defmodule Lens.Earnings.HTTP do
       bytes: nil,
       retryable: reason in [:timeout, :interrupted, :transport_error]
     }
+
+  defp error_reason(reason) when is_atom(reason), do: reason
+  defp error_reason(%{reason: reason}), do: error_reason(reason)
+  defp error_reason(_), do: nil
 
   defp now, do: System.monotonic_time(:millisecond)
 end
