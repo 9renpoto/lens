@@ -59,13 +59,46 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     inputs =
       for outcome <- [:success, :not_modified] do
         put_in(
-          attrs("retryable-#{outcome}", outcome, if(outcome == :success, do: "%PDF", else: nil)),
+          attrs(
+            "retryable-#{outcome}",
+            outcome,
+            if(outcome == :success, do: "%PDF-valid", else: nil)
+          ),
           [:result, :retryable],
           true
         )
       end
 
     for input <- inputs do
+      assert {:error, _} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "failed outcomes reject retryability that contradicts the failure reason or HTTP status" do
+    cases = [
+      {:non_pdf, 200, true},
+      {:too_large, 200, true},
+      {:unsupported_encoding, 200, true},
+      {:url_not_allowed, nil, true},
+      {:redirect_limit, 302, true},
+      {:timeout, nil, false},
+      {:interrupted, nil, false},
+      {:transport_error, nil, false},
+      {:http_error, 404, true},
+      {:http_error, 503, false},
+      {:http_error, 429, false}
+    ]
+
+    for {reason, status, retryable} <- cases do
+      input =
+        attrs("retryability-#{reason}-#{status}", :failed, nil)
+        |> put_in([:result, :failure_reason], reason)
+        |> put_in([:result, :http_status], status)
+        |> put_in([:result, :retryable], retryable)
+
       assert {:error, _} = HTTPHistory.record(input)
     end
 
@@ -94,6 +127,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     for reason <- [:too_large, :interrupted, :timeout, :non_pdf, :http_error] do
       input = attrs(to_string(reason), :failed, nil)
       input = put_in(input.result.failure_reason, reason)
+      input = put_in(input.result.retryable, reason in [:interrupted, :timeout, :http_error])
       assert {:ok, check} = HTTPHistory.record(input)
       assert check.failure_reason == to_string(reason)
       assert check.http_status == 503
@@ -180,6 +214,8 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     input =
       attrs("disabled", :failed, nil)
       |> put_in([:result, :requests], 0)
+      |> put_in([:result, :failure_reason], :url_not_allowed)
+      |> put_in([:result, :retryable], false)
       |> put_in([:result, :http_status], nil)
       |> put_in([:result, :headers], %{})
 

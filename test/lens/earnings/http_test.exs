@@ -267,6 +267,23 @@ defmodule Lens.Earnings.HTTPTest do
     assert result.bytes == nil
   end
 
+  test "timeout cleanup retains queued request-start accounting" do
+    ref = make_ref()
+    unrelated = make_ref()
+    original = "https://example.test/request.pdf"
+    redirected = "https://example.test/redirect.pdf"
+    evaluated = "https://example.test/rejected.pdf"
+
+    send(self(), {ref, :started, redirected, 2})
+    send(self(), {ref, :evaluating, evaluated, 2})
+    send(self(), {ref, :result, 0, %{final_url: evaluated, requests: 1}})
+    send(self(), {unrelated, :started, original, 9})
+
+    assert Lens.Earnings.HTTPNotifications.drain(ref, original, 0) == {evaluated, 2}
+    assert_receive {^unrelated, :started, ^original, 9}
+    refute_receive {^ref, _, _, _}, 0
+  end
+
   test "caller termination cancels an in-flight download and closes its socket" do
     owner = self()
 

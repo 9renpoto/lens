@@ -136,6 +136,7 @@ defmodule Lens.Earnings.HTTPCheck do
 
         "failed" ->
           is_binary(reason) and is_nil(size) and is_nil(sha) and is_integer(requests) and
+            get_field(changeset, :retryable) == retryable_failure?(reason, http_status) and
             (requests == 0 or not is_nil(get_field(changeset, :final_url))) and
             (requests > 0 or
                (is_nil(http_status) and get_field(changeset, :response_headers) == %{}))
@@ -148,4 +149,10 @@ defmodule Lens.Earnings.HTTPCheck do
       do: changeset,
       else: add_error(changeset, :status, "has inconsistent response facts")
   end
+
+  defp retryable_failure?("http_error", http_status) when is_integer(http_status),
+    do: http_status == 429 or http_status >= 500
+
+  defp retryable_failure?(reason, _),
+    do: reason in ["timeout", "interrupted", "transport_error"]
 end
