@@ -21,6 +21,9 @@ defmodule Lens.Earnings.Discovery do
     end
   end
 
+  def links(listing_url, html) when not is_binary(listing_url) and is_binary(html),
+    do: {:error, :invalid_listing_url}
+
   def links(_, _), do: {:error, :invalid_html}
 
   defp parse_links(listing_url, html) do
