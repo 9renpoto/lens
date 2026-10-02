@@ -1,7 +1,7 @@
 defmodule Lens.Earnings.DiscoveryTest do
   use ExUnit.Case, async: true
 
-  alias Lens.Earnings.{Discovery, SourceCatalog}
+  alias Lens.Earnings.{Discovery, Identity, SourceCatalog}
 
   test "fixed sources remain inactive until acquisition conditions are resolved" do
     sources = SourceCatalog.all()
@@ -180,6 +180,27 @@ defmodule Lens.Earnings.DiscoveryTest do
     assert Discovery.links("file:///tmp/", "<a href='a.pdf'>資料</a>") ==
              {:error, :invalid_listing_url}
 
+    assert Discovery.links("https://example.test/" <> <<255>>, "<a href='a.pdf'>資料</a>") ==
+             {:error, :invalid_listing_url}
+
     assert Discovery.links("https://example.test/", <<255>>) == {:error, :invalid_html}
+  end
+
+  test "identical regular identities in source fixtures remain pending as a selection conflict" do
+    fixture =
+      File.read!(Path.expand("../../fixtures/source_catalog/cases.json", __DIR__))
+      |> Jason.decode!()
+      |> Enum.find(&(&1["id"] == "synthetic-conflicting-regular-identities"))
+
+    candidates =
+      Enum.map(fixture["documents"], fn document ->
+        Identity.from_text("8035", document["pdf_identity_text"])
+        |> Map.put(:url, document["expected"]["url"])
+      end)
+
+    assert Enum.all?(candidates, &(&1.status == :identified))
+    assert {:pending_confirmation, pending} = Identity.select_initial(candidates)
+    assert Enum.map(pending, & &1.url) == fixture["expected_discovered_urls"]
+    assert fixture["expected_initial_regular_release"] == nil
   end
 end
