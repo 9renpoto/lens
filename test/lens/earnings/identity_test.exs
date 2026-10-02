@@ -68,6 +68,18 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.published_on == ~D[2020-02-04]
   end
 
+  test "accepts CRLF-delimited title-prefixed correction headings" do
+    result =
+      Identity.from_text(
+        "8035",
+        "2020年2月4日\r\nコード番号 8035\r\n「2020年3月期 第3四半期決算短信」の一部訂正に関するお知らせ\r\n"
+      )
+
+    assert result.status == :identified
+    assert result.release.category == "correction"
+    assert result.published_on == ~D[2020-02-04]
+  end
+
   test "recognizes a full-year release without inventing a publication date" do
     result = Identity.from_text("8035", "2027年3月期 決算短信\nコード番号 8035")
     assert result.release.period == "full_year"
