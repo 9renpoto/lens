@@ -215,6 +215,13 @@ defmodule Lens.Earnings.DiscoveryTest do
     assert Discovery.links("https://example.test/", <<255>>) == {:error, :invalid_html}
   end
 
+  test "non-binary listing URLs return a listing URL error" do
+    for listing_url <- [nil, :missing, 42] do
+      assert Discovery.links(listing_url, "<a href='release.pdf'>決算短信</a>") ==
+               {:error, :invalid_listing_url}
+    end
+  end
+
   test "identical regular identities in source fixtures remain pending as a selection conflict" do
     fixture =
       File.read!(Path.expand("../../fixtures/source_catalog/cases.json", __DIR__))
