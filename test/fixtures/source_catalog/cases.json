@@ -126,11 +126,11 @@
     "id": "synthetic-ambiguous-correction",
     "evidence_type": "synthetic-parser-fixture",
     "listing_url": "https://ir.example.test/tel/calendar/",
-    "listing_html": "<a href=\"/documents/tel-correction.pdf\">訂正資料</a>",
+    "listing_html": "<a href=\"https://ir.example.test/documents/2027/tel-correction.pdf\">Q2 訂正資料</a>",
     "pdf_identity_text": "決算数値の訂正に関するお知らせ\n東京エレクトロン株式会社\nコード番号 8035",
     "expected": {
       "discovered_urls": [
-        "https://ir.example.test/documents/tel-correction.pdf"
+        "https://ir.example.test/documents/2027/tel-correction.pdf"
       ],
       "issuer_code": "8035",
       "issuer_name": "東京エレクトロン株式会社",
