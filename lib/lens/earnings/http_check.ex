@@ -31,7 +31,9 @@ defmodule Lens.Earnings.HTTPCheck do
   def changeset(check, attrs) do
     check
     |> cast(attrs, @facts)
-    |> validate_required(~w(check_id issuer_code kind url checked_at status requests retryable)a)
+    |> validate_required(
+      ~w(check_id issuer_code kind url checked_at status requests retryable metadata response_headers)a
+    )
     |> validate_length(:check_id, min: 1, max: 180)
     |> validate_inclusion(:issuer_code, ~w(6857 9983 8035))
     |> validate_inclusion(:kind, ~w(pdf listing))

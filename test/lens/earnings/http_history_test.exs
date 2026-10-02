@@ -150,6 +150,19 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Original, :count) == 0
   end
 
+  test "explicit null JSON fields return validation errors without partial records" do
+    for input <- [
+          attrs("null-metadata", :success, "%PDF-first") |> Map.put(:metadata, nil),
+          put_in(attrs("null-headers", :success, "%PDF-first"), [:result, :headers], nil)
+        ] do
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
   test "database rejects rewriting or deleting completed check facts" do
     assert {:ok, check} = HTTPHistory.record(attrs("immutable", :success, "%PDF-first"))
 
