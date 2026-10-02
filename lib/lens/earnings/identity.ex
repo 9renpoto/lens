@@ -10,16 +10,17 @@ defmodule Lens.Earnings.Identity do
     codes = Regex.scan(~r/コード\s*番号\s*[:：]?\s*([0-9]{4})(?![0-9])/u, text, capture: :all_but_first)
     code = codes |> Enum.map(&hd/1) |> unique_value()
 
-    titles =
+    {year_ends, periods} =
       Regex.scan(
         ~r/^[ \t]*(?:\(訂正\)[ \t]*)?「?(?<year>[0-9]{4})\s*年\s*(?<month>[0-9]{1,2})\s*月期\s*(?:第\s*(?<quarter>[123])\s*四半期\s*(?<interim>\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\r\n]*〕|\([^\)\r\n]*\)))*」?(?:\s*の\s*(?:一部|決算数値の)?\s*訂正(?:について|に関する(?:お知らせ|補足資料)))?[ \t]*\r?$(?!\n[ \t]*(?:\r?\n[ \t]*)*(?:の|[をにはがともでへ]|ご参照|参照|記載|掲載))/mu,
         text,
         capture: ["year", "month", "quarter", "interim"]
       )
       |> Enum.map(&title_fields(&1, Map.fetch!(@fiscal_months, issuer)))
-      |> unique_value()
+      |> Enum.unzip()
 
-    {year_end, period} = titles || {nil, nil}
+    year_end = unique_value(year_ends)
+    period = unique_value(periods)
     category = category(text)
 
     fields = %{
@@ -86,12 +87,18 @@ defmodule Lens.Earnings.Identity do
     year = String.to_integer(year)
     month = String.to_integer(month)
 
-    if year > 0 and month == fiscal_month and (interim == "" or quarter == "2") do
-      {:ok, first} = Date.new(year, month, 1)
-      {Date.end_of_month(first), if(quarter == "", do: "full_year", else: "q" <> quarter)}
-    else
-      {nil, nil}
-    end
+    year_end =
+      if year > 0 and month == fiscal_month do
+        {:ok, first} = Date.new(year, month, 1)
+        Date.end_of_month(first)
+      end
+
+    period =
+      if interim == "" or quarter == "2" do
+        if quarter == "", do: "full_year", else: "q" <> quarter
+      end
+
+    {year_end, period}
   end
 
   defp category(text) do

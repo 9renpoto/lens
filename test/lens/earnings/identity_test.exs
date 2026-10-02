@@ -305,6 +305,46 @@ defmodule Lens.Earnings.IdentityTest do
     assert Identity.from_text("6857", text).status == :pending_confirmation
   end
 
+  test "conflicting title fields retain each independently unambiguous component" do
+    period_conflict =
+      Identity.from_text(
+        "6857",
+        "2027年3月期 第1四半期決算短信\n2027年3月期 第2四半期決算短信\nコード番号 6857"
+      )
+
+    assert period_conflict.status == :pending_confirmation
+    assert period_conflict.release == nil
+    assert period_conflict.fields.fiscal_year_end == ~D[2027-03-31]
+    assert period_conflict.fields.period == nil
+
+    year_conflict =
+      Identity.from_text(
+        "6857",
+        "2027年3月期 第1四半期決算短信\n2026年3月期 第1四半期決算短信\nコード番号 6857"
+      )
+
+    assert year_conflict.status == :pending_confirmation
+    assert year_conflict.release == nil
+    assert year_conflict.fields.fiscal_year_end == nil
+    assert year_conflict.fields.period == "q1"
+    assert Identity.select_initial([period_conflict, year_conflict]) == :empty
+  end
+
+  test "invalid fiscal month or interim qualifier does not clear another valid title field" do
+    invalid_month = Identity.from_text("6857", "2027年8月期 第1四半期決算短信\nコード番号 6857")
+    assert invalid_month.status == :pending_confirmation
+    assert invalid_month.fields.fiscal_year_end == nil
+    assert invalid_month.fields.period == "q1"
+
+    invalid_interim =
+      Identity.from_text("6857", "2027年3月期 第1四半期(中間期)決算短信\nコード番号 6857")
+
+    assert invalid_interim.status == :pending_confirmation
+    assert invalid_interim.fields.fiscal_year_end == ~D[2027-03-31]
+    assert invalid_interim.fields.period == nil
+    assert Identity.select_initial([invalid_month, invalid_interim]) == :empty
+  end
+
   test "dated source fixtures map to the documented identities" do
     cases =
       File.read!(Path.expand("../../fixtures/source_catalog/cases.json", __DIR__))
