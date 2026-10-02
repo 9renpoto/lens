@@ -210,6 +210,16 @@ defmodule Lens.Earnings.IdentityTest do
       assert result.release == nil
       assert result.fields.period == "q1"
       assert result.fields.category == nil
+
+      wrapped =
+        Identity.from_text(
+          "8035",
+          "2027年3月期 第1四半期決算短信\n" <> suffix <> "\nコード番号 8035"
+        )
+
+      assert wrapped.status == :pending_confirmation
+      assert wrapped.release == nil
+      assert wrapped.fields.category == nil
     end
   end
 
