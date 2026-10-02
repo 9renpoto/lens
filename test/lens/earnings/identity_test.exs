@@ -90,6 +90,8 @@ defmodule Lens.Earnings.IdentityTest do
   test "title-prefixed correction headings cannot become initial regular releases" do
     for heading <- [
           "「2027年3月期 第1四半期決算短信」の一部訂正に関するお知らせ",
+          "「2027年3月期 第1四半期決算短信」\nの一部訂正に関するお知らせ",
+          "「2027年3月期\n第1四半期決算短信」\nの一部\n訂正に関するお知らせ",
           "「2027年3月期 第1四半期決算短信」の決算数値の訂正に関するお知らせ"
         ] do
       result = Identity.from_text("8035", heading <> "\nコード番号 8035")

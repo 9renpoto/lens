@@ -139,7 +139,8 @@ within the documented per-run request bound; do
 not retry a failed request in the same run. Keep all routes inactive until the
 applicable permission and preservation terms are resolved.
 
-The initial-selection rule considers only confirmed regular releases, sorting by
+The initial-selection rule first groups candidates by issuer, then considers
+only confirmed regular releases within each issuer, sorting by
 fiscal year-end descending and then period (`Q1` < `Q2` < `Q3` < `FY`). This
 selects the newest regular period per issuer in the evidence available at
 initialization; same-identity conflicts remain pending. Advantest's FY2026
@@ -243,7 +244,7 @@ JPXの閲覧サービス案内では、表題訂正や削除後のPDF閲覧停�
 
 Lens側の日次方針案（発行元の許可ではない）：ホストごとの一覧確認は1日1回まで。新規発見PDFの取得と保存済み資料URLの再確認を、文書化した実行あたりの要求上限内で逐次実行し、同一実行内で失敗リクエストを再試行しない。適用される許可と保存条件が明確になるまで、全経路を無効のままにする。
 
-初期資料は識別が確定した通常資料だけを決算期末の降順、次に期間順（Q1 < Q2 < Q3 < FY）で並べ、先頭を選ぶ。同一識別情報の候補が複数ある場合は確認待ちにする。アドバンテストのFY2026という一覧表記はPDFの2027年3月期から正規化する。訂正資料の選択規則は公式アーカイブの実例で確認した。[東京エレクトロンの2020年3月期第3四半期一覧](https://www.tel.co.jp/ir/library/report/index.html)から、2020-01-30公表の[通常短信](https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_r1-j.pdf)と2020-02-04公表の[別掲載訂正資料](https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_teisei-j.pdf)を確認した。訂正資料は元資料と期間を明示するため、企業8035／決算期末2020-03-31／Q3に対応させ、通常短信と訂正資料で資料種類を分ける。初期資料として選ぶのは通常短信のみ。発見URLと期待結果はローカル固定データにある。
+初期資料は候補を企業別に分け、各企業内で識別が確定した通常資料だけを決算期末の降順、次に期間順（Q1 < Q2 < Q3 < FY）で並べ、先頭を選ぶ。同一識別情報の候補が複数ある場合は確認待ちにする。アドバンテストのFY2026という一覧表記はPDFの2027年3月期から正規化する。訂正資料の選択規則は公式アーカイブの実例で確認した。[東京エレクトロンの2020年3月期第3四半期一覧](https://www.tel.co.jp/ir/library/report/index.html)から、2020-01-30公表の[通常短信](https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_r1-j.pdf)と2020-02-04公表の[別掲載訂正資料](https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_teisei-j.pdf)を確認した。訂正資料は元資料と期間を明示するため、企業8035／決算期末2020-03-31／Q3に対応させ、通常短信と訂正資料で資料種類を分ける。初期資料として選ぶのは通常短信のみ。発見URLと期待結果はローカル固定データにある。
 
 固定データ向けの候補識別情報は、アドバンテスト6857／2027-03-31／Q1／通常決算短信／2026-07-29、ファーストリテイリング9983／2026-08-31／Q3／通常決算短信／2026-07-09、東京エレクトロン8035／2027-03-31／Q1／通常決算短信／2026-07-30。これらは2026-09-30時点の最新通常資料として確認した候補であり、後日の収集開始時は一覧を再発見して選択規則を適用する。訂正資料は別分類とし、曖昧な値はURLや取得時刻から推測せず確認待ちにする。
 
