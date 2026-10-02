@@ -27,8 +27,8 @@ and record each actual HTTP operation with a fresh check ID. Persistence retries
 reuse that operation's ID and result without invoking HTTP again. Source
 conditions may prohibit retries or require longer spacing; those conditions
 take precedence. All pilot sources remain disabled pending their source review.
-Source exclusion, checked-set selection, daily scheduling, and manual CLI
-integration remain subsequent collection work.
+Preventing overlapping runs per source, checked-set selection, daily scheduling,
+and manual CLI integration remain subsequent collection work.
 
 Tests use local TCP servers to verify redirect accounting, deadline cancellation,
 and absence of requests after exhaustion. Existing HTTP, history, and feed
@@ -61,7 +61,7 @@ ingestion regressions use their established tests.
 を守り、`fetch/3`で残り予算を確認し、実際のHTTP処理ごとに新しい確認IDで保存
 する。保存の再試行は同じIDと結果を再利用し、HTTPを再実行しない。取得先の条件
 が再試行を禁じたり、より長い間隔を要求したりする場合は、その条件を優先する。
-取得元の評価が完了するまで全パイロットソースは無効のまま。重複実行防止・確認
+取得元の評価が完了するまで全パイロットソースは無効のまま。同一取得元の重複実行防止・確認
 対象の選択・日次スケジュール・手動CLIへの接続は後続の収集実装で扱う。
 
 ローカルTCPサーバーでリダイレクトの計数・期限による中断・予算超過後に要求が
