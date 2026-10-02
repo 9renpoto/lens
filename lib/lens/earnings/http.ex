@@ -78,7 +78,7 @@ defmodule Lens.Earnings.HTTP do
           else: %{result | requests: requests}
 
       {:DOWN, ^monitor, :process, _, _} ->
-        failure(:transport_error, url, requests)
+        failure(Lens.Earnings.HTTPNotifications.worker_exit_reason(deadline), url, requests)
     after
       max(deadline - now(), 0) ->
         Process.exit(worker, :kill)
