@@ -63,6 +63,11 @@ defmodule Lens.Earnings.DiscoveryTest do
         )
 
       assert Enum.map(links, & &1.url) == expected
+
+      if comparison = get_in(fixture, ["expected", "comparison_urls"]) do
+        assert Enum.map(links, & &1.comparison_url) == comparison
+        refute comparison == expected
+      end
     end
   end
 
