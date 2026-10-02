@@ -17,10 +17,11 @@ policies must also apply the catalog's reviewed-document route predicate.
   `kind: :listing` has a 2 MiB (2,097,152 byte) maximum. `max_bytes` can lower the
   corresponding cap but cannot increase it.
 - `timeout_ms` defaults to 20,000 and accepts 1–30,000. One monotonic deadline
-  covers the entire operation, including connection, receive, and all redirects;
+  covers the entire operation, including initial URL-policy evaluation, connection, receive, and all redirects;
   activity and redirects do not reset it. A monitored worker is cancelled on
   timeout or caller termination. Interrupted/failed data is never returned as a
-  successful original.
+  successful original. An optional absolute monotonic-millisecond `deadline` can
+  shorten this bound. Connection options stay fixed to reuse one Finch pool.
 - `max_redirects` accepts 0–3 and defaults to 3: at most four HTTP attempts per
   invocation. Redirects are followed explicitly, with policy checks before each
   hop. There are zero automatic retries; later retry/backoff and run budgets are
@@ -41,6 +42,11 @@ Optional `headers` carry conditional validators such as `if-none-match` and
 future checks. The transport neither creates acquisition identifiers nor retries
 persistence; the collector must allocate one identifier per actual download and
 reuse it only when retrying that same persistence operation.
+
+Cross-origin redirects retain only `accept`, `accept-language`, and `user-agent`
+from caller headers. Credentials, custom headers, and conditional validators are
+removed; same-origin redirects preserve caller headers. The origin includes scheme,
+host, and port. Content-Encoding identity tokens are compared without case sensitivity.
 
 ## Result contract
 
@@ -84,10 +90,11 @@ DB書込・識別確定・日次実行・抽出は行わない。収集側は呼
 
 - 既定の`kind: :pdf`は20 MiB（20,971,520バイト）まで。`kind: :listing`は
   2 MiB（2,097,152バイト）まで。`max_bytes`は該当上限を下げる指定だけを許容する。
-- `timeout_ms`は既定20,000、指定範囲1〜30,000。接続・受信・全リダイレクトを
+- `timeout_ms`は既定20,000、指定範囲1〜30,000。初回URLポリシー評価・接続・受信・全リダイレクトを
   一つの単調時計の期限で管理し、通信やリダイレクトで期限を更新しない。
   期限切れ・呼び出し元終了で監視中のワーカーを停止する。
-  中断・失敗したバイト列を成功原本として返さない。
+  中断・失敗したバイト列を成功原本として返さない。任意の絶対期限`deadline`
+  （単調時計のミリ秒値）で上限を短縮できる。接続設定を固定しFinchプールを再利用する。
 - `max_redirects`は0〜3、既定3で、呼び出しごとにHTTP試行は最大4回。
   各宛先の通信前に判定し、明示的にリダイレクトする。自動再試行は0回。
   後続の再試行・待機と実行上限は発行元条件に従う収集側の責務。
@@ -104,6 +111,11 @@ DB書込・識別確定・日次実行・抽出は行わない。収集側は呼
 成功応答のヘッダーから次回用の検証子を参照できる。取得識別子の生成や保存再試行は
 行わない。収集側は実際のダウンロードごとに識別子を割り当て、その保存処理を
 再試行する場合だけ同じ識別子を再利用する。
+
+別オリジンへのリダイレクトでは、呼び出し側のヘッダーのうち`accept`・
+`accept-language`・`user-agent`だけを引き継ぐ。認証情報・独自ヘッダー・条件付き
+検証子は除去し、同一オリジンでは維持する。オリジンはscheme・host・portで判定する。
+Content-Encodingのidentity値は大文字・小文字を区別せず比較する。
 
 ## 結果の契約
 

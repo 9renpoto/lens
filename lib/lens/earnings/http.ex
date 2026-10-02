@@ -4,6 +4,7 @@ defmodule Lens.Earnings.HTTP do
   @redirects [301, 302, 303, 307, 308]
 
   def fetch(url, options \\ []) do
+    started = now()
     kind = Keyword.get(options, :kind, :pdf)
 
     limit =
@@ -12,22 +13,21 @@ defmodule Lens.Earnings.HTTP do
     timeout = Keyword.get(options, :timeout_ms, 20_000)
     redirects = Keyword.get(options, :max_redirects, 3)
     policy = Keyword.get(options, :allowed_url?, fn _ -> false end)
+    requested_deadline = Keyword.get(options, :deadline)
 
     cond do
       kind not in [:pdf, :listing] or not is_integer(limit) or limit < 1 or
         limit > if(kind == :listing, do: 2_097_152, else: 20_971_520) or
         not is_integer(timeout) or timeout not in 1..30_000 or
-        not is_integer(redirects) or redirects not in 0..3 or not is_function(policy, 1) ->
+        not is_integer(redirects) or redirects not in 0..3 or not is_function(policy, 1) or
+          (requested_deadline != nil and not is_integer(requested_deadline)) ->
         failure(:invalid_options, url, 0)
-
-      not allowed?(url, policy) ->
-        failure(:url_not_allowed, url, 0)
 
       true ->
         bounded(url, %{
           kind: kind,
           limit: limit,
-          timeout: timeout,
+          deadline: min(started + timeout, requested_deadline || started + timeout),
           redirects: redirects,
           policy: policy,
           headers: Keyword.get(options, :headers, [])
@@ -38,7 +38,7 @@ defmodule Lens.Earnings.HTTP do
   defp bounded(url, config) do
     owner = self()
     ref = make_ref()
-    deadline = now() + config.timeout
+    deadline = config.deadline
 
     {worker, monitor} =
       spawn_monitor(fn ->
@@ -96,6 +96,9 @@ defmodule Lens.Earnings.HTTP do
 
   defp request(url, config, deadline, count, owner, ref) do
     cond do
+      now() >= deadline ->
+        failure(:timeout, url, count)
+
       not allowed?(url, config.policy) ->
         failure(:url_not_allowed, url, count)
 
@@ -115,7 +118,7 @@ defmodule Lens.Earnings.HTTP do
             redirect: false,
             retry: false,
             receive_timeout: remaining,
-            connect_options: [timeout: remaining],
+            connect_options: [timeout: 30_000],
             into: fn {:data, chunk}, {req, resp} -> stream(req, resp, chunk, config.limit) end
           )
 
@@ -211,12 +214,38 @@ defmodule Lens.Earnings.HTTP do
         case URI.new(location) do
           {:ok, reference} ->
             target = base.final_url |> URI.merge(reference) |> URI.to_string()
-            request(target, config, deadline, count, owner, ref)
+
+            request(
+              target,
+              redirect_config(config, base.final_url, target),
+              deadline,
+              count,
+              owner,
+              ref
+            )
 
           {:error, _} ->
             %{base | failure_reason: :invalid_redirect, retryable: false}
         end
     end
+  end
+
+  defp redirect_config(config, from, to) do
+    if origin(from) == origin(to) do
+      config
+    else
+      headers =
+        Enum.filter(config.headers, fn {name, _} ->
+          String.downcase(to_string(name)) in ["accept", "accept-language", "user-agent"]
+        end)
+
+      %{config | headers: headers}
+    end
+  end
+
+  defp origin(url) do
+    uri = URI.parse(url)
+    {String.downcase(uri.scheme), String.downcase(uri.host), uri.port}
   end
 
   defp allowed?(url, policy) when is_binary(url) do
@@ -241,8 +270,12 @@ defmodule Lens.Earnings.HTTP do
     end
   end
 
-  defp encoded?(values),
-    do: Map.get(headers(values), "content-encoding", "identity") != "identity"
+  defp encoded?(values) do
+    case Map.get(headers(values), "content-encoding", "identity") do
+      value when is_binary(value) -> String.downcase(String.trim(value)) != "identity"
+      _ -> true
+    end
+  end
 
   defp headers(values),
     do:
