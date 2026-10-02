@@ -208,11 +208,15 @@ defmodule Lens.Earnings.HTTP do
         %{base | failure_reason: :invalid_redirect, retryable: false}
 
       true ->
-        target = base.final_url |> URI.merge(location) |> URI.to_string()
-        request(target, config, deadline, count, owner, ref)
+        case URI.new(location) do
+          {:ok, reference} ->
+            target = base.final_url |> URI.merge(reference) |> URI.to_string()
+            request(target, config, deadline, count, owner, ref)
+
+          {:error, _} ->
+            %{base | failure_reason: :invalid_redirect, retryable: false}
+        end
     end
-  rescue
-    ArgumentError -> %{base | failure_reason: :invalid_redirect, retryable: false}
   end
 
   defp allowed?(url, policy) when is_binary(url) do

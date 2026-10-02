@@ -128,6 +128,55 @@ defmodule Lens.Earnings.HTTPTest do
     refute_receive :unexpected_fetch
   end
 
+  test "missing and malformed redirect locations are explicit failures" do
+    for headers <- [[], [{"Location", "https://example.test:bad/file.pdf"}]] do
+      url = server(fn socket, _ -> respond(socket, 302, "", headers) end)
+      result = HTTP.fetch(url, allowed_url?: allow(url))
+      assert result.failure_reason == :invalid_redirect
+      assert result.requests == 1
+      refute result.retryable
+    end
+  end
+
+  test "a redirect policy process failure is contained in the monitored worker" do
+    url = server(fn socket, _ -> respond(socket, 302, "", [{"Location", "/next"}]) end)
+
+    policy = fn candidate ->
+      if URI.parse(candidate).path == "/next", do: exit(:policy_unavailable), else: true
+    end
+
+    result = HTTP.fetch(url, allowed_url?: policy)
+    assert result.failure_reason == :transport_error
+    assert result.requests == 1
+    assert result.bytes == nil
+  end
+
+  test "encoded empty responses are rejected without relying on data callbacks" do
+    url = server(fn socket, _ -> respond(socket, 200, "", [{"Content-Encoding", "gzip"}]) end)
+    assert HTTP.fetch(url, allowed_url?: allow(url)).failure_reason == :unsupported_encoding
+  end
+
+  test "invalid URLs and raised policy errors are rejected before requesting" do
+    for url <- [
+          nil,
+          "file:///tmp/file.pdf",
+          "https://user:secret@example.test/file.pdf",
+          "http://"
+        ] do
+      result = HTTP.fetch(url, allowed_url?: fn _ -> true end)
+      assert result.failure_reason == :url_not_allowed
+      assert result.requests == 0
+    end
+
+    result =
+      HTTP.fetch("https://example.test/file.pdf",
+        allowed_url?: fn _ -> raise "policy unavailable" end
+      )
+
+    assert result.failure_reason == :url_not_allowed
+    assert result.requests == 0
+  end
+
   test "follows bounded relative redirects and retains the final URL" do
     url =
       server(
