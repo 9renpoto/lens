@@ -44,6 +44,7 @@ defmodule Lens.Earnings.RunBudget do
       true ->
         options =
           options
+          |> Keyword.put(:deadline, budget.deadline)
           |> Keyword.put(:timeout_ms, min(timeout, remaining))
           |> Keyword.put(
             :max_redirects,

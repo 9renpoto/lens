@@ -46,6 +46,34 @@ defmodule Lens.Earnings.RunBudgetTest do
              RunBudget.fetch(budget, "https://example.test/file.pdf")
   end
 
+  test "slow policy evaluation cannot extend the run or start a late request" do
+    owner = self()
+
+    url =
+      server(fn socket, _ ->
+        send(owner, :late_request)
+        respond(socket, 200, "%PDF-late")
+      end)
+
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+    on_exit(fn -> if Process.alive?(counter), do: Agent.stop(counter) end)
+
+    policy = fn _ ->
+      count = Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+      if count == 0, do: Process.sleep(200)
+      true
+    end
+
+    assert {:ok, budget} = RunBudget.new(timeout_ms: 30)
+    started = System.monotonic_time(:millisecond)
+    assert {:ok, result, updated} = RunBudget.fetch(budget, url, allowed_url?: policy)
+    assert result.failure_reason == :timeout
+    assert result.requests == 0
+    assert updated.requests == 0
+    assert System.monotonic_time(:millisecond) - started < 150
+    refute_receive :late_request, 50
+  end
+
   test "a slow operation cannot outlive the remaining run deadline" do
     url =
       server(fn socket, _ ->

@@ -9,7 +9,8 @@ Pass the returned budget into every subsequent `fetch/3`. Each call consumes an
 operation, including URL-policy rejection before a network request. Each actual
 request and redirect hop consumes a request. The wrapper reduces the existing
 HTTP client's redirect allowance to the remaining request count and its timeout
-to the remaining run duration. Exhausted budgets return an error without issuing
+to the remaining run duration. It also passes the absolute run deadline,
+so policy evaluation and time spent entering the HTTP client cannot extend it. Exhausted budgets return an error without issuing
 another request. HTTP outcomes remain unchanged for recording with
 `HTTPHistory.record/1`; a successful wrapper return can contain a failed HTTP
 outcome. This is sequential state, not a concurrency lock or shared counter.
@@ -45,7 +46,8 @@ ingestion regressions use their established tests.
 後続の`fetch/3`には必ず返された予算を渡す。URLポリシーによる要求開始前の
 拒否も処理回数に数える。実際の要求とリダイレクトの各段階は要求回数に数える。
 既存HTTPクライアントのリダイレクト上限を残り要求数に、タイムアウトを実行期限
-までの残り時間に制限する。予算を使い切った場合は新たな要求を送らずエラーを
+までの残り時間に制限する。実行の絶対期限も渡し、ポリシー評価やHTTPクライアント
+への移行時間によって期限が延びないようにする。予算を使い切った場合は新たな要求を送らずエラーを
 返す。HTTP結果は`HTTPHistory.record/1`で保存できる形を保つ。ラッパーが成功を
 返してもHTTP結果自体は失敗の場合がある。逐次実行用の状態であり、並行実行の
 ロックや共有カウンターではない。
