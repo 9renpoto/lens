@@ -64,12 +64,13 @@ identity, not a replacement of the prior quarter.
 | Tokyo Electron confirmed correction pair | Its official archive lists the 2020-03 Q3 regular release dated 2020-01-30 and a separately linked correction dated 2020-02-04; the correction names the original Q3 release | Discover both published hrefs; identify both as issuer 8035 / FY ending 2020-03-31 / Q3 with separate categories and dates; select the regular release and retain the correction as a distinct material |
 | Later regular release | A subsequent listing and PDF unambiguously state the next fiscal period and ordinary earnings release | Discover the new anchor; classify with its own period identity and select it over the earlier regular release at initialization; retain the earlier identity |
 | Ambiguous metadata | Listing title suggests Q2 but PDF has no period or fiscal-year-end and URL embeds a year | Discover the URL, but leave identity and selection pending; do not infer missing fields from URL or fetch time |
+| Conflicting regular identities | Two PDFs for the same issuer both state FY ending March 31, 2027 / Q1 | Discover both URLs; keep both candidates pending and select neither |
 
 The current [fixture bundle](../../../test/fixtures/source_catalog/cases.json)
 contains manually reduced listing snippets and transcribed PDF identity text,
 not raw response snapshots or retained publisher PDFs. Its SHA-256 manifest
 checks fixture integrity only. It covers three initial candidates and a historical
-regular/correction pair; later-period and ambiguous cases are synthetic.
+regular/correction pair; later-period, ambiguous, and conflicting-identity cases are synthetic.
 Collection integration tests must add small text-bearing PDF fixtures and HTTP
 response fixtures; these text inputs alone do not prove PDF extraction or live
 listing parser compatibility. Fixture assertions should include the
@@ -118,8 +119,9 @@ evaluation ledger are historical reference points, not present-day verification.
 | 東京エレクトロンの確認済み訂正資料の組 | 公式アーカイブに2020年3月期第3四半期の通常短信（2020-01-30）と別掲載の訂正資料（2020-02-04）があり、訂正資料が元短信を明示 | 両リンクを発見し、企業8035・2020-03-31・Q3に対応付ける。種類と公表日は分離し、通常短信のみを初期資料として選択 |
 | 後続の通常資料 | 後続の一覧・PDFに次の決算期間と通常資料であることが明記 | 新しいアンカーを発見し、独自の期間識別情報を付与。初期化時には以前より新しい通常資料を選択し、前期識別情報も保持 |
 | 曖昧なメタデータ | 一覧表題はQ2を示唆するがPDFに対象期間・決算期末がなく、URLには年度が含まれる | URLを発見するが識別・選択は確認待ち。URLや取得時刻から欠落情報を補わない |
+| 同一識別情報が競合する通常資料 | 同一企業の2件のPDFに2027年3月期第1四半期と記載 | 両方のURLを発見し、両候補を確認待ちにして初期資料を選ばない |
 
-現在の固定データは手動で縮小した一覧HTMLとPDF識別情報の転記であり、生の応答スナップショットや発行元PDFではない。SHA-256マニフェストは固定データの整合性だけを確認する。収集統合テストでは小型テキストPDFとHTTP応答の固定データを追加する必要があり、この文字列入力だけでPDF抽出や実一覧の解析互換性を実証したとは扱わない。リポジトリ内の[`cases.json`](../../../test/fixtures/source_catalog/cases.json)には、ライブ確認から派生した3社の初期候補と、東京エレクトロンの実際の通常第3四半期・別掲載訂正資料の組を収録した。後続期と曖昧な候補は合成ケースと明記してある。期待リンク集合と識別結果を比較する。期待URLを固定値として確認するだけのテストではリンク発見を検証できない。
+現在の固定データは手動で縮小した一覧HTMLとPDF識別情報の転記であり、生の応答スナップショットや発行元PDFではない。SHA-256マニフェストは固定データの整合性だけを確認する。収集統合テストでは小型テキストPDFとHTTP応答の固定データを追加する必要があり、この文字列入力だけでPDF抽出や実一覧の解析互換性を実証したとは扱わない。リポジトリ内の[`cases.json`](../../../test/fixtures/source_catalog/cases.json)には、ライブ確認から派生した3社の初期候補と、東京エレクトロンの実際の通常第3四半期・別掲載訂正資料の組を収録した。後続期・曖昧な候補・同一識別情報が競合する通常資料は合成ケースと明記してある。期待リンク集合と識別結果を比較する。期待URLを固定値として確認するだけのテストではリンク発見を検証できない。
 
 ## 実サイト証跡の記録ひな型
 
