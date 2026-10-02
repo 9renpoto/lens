@@ -33,6 +33,11 @@ defmodule Lens.Earnings.DiscoveryTest do
     refute SourceCatalog.document_url_allowed?("8035", "https://www.tel.co.jp/other/file.pdf")
 
     refute SourceCatalog.document_url_allowed?(
+             "8035",
+             "https://www.tel.co.jp/ir/library/report/" <> <<255>> <> "file.pdf"
+           )
+
+    refute SourceCatalog.document_url_allowed?(
              "1234",
              "https://www.tel.co.jp/ir/library/report/file.pdf"
            )
@@ -63,6 +68,13 @@ defmodule Lens.Earnings.DiscoveryTest do
         )
 
       assert Enum.map(links, & &1.url) == expected
+
+      expected_documents = fixture["documents"] || [fixture]
+      assert length(links) == length(expected_documents)
+
+      for {link, document} <- Enum.zip(links, expected_documents) do
+        assert link.listing_url == document["expected"]["listing_url"]
+      end
 
       if comparison = get_in(fixture, ["expected", "comparison_urls"]) do
         assert Enum.map(links, & &1.comparison_url) == comparison

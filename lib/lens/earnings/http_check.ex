@@ -5,6 +5,7 @@ defmodule Lens.Earnings.HTTPCheck do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   @facts ~w(check_id issuer_code kind url final_url checked_at published_on status failure_reason http_status requests retryable response_headers metadata sha256 byte_size acquisition_id)a
+  @text_fields ~w(check_id issuer_code kind url final_url status failure_reason sha256)a
   def facts, do: @facts
 
   schema "earnings_http_checks" do
@@ -31,6 +32,7 @@ defmodule Lens.Earnings.HTTPCheck do
   def changeset(check, attrs) do
     check
     |> cast(attrs, @facts)
+    |> validate_text_fields()
     |> validate_required(
       ~w(check_id issuer_code kind url checked_at status requests retryable metadata response_headers)a
     )
@@ -56,14 +58,16 @@ defmodule Lens.Earnings.HTTPCheck do
   end
 
   def valid_url?(value) when is_binary(value) do
-    case URI.new(value) do
-      {:ok, %{scheme: scheme, host: host, userinfo: nil}}
-      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
-        byte_size(value) <= 4096
-
-      _ ->
-        false
+    with true <- String.valid?(value),
+         :nomatch <- :binary.match(value, <<0>>),
+         {:ok, %{scheme: scheme, host: host, userinfo: nil}} <- URI.new(value),
+         true <- scheme in ["http", "https"] and is_binary(host) and host != "" do
+      byte_size(value) <= 4096
+    else
+      _ -> false
     end
+  rescue
+    _ -> false
   end
 
   def valid_url?(_), do: false
@@ -75,6 +79,16 @@ defmodule Lens.Earnings.HTTPCheck do
           do: [],
           else: [{key, "must be an absolute HTTP(S) URL without credentials, within 4096 bytes"}]
       end)
+
+  defp validate_text_fields(changeset) do
+    Enum.reduce(@text_fields, changeset, fn field, acc ->
+      validate_change(acc, field, fn key, value ->
+        if String.valid?(value) and :binary.match(value, <<0>>) == :nomatch,
+          do: [],
+          else: [{key, "must be valid UTF-8 without NUL bytes"}]
+      end)
+    end)
+  end
 
   defp bounded_json(field, value) do
     with {:ok, json} <- Jason.encode(value),

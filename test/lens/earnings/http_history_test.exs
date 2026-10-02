@@ -196,6 +196,22 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Original, :count) == 0
   end
 
+  test "NUL in scalar HTTP facts is rejected before acquisition or check insertion" do
+    inputs = [
+      attrs("nul-check-id", :success, "%PDF-first") |> Map.put(:check_id, "bad\0id"),
+      put_in(attrs("nul-failure", :failed, nil), [:result, :failure_reason], "bad\0reason"),
+      attrs("nul-url", :failed, nil) |> Map.put(:url, "https://example.test/bad\0.pdf")
+    ]
+
+    for input <- inputs do
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
   test "database rejects rewriting or deleting completed check facts" do
     assert {:ok, check} = HTTPHistory.record(attrs("immutable", :success, "%PDF-first"))
 

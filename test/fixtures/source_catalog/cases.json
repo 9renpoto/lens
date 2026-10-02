@@ -25,7 +25,8 @@
         },
         "source_fiscal_year_label": "2026年度",
         "source_fiscal_year_designation": "FY2026"
-      }
+      },
+      "listing_url": "https://www.advantest.com/ja/investors/ir-library/result/"
     }
   },
   {
@@ -46,7 +47,8 @@
       "category": "earnings_release",
       "published_on": "2026-07-09",
       "status": "identified",
-      "selected_as_initial_regular_release": true
+      "selected_as_initial_regular_release": true,
+      "listing_url": "https://www.fastretailing.com/jp/ir/library/tanshin.html"
     }
   },
   {
@@ -67,7 +69,8 @@
       "category": "earnings_release",
       "published_on": "2026-07-30",
       "status": "identified",
-      "selected_as_initial_regular_release": true
+      "selected_as_initial_regular_release": true,
+      "listing_url": "https://www.tel.co.jp/ir/calendar/"
     }
   },
   {
@@ -87,7 +90,8 @@
           "period": "Q3",
           "category": "earnings_release",
           "published_on": "2020-01-30",
-          "selected_as_regular_release": true
+          "selected_as_regular_release": true,
+          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html"
         }
       },
       {
@@ -100,7 +104,8 @@
           "period": "Q3",
           "category": "correction",
           "published_on": "2020-02-04",
-          "selected_as_regular_release": false
+          "selected_as_regular_release": false,
+          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html"
         }
       }
     ],
@@ -127,7 +132,8 @@
       "category": "earnings_release",
       "published_on": null,
       "status": "identified",
-      "selection_over": "live-advantest-fy2026-q1"
+      "selection_over": "live-advantest-fy2026-q1",
+      "listing_url": "https://ir.example.test/advantest/results/"
     }
   },
   {
@@ -147,7 +153,8 @@
       "category": "correction",
       "published_on": null,
       "status": "pending_confirmation",
-      "selected_as_regular_release": false
+      "selected_as_regular_release": false,
+      "listing_url": "https://ir.example.test/tel/calendar/"
     }
   },
   {
@@ -167,7 +174,8 @@
           "published_on": "2026-07-30",
           "status": "identified",
           "selected_as_initial_regular_release": true,
-          "url": "https://ir.example.test/documents/tel-q1.pdf"
+          "url": "https://ir.example.test/documents/tel-q1.pdf",
+          "listing_url": "https://ir.example.test/tel/calendar/"
         }
       },
       {
@@ -181,7 +189,8 @@
           "published_on": null,
           "status": "pending_confirmation",
           "selected_as_regular_release": false,
-          "url": "https://ir.example.test/documents/tel-correction.pdf"
+          "url": "https://ir.example.test/documents/tel-correction.pdf",
+          "listing_url": "https://ir.example.test/tel/calendar/"
         }
       }
     ],
@@ -211,7 +220,8 @@
       "selected_as_initial_regular_release": true,
       "comparison_urls": [
         "https://ir.example.test/documents/adv-q1.pdf?download=1"
-      ]
+      ],
+      "listing_url": "https://ir.example.test/advantest/results/"
     }
   },
   {
@@ -231,7 +241,8 @@
           "category": "earnings_release",
           "published_on": "2026-07-30",
           "status": "identified",
-          "selected_as_regular_release": false
+          "selected_as_regular_release": false,
+          "listing_url": "https://ir.example.test/tel/results/"
         }
       },
       {
@@ -245,7 +256,8 @@
           "category": "earnings_release",
           "published_on": "2026-08-01",
           "status": "identified",
-          "selected_as_regular_release": false
+          "selected_as_regular_release": false,
+          "listing_url": "https://ir.example.test/tel/results/"
         }
       }
     ],

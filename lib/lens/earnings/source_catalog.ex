@@ -43,6 +43,7 @@ defmodule Lens.Earnings.SourceCatalog do
   @doc "Check a discovered URL against the reviewed document route; this does not enable acquisition."
   def document_url_allowed?(issuer_code, url) when is_binary(url) do
     with {:ok, source} <- fetch(issuer_code),
+         true <- String.valid?(url),
          {:ok, %{scheme: "https", port: 443, userinfo: nil, host: host, path: path}} <-
            URI.new(url),
          true <- is_binary(host) and is_binary(path) do
