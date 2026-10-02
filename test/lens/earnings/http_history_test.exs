@@ -80,6 +80,20 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Acquisition, :count) == 1
   end
 
+  test "JSON-backed atom keys and values survive insertion and persistence retries" do
+    input =
+      attrs("json", :success, "%PDF-first")
+      |> Map.put(:metadata, %{listing: %{label: :pending}, dates: [~D[2026-07-29]]})
+      |> put_in([:result, :headers], %{etag: "v1"})
+
+    assert {:ok, check} = HTTPHistory.record(input)
+    assert check.metadata == %{"listing" => %{"label" => "pending"}, "dates" => ["2026-07-29"]}
+    assert check.response_headers == %{"etag" => "v1"}
+    assert {:ok, ^check} = HTTPHistory.record(input)
+    assert Repo.aggregate(HTTPCheck, :count) == 1
+    assert Repo.aggregate(Acquisition, :count) == 1
+  end
+
   test "ambiguous releases retain partial metadata and later confirmation leaves check facts intact" do
     input = attrs("pending", :success, "%PDF-first") |> Map.delete(:release)
 

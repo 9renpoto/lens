@@ -56,9 +56,15 @@ defmodule Lens.Earnings.HTTPHistory do
         changeset = HTTPCheck.changeset(%HTTPCheck{}, facts)
 
         if changeset.valid?,
-          do: {:ok, Ecto.Changeset.apply_changes(changeset)},
+          do: {:ok, changeset |> Ecto.Changeset.apply_changes() |> canonical_json()},
           else: {:error, changeset}
     end
+  end
+
+  defp canonical_json(check) do
+    Enum.reduce([:metadata, :response_headers], check, fn field, acc ->
+      Map.update!(acc, field, fn value -> value |> Jason.encode!() |> Jason.decode!() end)
+    end)
   end
 
   defp acquisition(%{kind: "pdf", status: "success"} = check, attrs, result) do

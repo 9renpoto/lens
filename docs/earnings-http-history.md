@@ -11,6 +11,8 @@ failure reason, and retryability remain distinct facts. `published_on` is an
 optional publisher date; `checked_at` records acquisition time. Unknown dates
 stay absent. Metadata can retain listing labels and pending identity evidence.
 Metadata and headers must each encode as JSON within 32 KiB.
+JSON-backed facts are normalized before comparison, so atom keys and
+JSON-encodable values match the representation reloaded from PostgreSQL.
 
 A successful PDF check atomically stores the exact original bytes and an
 acquisition identified by `http:` followed by the check ID. Its digest and byte
@@ -44,6 +46,8 @@ schedule requests, or infer release identity. Those steps remain separate.
 取得日時であり、不明な日付は空欄のままにする。メタデータには一覧のラベルや
 同定待ちの根拠を残せる。メタデータとヘッダーは、それぞれJSONとして32 KiB
 以内に収まる必要がある。
+JSON形式の事実は比較前に正規化し、atomキーやJSONに変換できる値を
+PostgreSQLから再取得した表現と一致させる。
 
 PDF取得成功時は、原本の正確なバイト列と、確認IDに`http:`を付けた取得履歴を
 同一トランザクションで保存する。ダイジェストとバイト数は保存原本と一致する
