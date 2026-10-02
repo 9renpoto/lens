@@ -17,7 +17,15 @@
       "category": "earnings_release",
       "published_on": "2026-07-29",
       "status": "identified",
-      "selected_as_initial_regular_release": true
+      "selected_as_initial_regular_release": true,
+      "source_metadata": {
+        "headings": {
+          "2": "2026年度",
+          "3": "第1四半期 (2026年7月29日)"
+        },
+        "source_fiscal_year_label": "2026年度",
+        "source_fiscal_year_designation": "FY2026"
+      }
     }
   },
   {
