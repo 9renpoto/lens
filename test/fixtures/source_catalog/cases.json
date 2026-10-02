@@ -1,0 +1,278 @@
+[
+  {
+    "id": "live-advantest-fy2026-q1",
+    "evidence_type": "live-derived-fixture",
+    "checked_at": "2026-09-30",
+    "listing_url": "https://www.advantest.com/ja/investors/ir-library/result/",
+    "listing_html": "<section><h2>2026年度</h2><h3>第1四半期 (2026年7月29日)</h3><a href=\"https://www.advantest.com/document/ja/investors/ir-library/result/J_FR_FY2026_1Q.pdf\">決算短信 (PDF 258KB)</a></section>",
+    "pdf_identity_text": "2027年3月期 第1四半期決算短信〔IFRS〕(連結)\n2026年7月29日\n上場会社名 株式会社アドバンテスト\nコード番号 6857",
+    "expected": {
+      "discovered_urls": [
+        "https://www.advantest.com/document/ja/investors/ir-library/result/J_FR_FY2026_1Q.pdf"
+      ],
+      "issuer_code": "6857",
+      "issuer_name": "株式会社アドバンテスト",
+      "fiscal_year_end": "2027-03-31",
+      "period": "Q1",
+      "category": "earnings_release",
+      "published_on": "2026-07-29",
+      "status": "identified",
+      "selected_as_initial_regular_release": true,
+      "source_metadata": {
+        "headings": {
+          "2": "2026年度",
+          "3": "第1四半期 (2026年7月29日)"
+        },
+        "source_fiscal_year_label": "2026年度",
+        "source_fiscal_year_designation": "FY2026"
+      },
+      "listing_url": "https://www.advantest.com/ja/investors/ir-library/result/",
+      "url": "https://www.advantest.com/document/ja/investors/ir-library/result/J_FR_FY2026_1Q.pdf"
+    }
+  },
+  {
+    "id": "live-fast-retailing-fy2026-q3",
+    "evidence_type": "live-derived-fixture",
+    "checked_at": "2026-09-30",
+    "listing_url": "https://www.fastretailing.com/jp/ir/library/tanshin.html",
+    "listing_html": "<h2>2026年8月期（2025年9月1日～2026年8月31日）</h2><a href=\"/jp/ir/library/pdf/tanshin202608_3q.pdf\">第3四半期決算 (763KB)</a>",
+    "pdf_identity_text": "2026年８月期 第３四半期決算短信〔ＩＦＲＳ会計基準〕(連結)\n2026年７月９日\n上場会社名 株式会社ファーストリテイリング\nコード番号 9983",
+    "expected": {
+      "discovered_urls": [
+        "https://www.fastretailing.com/jp/ir/library/pdf/tanshin202608_3q.pdf"
+      ],
+      "issuer_code": "9983",
+      "issuer_name": "株式会社ファーストリテイリング",
+      "fiscal_year_end": "2026-08-31",
+      "period": "Q3",
+      "category": "earnings_release",
+      "published_on": "2026-07-09",
+      "status": "identified",
+      "selected_as_initial_regular_release": true,
+      "listing_url": "https://www.fastretailing.com/jp/ir/library/tanshin.html",
+      "url": "https://www.fastretailing.com/jp/ir/library/pdf/tanshin202608_3q.pdf"
+    }
+  },
+  {
+    "id": "live-tokyo-electron-fy2027-q1",
+    "evidence_type": "live-derived-fixture",
+    "checked_at": "2026-09-30",
+    "listing_url": "https://www.tel.co.jp/ir/calendar/",
+    "listing_html": "<a href=\"https://www.tel.co.jp/ir/library/report/negqvb0000000eqw-att/fy27q1tanshin-j.pdf\">決算短信 (251KB)</a>",
+    "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年7月30日\n上場会社名 東京エレクトロン株式会社\nコード番号 8035",
+    "expected": {
+      "discovered_urls": [
+        "https://www.tel.co.jp/ir/library/report/negqvb0000000eqw-att/fy27q1tanshin-j.pdf"
+      ],
+      "issuer_code": "8035",
+      "issuer_name": "東京エレクトロン株式会社",
+      "fiscal_year_end": "2027-03-31",
+      "period": "Q1",
+      "category": "earnings_release",
+      "published_on": "2026-07-30",
+      "status": "identified",
+      "selected_as_initial_regular_release": true,
+      "listing_url": "https://www.tel.co.jp/ir/calendar/",
+      "url": "https://www.tel.co.jp/ir/library/report/negqvb0000000eqw-att/fy27q1tanshin-j.pdf"
+    }
+  },
+  {
+    "id": "live-tokyo-electron-fy2020-q3-with-separate-correction",
+    "evidence_type": "live-derived-fixture",
+    "checked_at": "2026-09-30",
+    "listing_url": "https://www.tel.co.jp/ir/library/report/index.html",
+    "listing_html": "<section><h3>第3四半期決算（2020年1月30日）</h3><a href=\"https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_r1-j.pdf\">決算短信</a><a href=\"https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_teisei-j.pdf\">一部訂正に関するお知らせ</a></section>",
+    "documents": [
+      {
+        "pdf_identity_text": "2020年3月期 第3四半期決算短信〔日本基準〕（連結）\n2020年1月30日\n東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "url": "https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_r1-j.pdf",
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2020-03-31",
+          "period": "Q3",
+          "category": "earnings_release",
+          "published_on": "2020-01-30",
+          "selected_as_regular_release": true,
+          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html",
+          "status": "identified"
+        }
+      },
+      {
+        "pdf_identity_text": "2020年2月4日\n東京エレクトロン株式会社\nコード番号 8035\n（訂正）「2020年3月期 第3四半期決算短信〔日本基準〕（連結）」の一部訂正に関するお知らせ\n2020年1月30日に公表した短信の一部訂正",
+        "expected": {
+          "url": "https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_teisei-j.pdf",
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2020-03-31",
+          "period": "Q3",
+          "category": "correction",
+          "published_on": "2020-02-04",
+          "selected_as_regular_release": false,
+          "listing_url": "https://www.tel.co.jp/ir/library/report/index.html",
+          "status": "identified"
+        }
+      }
+    ],
+    "expected_discovered_urls": [
+      "https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_r1-j.pdf",
+      "https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_teisei-j.pdf"
+    ],
+    "expected_initial_regular_release": "https://www.tel.co.jp/ir/library/report/hq95qj0000002rko-att/fy57q3tanshin_r1-j.pdf"
+  },
+  {
+    "id": "synthetic-advantest-later-regular-q2",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/advantest/results/",
+    "listing_html": "<a href=\"/documents/adv-q2.pdf\">第2四半期決算短信</a>",
+    "pdf_identity_text": "2027年3月期 第2四半期決算短信\n株式会社アドバンテスト\nコード番号 6857",
+    "expected": {
+      "discovered_urls": [
+        "https://ir.example.test/documents/adv-q2.pdf"
+      ],
+      "issuer_code": "6857",
+      "issuer_name": "株式会社アドバンテスト",
+      "fiscal_year_end": "2027-03-31",
+      "period": "Q2",
+      "category": "earnings_release",
+      "published_on": null,
+      "status": "identified",
+      "selection_over": "live-advantest-fy2026-q1",
+      "listing_url": "https://ir.example.test/advantest/results/",
+      "url": "https://ir.example.test/documents/adv-q2.pdf"
+    }
+  },
+  {
+    "id": "synthetic-ambiguous-correction",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/tel/calendar/",
+    "listing_html": "<a href=\"https://ir.example.test/documents/2027/tel-correction.pdf\">Q2 訂正資料</a>",
+    "pdf_identity_text": "決算数値の訂正に関するお知らせ\n東京エレクトロン株式会社\nコード番号 8035",
+    "expected": {
+      "discovered_urls": [
+        "https://ir.example.test/documents/2027/tel-correction.pdf"
+      ],
+      "issuer_code": "8035",
+      "issuer_name": "東京エレクトロン株式会社",
+      "fiscal_year_end": null,
+      "period": null,
+      "category": "correction",
+      "published_on": null,
+      "status": "pending_confirmation",
+      "selected_as_regular_release": false,
+      "listing_url": "https://ir.example.test/tel/calendar/",
+      "url": "https://ir.example.test/documents/2027/tel-correction.pdf"
+    }
+  },
+  {
+    "id": "synthetic-tokyo-electron-initial-with-ambiguous-correction",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/tel/calendar/",
+    "listing_html": "<a href=\"https://ir.example.test/documents/tel-q1.pdf\">決算短信</a><a href=\"https://ir.example.test/documents/tel-correction.pdf\">訂正資料</a>",
+    "documents": [
+      {
+        "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年7月30日\n上場会社名 東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2027-03-31",
+          "period": "Q1",
+          "category": "earnings_release",
+          "published_on": "2026-07-30",
+          "status": "identified",
+          "selected_as_initial_regular_release": true,
+          "url": "https://ir.example.test/documents/tel-q1.pdf",
+          "listing_url": "https://ir.example.test/tel/calendar/"
+        }
+      },
+      {
+        "pdf_identity_text": "決算数値の訂正に関するお知らせ\n東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": null,
+          "period": null,
+          "category": "correction",
+          "published_on": null,
+          "status": "pending_confirmation",
+          "selected_as_regular_release": false,
+          "url": "https://ir.example.test/documents/tel-correction.pdf",
+          "listing_url": "https://ir.example.test/tel/calendar/"
+        }
+      }
+    ],
+    "expected_discovered_urls": [
+      "https://ir.example.test/documents/tel-q1.pdf",
+      "https://ir.example.test/documents/tel-correction.pdf"
+    ],
+    "expected_initial_regular_release": "https://ir.example.test/documents/tel-q1.pdf"
+  },
+  {
+    "id": "synthetic-exact-url-provenance",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/advantest/results/",
+    "listing_html": "<a href=\"https://IR.Example.Test:443/documents/adv-q1.pdf?download=1#page=2\">決算短信</a>",
+    "pdf_identity_text": "2027年3月期 第1四半期決算短信〔IFRS〕(連結)\n2026年7月29日\n上場会社名 株式会社アドバンテスト\nコード番号 6857",
+    "expected": {
+      "discovered_urls": [
+        "https://IR.Example.Test:443/documents/adv-q1.pdf?download=1#page=2"
+      ],
+      "issuer_code": "6857",
+      "issuer_name": "株式会社アドバンテスト",
+      "fiscal_year_end": "2027-03-31",
+      "period": "Q1",
+      "category": "earnings_release",
+      "published_on": "2026-07-29",
+      "status": "identified",
+      "selected_as_initial_regular_release": true,
+      "comparison_urls": [
+        "https://ir.example.test/documents/adv-q1.pdf?download=1"
+      ],
+      "listing_url": "https://ir.example.test/advantest/results/",
+      "url": "https://IR.Example.Test:443/documents/adv-q1.pdf?download=1#page=2"
+    }
+  },
+  {
+    "id": "synthetic-conflicting-regular-identities",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/tel/results/",
+    "listing_html": "<a href=\"/documents/tel-q1-original.pdf\">第1四半期決算短信</a><a href=\"/documents/tel-q1-revised.pdf\">第1四半期決算短信</a>",
+    "documents": [
+      {
+        "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年7月30日\n東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "url": "https://ir.example.test/documents/tel-q1-original.pdf",
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2027-03-31",
+          "period": "Q1",
+          "category": "earnings_release",
+          "published_on": "2026-07-30",
+          "status": "pending_confirmation",
+          "selected_as_regular_release": false,
+          "listing_url": "https://ir.example.test/tel/results/"
+        }
+      },
+      {
+        "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年8月1日\n東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "url": "https://ir.example.test/documents/tel-q1-revised.pdf",
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2027-03-31",
+          "period": "Q1",
+          "category": "earnings_release",
+          "published_on": "2026-08-01",
+          "status": "pending_confirmation",
+          "selected_as_regular_release": false,
+          "listing_url": "https://ir.example.test/tel/results/"
+        }
+      }
+    ],
+    "expected_discovered_urls": [
+      "https://ir.example.test/documents/tel-q1-original.pdf",
+      "https://ir.example.test/documents/tel-q1-revised.pdf"
+    ],
+    "expected_initial_regular_release": null
+  }
+]
