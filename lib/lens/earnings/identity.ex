@@ -95,7 +95,10 @@ defmodule Lens.Earnings.Identity do
       ) ->
         "correction"
 
-      String.contains?(text, "決算短信") ->
+      Regex.match?(
+        ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信/mu,
+        text
+      ) ->
         "earnings_release"
 
       true ->
@@ -104,7 +107,9 @@ defmodule Lens.Earnings.Identity do
   end
 
   defp publication_date(text) do
-    Regex.scan(~r/^\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日\s*$/mu, text,
+    Regex.scan(
+      ~r/^\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日[ \t]*$(?!\s*[をにはがともでへ])/mu,
+      text,
       capture: :all_but_first
     )
     |> Enum.map(fn [year, month, day] ->

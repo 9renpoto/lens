@@ -63,6 +63,9 @@ defmodule Lens.Earnings.HTTP do
 
   defp await(worker, monitor, ref, deadline, url, requests) do
     receive do
+      {^ref, :evaluating, next_url, count} ->
+        await(worker, monitor, ref, deadline, next_url, max(requests, count))
+
       {^ref, :started, next_url, count} ->
         await(worker, monitor, ref, deadline, next_url, count)
 
@@ -99,7 +102,7 @@ defmodule Lens.Earnings.HTTP do
       now() >= deadline ->
         failure(:timeout, url, count)
 
-      not allowed?(url, config.policy) ->
+      not evaluated_allowed?(url, config.policy, count, owner, ref) ->
         failure(:url_not_allowed, url, count)
 
       now() >= deadline ->
@@ -126,6 +129,11 @@ defmodule Lens.Earnings.HTTP do
     end
   rescue
     _ -> failure(:transport_error, url, count)
+  end
+
+  defp evaluated_allowed?(url, policy, count, owner, ref) do
+    send(owner, {ref, :evaluating, url, count})
+    allowed?(url, policy)
   end
 
   defp stream(req, resp, chunk, limit) do
