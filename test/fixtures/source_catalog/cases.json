@@ -7,7 +7,9 @@
     "listing_html": "<section><h2>2026年度</h2><h3>第1四半期 (2026年7月29日)</h3><a href=\"https://www.advantest.com/document/ja/investors/ir-library/result/J_FR_FY2026_1Q.pdf\">決算短信 (PDF 258KB)</a></section>",
     "pdf_identity_text": "2027年3月期 第1四半期決算短信〔IFRS〕(連結)\n2026年7月29日\n上場会社名 株式会社アドバンテスト\nコード番号 6857",
     "expected": {
-      "discovered_urls": ["https://www.advantest.com/document/ja/investors/ir-library/result/J_FR_FY2026_1Q.pdf"],
+      "discovered_urls": [
+        "https://www.advantest.com/document/ja/investors/ir-library/result/J_FR_FY2026_1Q.pdf"
+      ],
       "issuer_code": "6857",
       "issuer_name": "株式会社アドバンテスト",
       "fiscal_year_end": "2027-03-31",
@@ -26,7 +28,9 @@
     "listing_html": "<h2>2026年8月期（2025年9月1日～2026年8月31日）</h2><a href=\"/jp/ir/library/pdf/tanshin202608_3q.pdf\">第3四半期決算 (763KB)</a>",
     "pdf_identity_text": "2026年８月期 第３四半期決算短信〔ＩＦＲＳ会計基準〕(連結)\n2026年７月９日\n上場会社名 株式会社ファーストリテイリング\nコード番号 9983",
     "expected": {
-      "discovered_urls": ["https://www.fastretailing.com/jp/ir/library/pdf/tanshin202608_3q.pdf"],
+      "discovered_urls": [
+        "https://www.fastretailing.com/jp/ir/library/pdf/tanshin202608_3q.pdf"
+      ],
       "issuer_code": "9983",
       "issuer_name": "株式会社ファーストリテイリング",
       "fiscal_year_end": "2026-08-31",
@@ -45,7 +49,9 @@
     "listing_html": "<a href=\"https://www.tel.co.jp/ir/library/report/negqvb0000000eqw-att/fy27q1tanshin-j.pdf\">決算短信 (251KB)</a>",
     "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年7月30日\n上場会社名 東京エレクトロン株式会社\nコード番号 8035",
     "expected": {
-      "discovered_urls": ["https://www.tel.co.jp/ir/library/report/negqvb0000000eqw-att/fy27q1tanshin-j.pdf"],
+      "discovered_urls": [
+        "https://www.tel.co.jp/ir/library/report/negqvb0000000eqw-att/fy27q1tanshin-j.pdf"
+      ],
       "issuer_code": "8035",
       "issuer_name": "東京エレクトロン株式会社",
       "fiscal_year_end": "2027-03-31",
@@ -103,7 +109,9 @@
     "listing_html": "<a href=\"/documents/adv-q2.pdf\">第2四半期決算短信</a>",
     "pdf_identity_text": "2027年3月期 第2四半期決算短信\n株式会社アドバンテスト\nコード番号 6857",
     "expected": {
-      "discovered_urls": ["https://ir.example.test/documents/adv-q2.pdf"],
+      "discovered_urls": [
+        "https://ir.example.test/documents/adv-q2.pdf"
+      ],
       "issuer_code": "6857",
       "issuer_name": "株式会社アドバンテスト",
       "fiscal_year_end": "2027-03-31",
@@ -121,7 +129,9 @@
     "listing_html": "<a href=\"/documents/tel-correction.pdf\">訂正資料</a>",
     "pdf_identity_text": "決算数値の訂正に関するお知らせ\n東京エレクトロン株式会社\nコード番号 8035",
     "expected": {
-      "discovered_urls": ["https://ir.example.test/documents/tel-correction.pdf"],
+      "discovered_urls": [
+        "https://ir.example.test/documents/tel-correction.pdf"
+      ],
       "issuer_code": "8035",
       "issuer_name": "東京エレクトロン株式会社",
       "fiscal_year_end": null,
@@ -131,5 +141,46 @@
       "status": "pending_confirmation",
       "selected_as_regular_release": false
     }
+  },
+  {
+    "id": "synthetic-tokyo-electron-initial-with-ambiguous-correction",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/tel/calendar/",
+    "listing_html": "<a href=\"https://ir.example.test/documents/tel-q1.pdf\">決算短信</a><a href=\"https://ir.example.test/documents/tel-correction.pdf\">訂正資料</a>",
+    "documents": [
+      {
+        "pdf_identity_text": "2027年3月期 第1四半期決算短信〔日本基準〕（連結）\n2026年7月30日\n上場会社名 東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": "2027-03-31",
+          "period": "Q1",
+          "category": "earnings_release",
+          "published_on": "2026-07-30",
+          "status": "identified",
+          "selected_as_initial_regular_release": true,
+          "url": "https://ir.example.test/documents/tel-q1.pdf"
+        }
+      },
+      {
+        "pdf_identity_text": "決算数値の訂正に関するお知らせ\n東京エレクトロン株式会社\nコード番号 8035",
+        "expected": {
+          "issuer_code": "8035",
+          "issuer_name": "東京エレクトロン株式会社",
+          "fiscal_year_end": null,
+          "period": null,
+          "category": "correction",
+          "published_on": null,
+          "status": "pending_confirmation",
+          "selected_as_regular_release": false,
+          "url": "https://ir.example.test/documents/tel-correction.pdf"
+        }
+      }
+    ],
+    "expected_discovered_urls": [
+      "https://ir.example.test/documents/tel-q1.pdf",
+      "https://ir.example.test/documents/tel-correction.pdf"
+    ],
+    "expected_initial_regular_release": "https://ir.example.test/documents/tel-q1.pdf"
   }
 ]

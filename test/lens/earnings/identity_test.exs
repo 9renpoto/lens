@@ -87,6 +87,45 @@ defmodule Lens.Earnings.IdentityTest do
     assert Identity.select_initial([prior, latest]) == {:ok, latest}
   end
 
+  test "title-prefixed correction headings cannot become initial regular releases" do
+    for heading <- [
+          "「2027年3月期 第1四半期決算短信」の一部訂正に関するお知らせ",
+          "「2027年3月期 第1四半期決算短信」の決算数値の訂正に関するお知らせ"
+        ] do
+      result = Identity.from_text("8035", heading <> "\nコード番号 8035")
+      assert result.fields.category == "correction"
+
+      assert Identity.select_initial([
+               Map.put(result, :url, "https://example.test/correction.pdf")
+             ]) == :empty
+    end
+
+    narrative =
+      Identity.from_text(
+        "8035",
+        "2027年3月期 第1四半期決算短信\nコード番号 8035\n詳細は「2027年3月期 第1四半期決算短信」の一部訂正に関するお知らせを参照してください。"
+      )
+
+    assert narrative.fields.category == "earnings_release"
+  end
+
+  test "initial combined fixture retains pending correction without displacing regular release" do
+    fixture =
+      File.read!(Path.expand("../../fixtures/source_catalog/cases.json", __DIR__))
+      |> Jason.decode!()
+      |> Enum.find(&(&1["id"] == "synthetic-tokyo-electron-initial-with-ambiguous-correction"))
+
+    candidates =
+      Enum.map(fixture["documents"], fn document ->
+        Identity.from_text("8035", document["pdf_identity_text"])
+        |> Map.put(:url, document["expected"]["url"])
+      end)
+
+    assert Enum.any?(candidates, &(&1.status == :pending_confirmation))
+    assert {:ok, selected} = Identity.select_initial(candidates)
+    assert selected.url == fixture["expected_initial_regular_release"]
+  end
+
   test "quarter and full-year titles claiming different identities remain pending" do
     text = "2027年3月期 第1四半期決算短信\n2027年3月期 決算短信\nコード番号 6857"
     assert Identity.from_text("6857", text).status == :pending_confirmation
