@@ -188,6 +188,27 @@ defmodule Lens.Earnings.IdentityTest do
     end
   end
 
+  test "unsupported correction layouts remain pending rather than regular releases" do
+    assert Identity.from_text("8035", "2027年3月期\n第1四半期決算短信\nコード番号 8035").status == :identified
+
+    for suffix <- ["の訂正について", "の訂正に関する補足資料"] do
+      result = Identity.from_text("8035", "「2027年3月期 第1四半期決算短信」" <> suffix <> "\nコード番号 8035")
+      assert result.status == :pending_confirmation
+      assert result.release == nil
+      assert result.fields.fiscal_year_end == ~D[2027-03-31]
+
+      assert Identity.select_initial([
+               Map.put(result, :url, "https://example.test/correction.pdf")
+             ]) == :empty
+    end
+  end
+
+  test "wrapped historical date references cannot become publication dates" do
+    base = "コード番号 8035\n（訂正）「2020年3月期 第3四半期決算短信」の一部訂正に関するお知らせ\n2020年1月30日\nに公表した短信を訂正します"
+    assert Identity.from_text("8035", base).published_on == nil
+    assert Identity.from_text("8035", "2020年2月4日\n" <> base).published_on == ~D[2020-02-04]
+  end
+
   test "unsupported issuers return an explicit error" do
     assert Identity.from_text("1234", "2027年3月期 決算短信") == {:error, :unsupported_issuer}
   end
