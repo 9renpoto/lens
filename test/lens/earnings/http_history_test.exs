@@ -34,6 +34,14 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Original, :count) == 1
   end
 
+  test "304 checks require the final response URL" do
+    input = put_in(attrs("missing-final-url", :not_modified, nil), [:result, :final_url], nil)
+
+    assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
   test "identical reacquisition adds history while changed bytes preserve old originals" do
     for {id, bytes} <- [{"one", "%PDF-one"}, {"two", "%PDF-one"}, {"three", "%PDF-two"}] do
       assert {:ok, _} = HTTPHistory.record(attrs(id, :success, bytes))

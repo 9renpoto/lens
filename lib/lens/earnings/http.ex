@@ -45,7 +45,7 @@ defmodule Lens.Earnings.HTTP do
         worker = self()
         spawn(fn -> guard(owner, worker) end)
         result = request(url, config, deadline, 0, owner, ref)
-        send(owner, {ref, :result, result})
+        send(owner, {ref, :result, now(), result})
       end)
 
     await(worker, monitor, ref, deadline, url, 0)
@@ -69,9 +69,13 @@ defmodule Lens.Earnings.HTTP do
       {^ref, :started, next_url, count} ->
         await(worker, monitor, ref, deadline, next_url, count)
 
-      {^ref, :result, result} ->
+      {^ref, :result, completed_at, result} ->
         Process.demonitor(monitor, [:flush])
-        %{result | requests: max(result.requests, requests)}
+        requests = max(result.requests, requests)
+
+        if completed_at >= deadline,
+          do: failure(:timeout, result.final_url || url, requests),
+          else: %{result | requests: requests}
 
       {:DOWN, ^monitor, :process, _, _} ->
         failure(:transport_error, url, requests)
@@ -91,7 +95,7 @@ defmodule Lens.Earnings.HTTP do
   defp drain(ref) do
     receive do
       {^ref, _, _, _} -> drain(ref)
-      {^ref, :result, _} -> drain(ref)
+      {^ref, :result, _, _} -> drain(ref)
     after
       0 -> :ok
     end

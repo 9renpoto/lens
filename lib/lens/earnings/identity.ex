@@ -46,8 +46,15 @@ defmodule Lens.Earnings.Identity do
     regular =
       candidates
       |> Enum.filter(fn
-        %{status: :identified, release: %{category: "earnings_release"}} -> true
-        _ -> false
+        %{
+          status: :identified,
+          release: %{issuer_code: issuer, category: "earnings_release"}
+        }
+        when issuer in ["6857", "9983", "8035"] ->
+          true
+
+        _ ->
+          false
       end)
       |> Enum.uniq()
 
@@ -96,7 +103,7 @@ defmodule Lens.Earnings.Identity do
         "correction"
 
       Regex.match?(
-        ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\n]*〕|\([^\)\n]*\)))*[ \t]*$(?!\n[ \t]*の[ \t]*(?:一部[ \t]*)?訂正)/mu,
+        ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\n]*〕|\([^\)\n]*\)))*[ \t]*$(?!\n[ \t]*の)/mu,
         text
       ) ->
         "earnings_release"
