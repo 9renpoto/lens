@@ -69,12 +69,14 @@ defmodule Lens.Earnings.Discovery do
         headings: Enum.sort(state.headings)
       }
 
-      %{
+      state = %{
         state
         | links: [link | state.links],
           seen: MapSet.put(state.seen, comparison_url),
           count: state.count + 1
       }
+
+      walk(children, state, listing_url)
     else
       _ -> walk(children, state, listing_url)
     end
