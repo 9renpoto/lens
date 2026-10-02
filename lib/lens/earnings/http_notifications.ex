@@ -1,6 +1,10 @@
 defmodule Lens.Earnings.HTTPNotifications do
   @moduledoc false
 
+  def worker_exit_reason(deadline) do
+    if System.monotonic_time(:millisecond) >= deadline, do: :timeout, else: :transport_error
+  end
+
   def drain(ref, url, requests) do
     receive do
       {^ref, kind, next_url, count} when kind in [:evaluating, :started] ->

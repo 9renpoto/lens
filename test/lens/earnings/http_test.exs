@@ -267,6 +267,12 @@ defmodule Lens.Earnings.HTTPTest do
     assert result.bytes == nil
   end
 
+  test "worker exits are classified against the absolute deadline" do
+    now = System.monotonic_time(:millisecond)
+    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now - 1) == :timeout
+    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now + 1000) == :transport_error
+  end
+
   test "timeout cleanup retains queued request-start accounting" do
     ref = make_ref()
     unrelated = make_ref()
