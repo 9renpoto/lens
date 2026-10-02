@@ -42,9 +42,21 @@ defmodule Lens.Earnings.RunBudget do
         {:error, :invalid_options, budget}
 
       true ->
+        deadline =
+          case Keyword.get(options, :deadline) do
+            nil ->
+              budget.deadline
+
+            caller_deadline when is_integer(caller_deadline) ->
+              min(caller_deadline, budget.deadline)
+
+            invalid_deadline ->
+              invalid_deadline
+          end
+
         options =
           options
-          |> Keyword.put(:deadline, budget.deadline)
+          |> Keyword.put(:deadline, deadline)
           |> Keyword.put(:timeout_ms, min(timeout, remaining))
           |> Keyword.put(
             :max_redirects,
