@@ -45,10 +45,11 @@ filing period, or local fetch timestamp.
 
 ## Selection rule
 
-Among candidates with confirmed issuer, fiscal year-end, reporting period, and
-`earnings_release` category, order first by fiscal year-end descending and then
-by period ordinal descending (`Q1` < `Q2` < `Q3` < `FY`). Select the first
-candidate for initialization. Corrections are separate materials and never
+Group candidates by issuer first. Within each issuer, among candidates with
+confirmed fiscal year-end, reporting period, and `earnings_release` category,
+order by fiscal year-end descending and then period ordinal descending
+(`Q1` < `Q2` < `Q3` < `FY`). Select one first candidate per issuer for
+initialization. Corrections are separate materials and never
 displace the regular release. If two candidates claim the same logical
 identity, or metadata conflicts, return both as pending and require review; do
 not break the tie by URL order. A later regular-period release is a new
@@ -58,7 +59,7 @@ identity, not a replacement of the prior quarter.
 
 | Case | Fixture facts | Expected result |
 | --- | --- | --- |
-| Advantest initial | Listing label `FY2026 1Q`; PDF states year ending March 31, 2027, first quarter; date 2026-07-29; anchor points to `J_FR_FY2026_1Q.pdf` | Discover the anchor URL as published; issuer 6857; fiscal year-end 2027-03-31; Q1; earnings_release; publication date 2026-07-29; selected as initial regular release |
+| Advantest initial | Listing label `FY2026 1Q`; PDF states year ending March 31, 2027, first quarter; date 2026-07-29; anchor points to `J_FR_FY2026_1Q.pdf` | Discover the anchor URL as published; retain the listing URL on the candidate; issuer 6857; fiscal year-end 2027-03-31; Q1; earnings_release; publication date 2026-07-29; selected as initial regular release for issuer 6857 |
 | Fast Retailing initial | HTML anchor href points to `pdf/tanshin202608_3q.pdf`; link is discovered from fixture DOM, not constructed; PDF states year ending August 31, 2026, third quarter; date 2026-07-09 | Resolve against the listing URL; issuer 9983; fiscal year-end 2026-08-31; Q3; earnings_release; publication date 2026-07-09; selected |
 | Tokyo Electron initial plus correction | Regular Q1 PDF states year ending March 31, 2027, date 2026-07-30; a separately listed correction has an ambiguous title and no explicit period | Discover both actual links; map the regular PDF to issuer 8035 / 2027-03-31 / Q1 / earnings_release and select it; keep correction pending unless its own contents establish identity/category |
 | Tokyo Electron confirmed correction pair | Its official archive lists the 2020-03 Q3 regular release dated 2020-01-30 and a separately linked correction dated 2020-02-04; the correction names the original Q3 release | Discover both published hrefs; identify both as issuer 8035 / FY ending 2020-03-31 / Q3 with separate categories and dates; select the regular release and retain the correction as a distinct material |
@@ -107,7 +108,7 @@ evaluation ledger are historical reference points, not present-day verification.
 
 ## 選択規則
 
-企業・決算期末・対象期間・`earnings_release`が確定した候補を、まず決算期末の降順、次に対象期間の序数降順（`Q1` < `Q2` < `Q3` < `FY`）で並べ、先頭を初期資料として選ぶ。訂正資料は別資料として扱い、通常資料の代わりに選ばない。二つの候補が同じ論理識別情報を主張する場合、またはメタデータが矛盾する場合は両方を確認待ちにし、URL順で決着させない。後続期の通常資料は新しい識別情報であり、前期資料を置換しない。
+候補を企業ごとに分けてから、各企業内で決算期末・対象期間・`earnings_release`が確定したものを、決算期末の降順、次に対象期間の序数降順（`Q1` < `Q2` < `Q3` < `FY`）で並べ、企業ごとに先頭を初期資料として選ぶ。訂正資料は別資料として扱い、通常資料の代わりに選ばない。二つの候補が同じ論理識別情報を主張する場合、またはメタデータが矛盾する場合は両方を確認待ちにし、URL順で決着させない。後続期の通常資料は新しい識別情報であり、前期資料を置換しない。
 
 ## 期待する固定データケース
 
