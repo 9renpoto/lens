@@ -202,7 +202,11 @@ defmodule Lens.Earnings.IdentityTest do
              ]) == :empty
     end
 
-    for suffix <- ["の訂正について", "の訂正に関する補足資料"] do
+    for suffix <- [
+          "の訂正について",
+          "の訂正に関する補足資料",
+          "の決算数値の訂正に関するお知らせ"
+        ] do
       result =
         Identity.from_text("8035", "2027年3月期 第1四半期決算短信" <> suffix <> "\nコード番号 8035")
 
@@ -247,6 +251,15 @@ defmodule Lens.Earnings.IdentityTest do
     pending = candidate("https://example.test/pending", "決算数値の訂正")
     assert Identity.select_initial([prior, correction, q1, pending, q2]) == {:ok, q2}
     assert Identity.select_initial([correction, pending]) == :empty
+  end
+
+  test "initial selection excludes candidates without a confirmed supported issuer" do
+    regular = candidate("https://example.test/release", "2027年3月期 第1四半期決算短信")
+
+    for issuer <- [nil, "1234"] do
+      unconfirmed = put_in(regular.release.issuer_code, issuer)
+      assert Identity.select_initial([unconfirmed]) == :empty
+    end
   end
 
   test "conflicting URLs for the newest identity require review instead of falling back" do
