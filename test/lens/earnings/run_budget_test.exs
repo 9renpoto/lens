@@ -46,6 +46,30 @@ defmodule Lens.Earnings.RunBudgetTest do
              RunBudget.fetch(budget, "https://example.test/file.pdf")
   end
 
+  test "an earlier caller deadline is preserved by the run budget" do
+    owner = self()
+
+    url =
+      server(fn socket, _ ->
+        send(owner, :unexpected_request)
+        respond(socket, 200, "%PDF-late")
+      end)
+
+    assert {:ok, budget} = RunBudget.new(timeout_ms: 500)
+    caller_deadline = System.monotonic_time(:millisecond) - 1
+
+    assert {:ok, result, updated} =
+             RunBudget.fetch(budget, url,
+               allowed_url?: allow(url),
+               deadline: caller_deadline
+             )
+
+    assert result.failure_reason == :timeout
+    assert result.requests == 0
+    assert updated.requests == 0
+    refute_receive :unexpected_request, 30
+  end
+
   test "slow policy evaluation cannot extend the run or start a late request" do
     owner = self()
 
