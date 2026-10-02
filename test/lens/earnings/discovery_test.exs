@@ -74,6 +74,7 @@ defmodule Lens.Earnings.DiscoveryTest do
 
       for {link, document} <- Enum.zip(links, expected_documents) do
         assert link.listing_url == document["expected"]["listing_url"]
+        assert link.url == document["expected"]["url"]
       end
 
       if comparison = get_in(fixture, ["expected", "comparison_urls"]) do
@@ -97,6 +98,14 @@ defmodule Lens.Earnings.DiscoveryTest do
       assert link.url == "https://example.test/release.pdf"
       assert link.headings == [{level, "決算短信"}]
     end
+  end
+
+  test "retains headings nested inside non-PDF anchors for following PDF candidates" do
+    html = "<a href='archive.html'><h2>2027年3月期</h2></a><a href='release.pdf'>決算短信</a>"
+
+    assert {:ok, [link]} = Discovery.links("https://example.test/", html)
+    assert link.url == "https://example.test/release.pdf"
+    assert link.headings == [{2, "2027年3月期"}]
   end
 
   test "resolves published hrefs, decodes entities and retains heading and anchor metadata" do

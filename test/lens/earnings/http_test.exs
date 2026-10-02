@@ -252,6 +252,21 @@ defmodule Lens.Earnings.HTTPTest do
     assert result.bytes == nil
   end
 
+  test "a response completed after the absolute deadline remains a timeout" do
+    url =
+      server(fn socket, _ ->
+        Process.sleep(150)
+        respond(socket, 200, "%PDF-late")
+      end)
+
+    result = HTTP.fetch(url, allowed_url?: allow(url), timeout_ms: 75)
+
+    assert result.failure_reason == :timeout
+    assert result.final_url == url
+    assert result.requests == 1
+    assert result.bytes == nil
+  end
+
   test "caller termination cancels an in-flight download and closes its socket" do
     owner = self()
 
