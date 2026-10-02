@@ -68,6 +68,13 @@ defmodule Lens.Earnings.DiscoveryTest do
         assert Enum.map(links, & &1.comparison_url) == comparison
         refute comparison == expected
       end
+
+      if metadata = get_in(fixture, ["expected", "source_metadata"]) do
+        assert Map.new(hd(links).headings, fn {level, text} -> {to_string(level), text} end) ==
+                 metadata["headings"]
+
+        assert metadata["source_fiscal_year_label"] in Map.values(metadata["headings"])
+      end
     end
   end
 
