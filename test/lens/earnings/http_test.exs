@@ -148,6 +148,7 @@ defmodule Lens.Earnings.HTTPTest do
     result = HTTP.fetch(url, allowed_url?: policy)
     assert result.failure_reason == :transport_error
     assert result.requests == 1
+    assert result.final_url == url <> "next"
     assert result.bytes == nil
   end
 
@@ -382,6 +383,20 @@ defmodule Lens.Earnings.HTTPTest do
     end
 
     assert DynamicSupervisor.count_children(Req.FinchSupervisor).active <= before + 1
+  end
+
+  test "a slow redirect policy reports the target without counting another request" do
+    url = server(fn socket, _ -> respond(socket, 302, "", [{"Location", "/next"}]) end)
+
+    policy = fn candidate ->
+      if URI.parse(candidate).path == "/next", do: Process.sleep(300)
+      true
+    end
+
+    result = HTTP.fetch(url, allowed_url?: policy, timeout_ms: 100)
+    assert result.failure_reason == :timeout
+    assert result.requests == 1
+    assert result.final_url == url <> "next"
   end
 
   defp allow(url) do

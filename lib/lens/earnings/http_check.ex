@@ -77,11 +77,25 @@ defmodule Lens.Earnings.HTTPCheck do
       end)
 
   defp bounded_json(field, value) do
-    case Jason.encode(value) do
-      {:ok, json} when byte_size(json) <= 32_768 -> []
-      _ -> [{field, "must encode as JSON within 32768 bytes"}]
+    with {:ok, json} <- Jason.encode(value),
+         true <- byte_size(json) <= 32_768,
+         {:ok, canonical_value} <- Jason.decode(json),
+         true <- jsonb_safe?(canonical_value) do
+      []
+    else
+      _ -> [{field, "must encode as JSON without NUL characters within 32768 bytes"}]
     end
   end
+
+  defp jsonb_safe?(value) when is_binary(value), do: not String.contains?(value, <<0>>)
+
+  defp jsonb_safe?(values) when is_list(values),
+    do: Enum.all?(values, &jsonb_safe?/1)
+
+  defp jsonb_safe?(values) when is_map(values),
+    do: Enum.all?(values, fn {key, value} -> jsonb_safe?(key) and jsonb_safe?(value) end)
+
+  defp jsonb_safe?(_value), do: true
 
   defp validate_outcome(changeset) do
     status = get_field(changeset, :status)
