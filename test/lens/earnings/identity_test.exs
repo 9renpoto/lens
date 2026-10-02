@@ -35,7 +35,15 @@ defmodule Lens.Earnings.IdentityTest do
 
     for separator <- ["", " ", "\n", "\n\n", "\r\n"],
         title <- ["2026年3月期 決算短信", "「2026年3月期 決算短信」", "2026年3月期 決算短信〔IFRS〕"],
-        suffix <- ["をご参照ください", "に記載しています", "をご確認ください"] do
+        suffix <- [
+          "をご参照ください",
+          "に記載しています",
+          "をご確認ください",
+          "記載の数値を比較しています",
+          "掲載の数値を比較しています",
+          "を参照",
+          "は比較対象です"
+        ] do
       latest =
         candidate(
           "https://example.test/latest",
@@ -47,6 +55,21 @@ defmodule Lens.Earnings.IdentityTest do
       assert latest.release.fiscal_year_end == ~D[2027-03-31]
       assert latest.release.period == "q1"
       assert Identity.select_initial([prior, latest]) == {:ok, latest}
+    end
+  end
+
+  test "ignores prior correction-title references without losing the current identity" do
+    for separator <- ["", "\n", "\n\n", "\r\n"] do
+      result =
+        Identity.from_text(
+          "6857",
+          "2027年3月期 第1四半期決算短信\nコード番号 6857\n「2026年3月期 決算短信」" <>
+            separator <> "の一部訂正に関するお知らせ" <> separator <> "をご参照ください"
+        )
+
+      assert result.status == :identified
+      assert result.release.fiscal_year_end == ~D[2027-03-31]
+      assert result.release.period == "q1"
     end
   end
 
@@ -349,8 +372,18 @@ defmodule Lens.Earnings.IdentityTest do
     assert Identity.from_text("8035", base).published_on == nil
     assert Identity.from_text("8035", "2020年2月4日\n" <> base).published_on == ~D[2020-02-04]
 
-    for continuation <- ["公表の短信を訂正します", "付で公表した短信を訂正します"] do
-      wrapped = String.replace(base, "に公表した短信を訂正します", continuation)
+    for separator <- ["\n", "\n\n", "\r\n"],
+        continuation <- [
+          "公表の短信を訂正します",
+          "付で公表した短信を訂正します",
+          "発表の短信を訂正します",
+          "開示の短信を訂正します",
+          "公開の短信を訂正します",
+          "発行の短信を訂正します",
+          "掲載の短信を訂正します",
+          "記載の短信を訂正します"
+        ] do
+      wrapped = String.replace(base, "\nに公表した短信を訂正します", separator <> continuation)
       assert Identity.from_text("8035", wrapped).published_on == nil
       assert Identity.from_text("8035", "2020年2月4日\n" <> wrapped).published_on == ~D[2020-02-04]
     end
