@@ -85,6 +85,17 @@ defmodule Lens.Earnings.IdentityTest do
 
     assert latest.release.category == "earnings_release"
     assert Identity.select_initial([prior, latest]) == {:ok, latest}
+
+    for suffix <- ["をご参照ください", "に記載しています", "をご確認ください"] do
+      wrapped =
+        candidate(
+          "https://example.test/wrapped",
+          "2027年3月期 第1四半期決算短信\n参考資料として\n「2027年3月期 第1四半期決算短信」\nの一部訂正に関するお知らせ\n" <> suffix
+        )
+
+      assert wrapped.release.category == "earnings_release"
+      assert Identity.select_initial([prior, wrapped]) == {:ok, wrapped}
+    end
   end
 
   test "title-prefixed correction headings cannot become initial regular releases" do

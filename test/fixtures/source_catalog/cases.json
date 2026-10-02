@@ -182,5 +182,28 @@
       "https://ir.example.test/documents/tel-correction.pdf"
     ],
     "expected_initial_regular_release": "https://ir.example.test/documents/tel-q1.pdf"
+  },
+  {
+    "id": "synthetic-exact-url-provenance",
+    "evidence_type": "synthetic-parser-fixture",
+    "listing_url": "https://ir.example.test/advantest/results/",
+    "listing_html": "<a href=\"https://IR.Example.Test:443/documents/adv-q1.pdf?download=1#page=2\">決算短信</a>",
+    "pdf_identity_text": "2027年3月期 第1四半期決算短信〔IFRS〕(連結)\n2026年7月29日\n上場会社名 株式会社アドバンテスト\nコード番号 6857",
+    "expected": {
+      "discovered_urls": [
+        "https://IR.Example.Test:443/documents/adv-q1.pdf?download=1#page=2"
+      ],
+      "issuer_code": "6857",
+      "issuer_name": "株式会社アドバンテスト",
+      "fiscal_year_end": "2027-03-31",
+      "period": "Q1",
+      "category": "earnings_release",
+      "published_on": "2026-07-29",
+      "status": "identified",
+      "selected_as_initial_regular_release": true,
+      "comparison_urls": [
+        "https://ir.example.test/documents/adv-q1.pdf?download=1"
+      ]
+    }
   }
 ]
