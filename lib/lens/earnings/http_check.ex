@@ -125,15 +125,18 @@ defmodule Lens.Earnings.HTTPCheck do
         "success" ->
           http_status == 200 and is_nil(reason) and is_integer(size) and size in 0..cap and
             is_binary(sha) and is_integer(requests) and requests > 0 and
+            get_field(changeset, :retryable) == false and
             not is_nil(get_field(changeset, :final_url))
 
         "not_modified" ->
           http_status == 304 and is_nil(reason) and is_nil(size) and is_nil(sha) and
             is_integer(requests) and requests > 0 and
+            get_field(changeset, :retryable) == false and
             not is_nil(get_field(changeset, :final_url))
 
         "failed" ->
           is_binary(reason) and is_nil(size) and is_nil(sha) and is_integer(requests) and
+            (requests == 0 or not is_nil(get_field(changeset, :final_url))) and
             (requests > 0 or
                (is_nil(http_status) and get_field(changeset, :response_headers) == %{}))
 

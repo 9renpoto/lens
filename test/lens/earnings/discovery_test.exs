@@ -108,6 +108,14 @@ defmodule Lens.Earnings.DiscoveryTest do
     assert link.headings == [{2, "2027年3月期"}]
   end
 
+  test "retains headings nested inside accepted PDF anchors for following candidates" do
+    html = "<a href='one.pdf'><h2>2027年3月期</h2></a><a href='two.pdf'>第1四半期決算短信</a>"
+
+    assert {:ok, [first, second]} = Discovery.links("https://example.test/", html)
+    assert first.headings == []
+    assert second.headings == [{2, "2027年3月期"}]
+  end
+
   test "resolves published hrefs, decodes entities and retains heading and anchor metadata" do
     html = """
     <h2>2026年8月期</h2><h3>第3四半期決算</h3>
