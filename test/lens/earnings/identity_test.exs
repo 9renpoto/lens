@@ -30,16 +30,17 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.published_on == ~D[2026-07-29]
   end
 
-  test "ignores wrapped prior-release references when selecting the latest release" do
+  test "ignores same-line and wrapped prior-release references when selecting the latest release" do
     prior = candidate("https://example.test/prior", "2026年3月期 決算短信")
 
-    for separator <- ["\n", "\n\n", "\r\n"],
+    for separator <- ["", " ", "\n", "\n\n", "\r\n"],
+        title <- ["2026年3月期 決算短信", "「2026年3月期 決算短信」", "2026年3月期 決算短信〔IFRS〕"],
         suffix <- ["をご参照ください", "に記載しています", "をご確認ください"] do
       latest =
         candidate(
           "https://example.test/latest",
-          "2027年3月期 第1四半期決算短信\n比較対象は次の短信です。\n2026年3月期 決算短信" <>
-            separator <> suffix
+          "2027年3月期 第1四半期決算短信\n比較対象は次の短信です。\n" <>
+            title <> separator <> suffix
         )
 
       assert latest.status == :identified
