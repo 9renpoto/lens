@@ -264,6 +264,97 @@ defmodule Lens.Earnings.HTTPTest do
     end
   end
 
+  test "initial slow policy evaluation is contained within the total deadline" do
+    started = System.monotonic_time(:millisecond)
+
+    result =
+      HTTP.fetch("https://example.test/file.pdf",
+        timeout_ms: 20,
+        allowed_url?: fn _ ->
+          Process.sleep(200)
+          false
+        end
+      )
+
+    assert result.failure_reason == :timeout
+    assert result.requests == 0
+    assert System.monotonic_time(:millisecond) - started < 150
+  end
+
+  test "initial policy process exits are contained like redirect policy exits" do
+    result =
+      HTTP.fetch("https://example.test/file.pdf", allowed_url?: fn _ -> exit(:unavailable) end)
+
+    assert result.failure_reason == :transport_error
+    assert result.requests == 0
+  end
+
+  test "an absolute expired deadline starts no request" do
+    result =
+      HTTP.fetch("https://example.test/file.pdf",
+        deadline: System.monotonic_time(:millisecond) - 1,
+        allowed_url?: fn _ -> true end
+      )
+
+    assert result.failure_reason == :timeout
+    assert result.requests == 0
+  end
+
+  test "identity encoding is accepted independent of token casing and whitespace" do
+    for encoding <- ["Identity", "IDENTITY", " identity "] do
+      url =
+        server(fn socket, _ ->
+          respond(socket, 200, "%PDF-exact", [{"Content-Encoding", encoding}])
+        end)
+
+      assert HTTP.fetch(url, allowed_url?: allow(url)).bytes == "%PDF-exact"
+    end
+  end
+
+  test "cross-origin redirects discard origin-scoped and custom credentials" do
+    owner = self()
+
+    target =
+      server(fn socket, request ->
+        send(owner, {:target, request})
+        respond(socket, 200, "%PDF-exact")
+      end)
+
+    origin = server(fn socket, _ -> respond(socket, 302, "", [{"Location", target}]) end)
+
+    result =
+      HTTP.fetch(origin,
+        allowed_url?: fn url -> url in [origin, target] end,
+        headers: [
+          {"Authorization", "test-secret"},
+          {"Cookie", "test-cookie"},
+          {"X-Api-Key", "test-key"},
+          {"If-None-Match", "origin-etag"},
+          {"Accept", "application/pdf"}
+        ]
+      )
+
+    assert result.outcome == :success
+    assert_receive {:target, request}
+    request = String.downcase(request)
+
+    for name <- ["authorization", "cookie", "x-api-key", "if-none-match"],
+        do: refute(String.contains?(request, name <> ":"))
+
+    assert String.contains?(request, "accept: application/pdf")
+  end
+
+  test "changing deadlines reuse one stable Finch connection configuration" do
+    before = DynamicSupervisor.count_children(Req.FinchSupervisor).active
+
+    for timeout <- [1701, 1702, 1703] do
+      url = server(fn socket, _ -> respond(socket, 200, "%PDF-exact") end)
+      assert HTTP.fetch(url, allowed_url?: allow(url), timeout_ms: timeout).outcome == :success
+    end
+
+    assert DynamicSupervisor.count_children(Req.FinchSupervisor).active <= before + 1
+  end
+
   defp allow(url) do
     base = URI.parse(url)
 
