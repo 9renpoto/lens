@@ -87,17 +87,8 @@ defmodule Lens.Earnings.HTTP do
           {:DOWN, ^monitor, :process, _, _} -> :ok
         end
 
-        drain(ref)
+        {url, requests} = Lens.Earnings.HTTPNotifications.drain(ref, url, requests)
         failure(:timeout, url, requests)
-    end
-  end
-
-  defp drain(ref) do
-    receive do
-      {^ref, _, _, _} -> drain(ref)
-      {^ref, :result, _, _} -> drain(ref)
-    after
-      0 -> :ok
     end
   end
 
