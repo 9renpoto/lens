@@ -12,7 +12,11 @@ defmodule Mix.Tasks.Lens.Earnings.ExtractTest do
     end
 
     :ok = Supervisor.terminate_child(Lens.Supervisor, Lens.Ingestion.Scheduler)
-    on_exit(fn -> Supervisor.restart_child(Lens.Supervisor, Lens.Ingestion.Scheduler) end)
+
+    on_exit(fn ->
+      {:ok, _pid} = Supervisor.restart_child(Lens.Supervisor, Lens.Ingestion.Scheduler)
+      :ok = :sys.suspend(Lens.Ingestion.Scheduler)
+    end)
 
     retained =
       for kind <- ["text", "image"] do

@@ -26,7 +26,7 @@ defmodule Lens.Ingestion.Scheduler do
       tick_ms: Keyword.get(options, :tick_ms, @default_tick_ms)
     }
 
-    send(self(), :poll)
+    if Keyword.get(options, :initial_poll, true), do: send(self(), :poll)
     {:ok, state}
   end
 
