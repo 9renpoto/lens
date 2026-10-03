@@ -108,18 +108,16 @@ defmodule Lens.Earnings.HTTP do
         )
     after
       max(deadline - now(), 0) ->
-        case Lens.Earnings.HTTPNotifications.drain_terminal(ref) do
-          {:result, completed_at, result} ->
+        case Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, requests) do
+          {:result, completed_at, result, requests} ->
             Process.demonitor(monitor, [:flush])
-            requests = max(result.requests, requests)
 
             if completed_at >= deadline,
               do: failure(:timeout, result.final_url || url, requests),
               else: %{result | requests: requests}
 
-          {:worker_exit, completed_at} ->
+          {:worker_exit, completed_at, url, requests} ->
             Process.demonitor(monitor, [:flush])
-            {url, requests} = Lens.Earnings.HTTPNotifications.drain(ref, url, requests)
 
             failure(
               Lens.Earnings.HTTPNotifications.worker_exit_reason(completed_at, deadline),
@@ -127,15 +125,33 @@ defmodule Lens.Earnings.HTTP do
               requests
             )
 
-          :none ->
+          {:none, url, requests} ->
             Process.exit(worker, :kill)
 
             receive do
               {:DOWN, ^monitor, :process, _, _} -> :ok
             end
 
-            {url, requests} = Lens.Earnings.HTTPNotifications.drain(ref, url, requests)
-            failure(:timeout, url, requests)
+            case Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, requests) do
+              {:result, completed_at, result, requests} ->
+                Process.demonitor(monitor, [:flush])
+
+                if completed_at >= deadline,
+                  do: failure(:timeout, result.final_url || url, requests),
+                  else: %{result | requests: requests}
+
+              {:worker_exit, completed_at, url, requests} ->
+                Process.demonitor(monitor, [:flush])
+
+                failure(
+                  Lens.Earnings.HTTPNotifications.worker_exit_reason(completed_at, deadline),
+                  url,
+                  requests
+                )
+
+              {:none, url, requests} ->
+                failure(:timeout, url, requests)
+            end
         end
     end
   end

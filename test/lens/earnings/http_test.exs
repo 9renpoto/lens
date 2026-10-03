@@ -303,6 +303,28 @@ defmodule Lens.Earnings.HTTPTest do
     refute_receive {^ref, _, _, _}, 0
   end
 
+  test "timeout cleanup rechecks terminal notifications after the worker stops" do
+    ref = make_ref()
+    url = "https://example.test/file.pdf"
+
+    assert Lens.Earnings.HTTPNotifications.drain_terminal(ref) == :none
+    send(self(), {ref, :worker_exit, 123})
+
+    assert Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, 0) ==
+             {:worker_exit, 123, url, 0}
+  end
+
+  test "timeout cleanup retains queued result completion timestamps" do
+    ref = make_ref()
+    url = "https://example.test/file.pdf"
+    result = %{final_url: url, requests: 1}
+
+    send(self(), {ref, :result, 123, result})
+
+    assert Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, 0) ==
+             {:result, 123, result, 1}
+  end
+
   test "caller termination cancels an in-flight download and closes its socket" do
     owner = self()
 

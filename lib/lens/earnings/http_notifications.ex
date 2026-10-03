@@ -14,6 +14,23 @@ defmodule Lens.Earnings.HTTPNotifications do
     end
   end
 
+  def drain_after_worker_stops(ref, url, requests) do
+    case drain_terminal(ref) do
+      {:result, completed_at, result} ->
+        requests = max(result.requests, requests)
+        {_url, requests} = drain(ref, result.final_url || url, requests)
+        {:result, completed_at, result, requests}
+
+      {:worker_exit, completed_at} ->
+        {url, requests} = drain(ref, url, requests)
+        {:worker_exit, completed_at, url, requests}
+
+      :none ->
+        {url, requests} = drain(ref, url, requests)
+        {:none, url, requests}
+    end
+  end
+
   def drain(ref, url, requests) do
     receive do
       {^ref, kind, next_url, count} when kind in [:evaluating, :started] ->
