@@ -294,11 +294,11 @@ defmodule Lens.Earnings.HTTPTest do
     send(self(), {ref, :started, redirected, 2})
     send(self(), {ref, :evaluating, evaluated, 2})
     send(self(), {ref, :result, 0, %{final_url: evaluated, requests: 1}})
-    send(self(), {ref, :worker_exit, 123})
     send(self(), {unrelated, :started, original, 9})
 
-    assert Lens.Earnings.HTTPNotifications.drain(ref, original, 0) == {evaluated, 2}
-    assert Lens.Earnings.HTTPNotifications.drain_terminal(ref) == {:worker_exit, 123}
+    assert Lens.Earnings.HTTPNotifications.drain(ref, original, 0) ==
+             {:result, 0, %{final_url: evaluated, requests: 1}, 2}
+
     assert_receive {^unrelated, :started, ^original, 9}
     refute_receive {^ref, _, _, _}, 0
   end
@@ -307,10 +307,10 @@ defmodule Lens.Earnings.HTTPTest do
     ref = make_ref()
     url = "https://example.test/file.pdf"
 
-    assert Lens.Earnings.HTTPNotifications.drain_terminal(ref) == :none
+    assert Lens.Earnings.HTTPNotifications.drain(ref, url, 0) == {:none, url, 0}
     send(self(), {ref, :worker_exit, 123})
 
-    assert Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, 0) ==
+    assert Lens.Earnings.HTTPNotifications.drain(ref, url, 0) ==
              {:worker_exit, 123, url, 0}
   end
 
@@ -321,8 +321,7 @@ defmodule Lens.Earnings.HTTPTest do
 
     send(self(), {ref, :result, 123, result})
 
-    assert Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, 0) ==
-             {:result, 123, result, 1}
+    assert Lens.Earnings.HTTPNotifications.drain(ref, url, 0) == {:result, 123, result, 1}
   end
 
   test "caller termination cancels an in-flight download and closes its socket" do

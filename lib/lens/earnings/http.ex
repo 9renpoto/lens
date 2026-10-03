@@ -108,7 +108,7 @@ defmodule Lens.Earnings.HTTP do
         )
     after
       max(deadline - now(), 0) ->
-        case Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, requests) do
+        case Lens.Earnings.HTTPNotifications.drain(ref, url, requests) do
           {:result, completed_at, result, requests} ->
             Process.demonitor(monitor, [:flush])
 
@@ -132,7 +132,7 @@ defmodule Lens.Earnings.HTTP do
               {:DOWN, ^monitor, :process, _, _} -> :ok
             end
 
-            case Lens.Earnings.HTTPNotifications.drain_after_worker_stops(ref, url, requests) do
+            case Lens.Earnings.HTTPNotifications.drain(ref, url, requests) do
               {:result, completed_at, result, requests} ->
                 Process.demonitor(monitor, [:flush])
 
