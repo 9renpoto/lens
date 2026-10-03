@@ -12,3 +12,6 @@ config :lens, Lens.Repo,
 config :lens, LensWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "test-secret-key-base-must-be-long-enough-for-phoenix"
+
+# Keep the first poll disabled before the test helper can suspend the scheduler.
+config :lens, Lens.Ingestion.Scheduler, initial_poll: false
