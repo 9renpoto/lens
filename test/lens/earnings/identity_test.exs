@@ -165,6 +165,24 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.release.category == "earnings_release"
   end
 
+  test "wrapped narrative correction markers do not exclude the latest regular release" do
+    prior = candidate("https://example.test/prior", "2026年3月期 決算短信")
+
+    for separator <- ["\n", "\n\n", "\r\n"],
+        marker <- ["(訂正)", "(訂正版)", "【訂正】", "[訂正]", "〈訂正〉", "“訂正”", "訂正について"] do
+      latest =
+        candidate(
+          "https://example.test/latest",
+          "2027年3月期 第1四半期決算短信\nコード番号 6857\n" <>
+            marker <> separator <> "前期比較の表示を修正しています"
+        )
+
+      assert latest.status == :identified
+      assert latest.release.category == "earnings_release"
+      assert Identity.select_initial([prior, latest]) == {:ok, latest}
+    end
+  end
+
   test "correction labels after a regular title remain pending" do
     for separator <- ["\n", "\n\n", "\r\n"],
         label <- ["(訂正版)", "〔訂正〕", "訂正について", "一部訂正", "訂正に関するお知らせ"] do
