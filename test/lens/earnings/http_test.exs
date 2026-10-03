@@ -310,6 +310,36 @@ defmodule Lens.Earnings.HTTPTest do
     assert_receive {:stream_closed, {:error, :closed}}, 1000
   end
 
+  test "caller termination during URL policy evaluation prevents the request" do
+    owner = self()
+
+    url =
+      server(fn socket, _ ->
+        send(owner, :unexpected_fetch)
+        respond(socket, 200, "%PDF-fake")
+      end)
+
+    caller =
+      spawn(fn ->
+        HTTP.fetch(url,
+          allowed_url?: fn _ ->
+            send(owner, {:policy_started, self()})
+
+            receive do
+              :continue -> true
+            end
+          end,
+          timeout_ms: 2_000
+        )
+      end)
+
+    assert_receive {:policy_started, policy_worker}, 1_000
+    Process.exit(caller, :kill)
+    send(policy_worker, :continue)
+
+    refute_receive :unexpected_fetch, 100
+  end
+
   test "rejects nonidentity content encoding to preserve exact original bytes" do
     url =
       server(fn socket, _ ->

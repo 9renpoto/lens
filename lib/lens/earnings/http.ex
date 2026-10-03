@@ -43,17 +43,25 @@ defmodule Lens.Earnings.HTTP do
     {worker, monitor} =
       spawn_monitor(fn ->
         worker = self()
-        spawn(fn -> guard(owner, worker) end)
-        result = request(url, config, deadline, 0, owner, ref)
-        send(owner, {ref, :result, now(), result})
+
+        spawn(fn -> guard(owner, worker, ref) end)
+
+        receive do
+          {^ref, :guard_ready} ->
+            if Process.alive?(owner) do
+              result = request(url, config, deadline, 0, owner, ref)
+              send(owner, {ref, :result, now(), result})
+            end
+        end
       end)
 
     await(worker, monitor, ref, deadline, url, 0)
   end
 
-  defp guard(owner, worker) do
+  defp guard(owner, worker, ref) do
     owner_ref = Process.monitor(owner)
     worker_ref = Process.monitor(worker)
+    send(worker, {ref, :guard_ready})
 
     receive do
       {:DOWN, ^owner_ref, :process, _, _} -> Process.exit(worker, :kill)

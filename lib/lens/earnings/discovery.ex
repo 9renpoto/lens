@@ -127,8 +127,6 @@ defmodule Lens.Earnings.Discovery do
     end
   end
 
-  defp valid_http_url?(_), do: false
-
   defp valid_http_uri?(url) do
     case URI.new(url) do
       {:ok, %{scheme: scheme, host: host, userinfo: nil}} when is_binary(host) and host != "" ->
