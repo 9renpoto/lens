@@ -223,12 +223,45 @@ defmodule Lens.Earnings.IdentityTest do
     end
   end
 
+  test "correction-bearing Unicode delimiters stay pending when the original title is repeated" do
+    for {opening, closing} <- [
+          {"【", "】"},
+          {"[", "]"},
+          {"〈", "〉"},
+          {"《", "》"},
+          {"『", "』"},
+          {"「", "」"},
+          {"＜", "＞"},
+          {"“", "”"}
+        ],
+        label <- ["訂正", "訂正・数値データ訂正"],
+        placement <- [:prefix, :suffix, :standalone] do
+      title = "2027年3月期 第1四半期決算短信"
+      marker = opening <> label <> closing
+
+      heading =
+        case placement do
+          :prefix -> marker <> title
+          :suffix -> title <> marker
+          :standalone -> marker <> "\n" <> title
+        end
+
+      result = Identity.from_text("6857", heading <> "\n" <> title <> "\nコード番号 6857")
+      assert result.status == :pending_confirmation
+      assert result.release == nil
+      assert Identity.select_initial([result]) == :empty
+    end
+  end
+
   test "compound correction prefixes in narrative references do not block the regular release" do
-    for separator <- ["", "\n", "\n\n", "\r\n"] do
+    for separator <- ["", "\n", "\n\n", "\r\n"],
+        marker <- ["(訂正・数値データ訂正)", "【訂正】", "[訂正]", "〈訂正〉", "＜訂正＞", "“訂正”"] do
       result =
         Identity.from_text(
           "6857",
-          "2027年3月期 第1四半期決算短信\nコード番号 6857\n(訂正・数値データ訂正)「2026年3月期 決算短信」の一部訂正について" <>
+          "2027年3月期 第1四半期決算短信\nコード番号 6857\n" <>
+            marker <>
+            "「2026年3月期 決算短信」の一部訂正について" <>
             separator <> "をご確認ください"
         )
 
