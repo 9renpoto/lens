@@ -169,6 +169,17 @@ defmodule Lens.Earnings.HTTPTest do
     assert result.requests == 1
   end
 
+  test "non UTF-8 redirect locations are reported as invalid redirects" do
+    url = server(fn socket, _ -> respond(socket, 302, "", [{"Location", "/bad-" <> <<255>>}]) end)
+
+    result = HTTP.fetch(url, allowed_url?: allow(url))
+
+    assert result.failure_reason == :invalid_redirect
+    assert result.final_url == url
+    assert result.requests == 1
+    refute result.retryable
+  end
+
   test "a redirect policy process failure is contained in the monitored worker" do
     url = server(fn socket, _ -> respond(socket, 302, "", [{"Location", "/next"}]) end)
 
@@ -269,8 +280,8 @@ defmodule Lens.Earnings.HTTPTest do
 
   test "worker exits are classified against the absolute deadline" do
     now = System.monotonic_time(:millisecond)
-    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now - 1) == :timeout
-    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now + 1000) == :transport_error
+    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now - 1, now) == :transport_error
+    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now + 1, now) == :timeout
   end
 
   test "timeout cleanup retains queued request-start accounting" do
@@ -283,9 +294,11 @@ defmodule Lens.Earnings.HTTPTest do
     send(self(), {ref, :started, redirected, 2})
     send(self(), {ref, :evaluating, evaluated, 2})
     send(self(), {ref, :result, 0, %{final_url: evaluated, requests: 1}})
+    send(self(), {ref, :worker_exit, 123})
     send(self(), {unrelated, :started, original, 9})
 
     assert Lens.Earnings.HTTPNotifications.drain(ref, original, 0) == {evaluated, 2}
+    assert Lens.Earnings.HTTPNotifications.drain_terminal(ref) == {:worker_exit, 123}
     assert_receive {^unrelated, :started, ^original, 9}
     refute_receive {^ref, _, _, _}, 0
   end
@@ -385,6 +398,38 @@ defmodule Lens.Earnings.HTTPTest do
     result =
       HTTP.fetch("https://example.test/file.pdf", allowed_url?: fn _ -> exit(:unavailable) end)
 
+    assert result.failure_reason == :transport_error
+    assert result.requests == 0
+  end
+
+  test "worker exits before the deadline retain their reason when the caller resumes late" do
+    owner = self()
+
+    caller =
+      spawn(fn ->
+        result =
+          HTTP.fetch("https://example.test/file.pdf",
+            timeout_ms: 5_000,
+            allowed_url?: fn _ ->
+              send(owner, {:policy_waiting, self()})
+
+              receive do
+                :continue ->
+                  exit(:unavailable)
+              end
+            end
+          )
+
+        send(owner, {:fetch_result, result})
+      end)
+
+    assert_receive {:policy_waiting, policy_worker}, 1_000
+    :erlang.suspend_process(caller)
+    send(policy_worker, :continue)
+    Process.sleep(5_100)
+    :erlang.resume_process(caller)
+
+    assert_receive {:fetch_result, result}, 1_000
     assert result.failure_reason == :transport_error
     assert result.requests == 0
   end
