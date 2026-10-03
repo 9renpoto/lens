@@ -248,7 +248,7 @@
           "period": "Q1",
           "category": "earnings_release",
           "published_on": "2026-07-30",
-          "status": "pending_confirmation",
+          "status": "identified",
           "selected_as_regular_release": false,
           "listing_url": "https://ir.example.test/tel/results/"
         }
@@ -263,7 +263,7 @@
           "period": "Q1",
           "category": "earnings_release",
           "published_on": "2026-08-01",
-          "status": "pending_confirmation",
+          "status": "identified",
           "selected_as_regular_release": false,
           "listing_url": "https://ir.example.test/tel/results/"
         }

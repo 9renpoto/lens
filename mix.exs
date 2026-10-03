@@ -34,6 +34,7 @@ defmodule Lens.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.12"},
       {:excoveralls, "~> 0.18", only: :test},
+      {:floki, "~> 0.38.4"},
       {:jason, "~> 1.4"},
       {:open_api_spex, "~> 3.22"},
       {:phoenix, "~> 1.8.0"},
