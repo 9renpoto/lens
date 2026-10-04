@@ -25,6 +25,18 @@ original. A 304 response, listing check, or rejection before any request records
 only a check; it does not fabricate a PDF acquisition. Unsuccessful results
 containing bytes and successful PDFs without the `%PDF-` marker are rejected.
 
+Failure reasons must agree with the HTTP status, headers, request count, and
+retryability. Transport and policy failures have no response status or headers;
+response failures require the status appropriate to their reason. Size-limit
+failures may retain a 200 response or have no response facts when the streaming
+body exceeds the limit. Contradictory facts return a validation error before any
+records are written.
+
+For `url_not_allowed`, the final URL retains the evaluated target, including
+non-HTTP targets rejected after a redirect. This bounded provenance text records
+the evaluated destination. A failed acquisition still uses the requested
+HTTP(S) URL. Other outcomes require an HTTP(S) final URL once a request starts.
+
 PostgreSQL prevents updates and deletions of checks and verifies their linked
 acquisition facts. Check validation, original retention, acquisition creation,
 and check insertion share one transaction. This layer does not activate sources,
@@ -58,6 +70,17 @@ PDF取得成功時は、原本の正確なバイト列と、確認IDに`http:`�
 PDF要求の失敗は取得失敗履歴に残し、以前の原本を置き換えない。304応答・一覧
 確認・要求開始前の拒否は確認履歴だけを保存し、PDF取得履歴を作り出さない。
 失敗結果にバイト列が含まれる場合や、成功PDFに`%PDF-`がない場合は拒否する。
+
+失敗理由はHTTPステータス・ヘッダー・要求回数・再試行可否と整合する必要がある。
+通信やポリシーによる失敗は応答ステータスとヘッダーを持たず、応答に由来する
+失敗は理由に応じたステータスを必要とする。サイズ上限の超過は200応答を保持
+する場合と、受信中の本文が上限を超えたため応答情報を持たない場合がある。
+矛盾する事実は、履歴を書き込む前に検証エラーとして返す。
+
+`url_not_allowed`の最終URLには評価した宛先を残し、リダイレクト後に拒否した
+非HTTPの宛先も保持する。評価した宛先を、長さを制限した出典情報として保存する。
+取得失敗履歴には引き続き要求したHTTP(S) URLを使う。
+他の結果は、要求を開始した場合にHTTP(S)の最終URLを必要とする。
 
 PostgreSQLで確認履歴の更新・削除を防ぎ、関連する取得履歴との整合性を検証する。
 確認内容の検証・原本保存・取得履歴作成・確認履歴挿入は同一トランザクションで

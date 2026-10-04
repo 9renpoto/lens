@@ -42,7 +42,7 @@ defmodule Lens.Earnings.HTTPHistory do
           |> Map.merge(%{
             kind: stringify(kind),
             status: status,
-            final_url: if(HTTPCheck.valid_url?(final_url), do: final_url),
+            final_url: final_url,
             failure_reason: stringify(Map.get(result, :failure_reason)),
             http_status: Map.get(result, :http_status),
             requests: Map.get(result, :requests),

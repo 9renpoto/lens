@@ -1,7 +1,7 @@
 defmodule Lens.Earnings.HTTPHistoryTest do
   use Lens.DataCase
   alias Lens.Earnings
-  alias Lens.Earnings.{Acquisition, HTTPHistory, HTTPCheck, Original}
+  alias Lens.Earnings.{Acquisition, HTTP, HTTPHistory, HTTPCheck, Original}
 
   @at ~U[2026-10-02 00:00:00.000000Z]
   @url "https://example.test/request.pdf"
@@ -97,6 +97,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         attrs("retryability-#{reason}-#{status}", :failed, nil)
         |> put_in([:result, :failure_reason], reason)
         |> put_in([:result, :http_status], status)
+        |> put_in([:result, :headers], if(is_nil(status), do: %{}, else: %{"etag" => "v1"}))
         |> put_in([:result, :retryable], retryable)
 
       assert {:error, _} = HTTPHistory.record(input)
@@ -104,6 +105,69 @@ defmodule Lens.Earnings.HTTPHistoryTest do
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
     assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "failed outcomes reject response facts that contradict their failure reason" do
+    cases = [
+      {:timeout, 503, %{"etag" => "v1"}, 1},
+      {:timeout, nil, %{"etag" => "v1"}, 1},
+      {:interrupted, 200, %{}, 1},
+      {:transport_error, 503, %{}, 1},
+      {:url_not_allowed, 302, %{"location" => @final}, 1},
+      {:invalid_options, nil, %{}, 1},
+      {:non_pdf, 503, %{}, 1},
+      {:unsupported_encoding, 304, %{}, 1},
+      {:redirect_limit, 200, %{}, 1},
+      {:invalid_redirect, 404, %{}, 1},
+      {:http_error, nil, %{}, 1},
+      {:http_error, 200, %{}, 1},
+      {:http_error, 304, %{}, 1},
+      {:http_error, 302, %{}, 1},
+      {:too_large, 503, %{}, 1},
+      {:too_large, nil, %{"etag" => "v1"}, 1},
+      {:unknown_failure, nil, %{}, 1}
+    ]
+
+    for {{reason, status, headers, requests}, index} <- Enum.with_index(cases) do
+      input =
+        attrs("response-facts-#{index}", :failed, nil)
+        |> put_in([:result, :failure_reason], reason)
+        |> put_in([:result, :http_status], status)
+        |> put_in([:result, :headers], headers)
+        |> put_in([:result, :requests], requests)
+        |> put_in([:result, :retryable], reason in [:timeout, :interrupted, :transport_error])
+
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
+  test "a denied non-HTTP redirect retains the evaluated URL and can be persisted again" do
+    target = "mailto:test@example.com"
+    url = redirect_server(target)
+    result = HTTP.fetch(url, allowed_url?: &(&1 == url))
+    assert result.failure_reason == :url_not_allowed
+    assert result.requests == 1
+    assert result.final_url == target
+
+    input =
+      attrs("denied-redirect", :failed, nil) |> Map.put(:url, url) |> Map.put(:result, result)
+
+    assert {:ok, check} = HTTPHistory.record(input)
+    assert check.url == url
+    assert check.final_url == target
+    assert check.http_status == nil
+    assert check.response_headers == %{}
+    acquisition = Repo.get!(Acquisition, check.acquisition_id)
+    assert acquisition.url == url
+    assert acquisition.failure_reason == "url_not_allowed"
+    assert {:ok, ^check} = HTTPHistory.record(input)
+    assert Repo.aggregate(HTTPCheck, :count) == 1
+    assert Repo.aggregate(Acquisition, :count) == 1
+    assert Repo.aggregate(Original, :count) == 0
   end
 
   test "identical reacquisition adds history while changed bytes preserve old originals" do
@@ -124,13 +188,32 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   test "failed downloads record their reason and HTTP status while retaining prior data" do
     assert {:ok, _} = HTTPHistory.record(attrs("prior", :success, "%PDF-first"))
 
-    for reason <- [:too_large, :interrupted, :timeout, :non_pdf, :http_error] do
-      input = attrs(to_string(reason), :failed, nil)
+    cases = [
+      {:too_large, nil, %{}, false},
+      {:too_large, 200, %{"content-length" => "99999999"}, false},
+      {:interrupted, nil, %{}, true},
+      {:timeout, nil, %{}, true},
+      {:transport_error, nil, %{}, true},
+      {:non_pdf, 200, %{}, false},
+      {:unsupported_encoding, 200, %{"content-encoding" => "gzip"}, false},
+      {:redirect_limit, 302, %{"location" => @final}, false},
+      {:invalid_redirect, 301, %{}, false},
+      {:url_not_allowed, nil, %{}, false},
+      {:http_error, 404, %{}, false},
+      {:http_error, 429, %{}, true},
+      {:http_error, 503, %{"retry-after" => "60"}, true}
+    ]
+
+    for {reason, status, headers, retryable} <- cases do
+      input = attrs("#{reason}-#{status}", :failed, nil)
       input = put_in(input.result.failure_reason, reason)
-      input = put_in(input.result.retryable, reason in [:interrupted, :timeout, :http_error])
+      input = put_in(input.result.http_status, status)
+      input = put_in(input.result.headers, headers)
+      input = put_in(input.result.retryable, retryable)
       assert {:ok, check} = HTTPHistory.record(input)
       assert check.failure_reason == to_string(reason)
-      assert check.http_status == 503
+      assert check.http_status == status
+      assert check.response_headers == headers
       assert check.sha256 == nil
       assert Repo.get!(Acquisition, check.acquisition_id).status == "failed"
     end
@@ -354,6 +437,31 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 1
+  end
+
+  defp redirect_server(target) do
+    {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, ip: {127, 0, 0, 1}])
+    {:ok, {_, port}} = :inet.sockname(listener)
+
+    pid =
+      spawn(fn ->
+        with {:ok, socket} <- :gen_tcp.accept(listener, 1000),
+             {:ok, _request} <- :gen_tcp.recv(socket, 0, 1000) do
+          :gen_tcp.send(
+            socket,
+            "HTTP/1.1 302 Found\r\nLocation: #{target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+          )
+
+          :gen_tcp.close(socket)
+        end
+      end)
+
+    on_exit(fn ->
+      :gen_tcp.close(listener)
+      Process.exit(pid, :kill)
+    end)
+
+    "http://127.0.0.1:#{port}/"
   end
 
   defp attrs(id, outcome, bytes) do

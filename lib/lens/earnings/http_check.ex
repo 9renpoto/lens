@@ -44,7 +44,7 @@ defmodule Lens.Earnings.HTTPCheck do
     |> validate_number(:http_status, greater_than_or_equal_to: 100, less_than_or_equal_to: 599)
     |> validate_length(:failure_reason, min: 1, max: 100)
     |> validate_url(:url)
-    |> validate_url(:final_url)
+    |> validate_final_url()
     |> validate_change(:metadata, &bounded_json/2)
     |> validate_change(:response_headers, &bounded_json/2)
     |> validate_outcome()
@@ -88,6 +88,22 @@ defmodule Lens.Earnings.HTTPCheck do
           else: [{key, "must be valid UTF-8 without NUL bytes"}]
       end)
     end)
+  end
+
+  defp validate_final_url(changeset) do
+    denied_target? =
+      get_field(changeset, :status) == "failed" and
+        get_field(changeset, :failure_reason) == "url_not_allowed"
+
+    if denied_target? do
+      validate_change(changeset, :final_url, fn key, value ->
+        if byte_size(value) <= 4096,
+          do: [],
+          else: [{key, "must be an evaluated target within 4096 bytes"}]
+      end)
+    else
+      validate_url(changeset, :final_url)
+    end
   end
 
   defp bounded_json(field, value) do
@@ -137,6 +153,7 @@ defmodule Lens.Earnings.HTTPCheck do
         "failed" ->
           is_binary(reason) and is_nil(size) and is_nil(sha) and is_integer(requests) and
             get_field(changeset, :retryable) == retryable_failure?(reason, http_status) and
+            valid_failure_response?(changeset) and
             (requests == 0 or not is_nil(get_field(changeset, :final_url))) and
             (requests > 0 or
                (is_nil(http_status) and get_field(changeset, :response_headers) == %{}))
@@ -155,4 +172,41 @@ defmodule Lens.Earnings.HTTPCheck do
 
   defp retryable_failure?(reason, _),
     do: reason in ["timeout", "interrupted", "transport_error"]
+
+  defp valid_failure_response?(changeset) do
+    reason = get_field(changeset, :failure_reason)
+    status = get_field(changeset, :http_status)
+    headers = get_field(changeset, :response_headers)
+    started? = get_field(changeset, :requests) > 0
+    no_response? = is_nil(status) and headers == %{}
+
+    case reason do
+      "invalid_options" ->
+        not started? and no_response?
+
+      reason when reason in ["url_not_allowed", "timeout", "transport_error"] ->
+        no_response?
+
+      "interrupted" ->
+        started? and no_response?
+
+      "too_large" ->
+        started? and (status == 200 or no_response?)
+
+      "non_pdf" ->
+        started? and status == 200 and get_field(changeset, :kind) == "pdf"
+
+      "unsupported_encoding" ->
+        started? and status == 200
+
+      reason when reason in ["invalid_redirect", "redirect_limit"] ->
+        started? and status in [301, 302, 303, 307, 308]
+
+      "http_error" ->
+        started? and is_integer(status) and status not in [200, 301, 302, 303, 304, 307, 308]
+
+      _ ->
+        false
+    end
+  end
 end
