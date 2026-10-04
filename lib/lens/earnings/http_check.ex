@@ -55,6 +55,7 @@ defmodule Lens.Earnings.HTTPCheck do
     |> foreign_key_constraint(:acquisition_id)
     |> check_constraint(:status, name: :earnings_http_check_outcome)
     |> check_constraint(:requests, name: :earnings_http_check_bounds)
+    |> check_constraint(:status, name: :earnings_http_check_response)
     |> check_constraint(:acquisition_id, name: :earnings_http_check_acquisition)
     |> check_constraint(:acquisition_id, name: :earnings_http_check_acquisition_facts)
   end
@@ -160,7 +161,8 @@ defmodule Lens.Earnings.HTTPCheck do
             valid_failure_response?(changeset, cap) and
             not is_nil(get_field(changeset, :final_url)) and
             (requests > 0 or
-               (is_nil(http_status) and get_field(changeset, :response_headers) == %{}))
+               (is_nil(http_status) and get_field(changeset, :response_headers) == %{} and
+                  get_field(changeset, :final_url) == get_field(changeset, :url)))
 
         _ ->
           false

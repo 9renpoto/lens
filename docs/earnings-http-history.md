@@ -49,7 +49,8 @@ caps, encoding interpretation, and redirect resolution. Network execution and
 transactional persistence remain separate. Header evidence is interpreted from
 raw strings or the lossless Base64 representation after JSON normalization.
 
-All outcomes require an evaluated final URL and 0–4 started requests. Only
+All outcomes require an evaluated final URL and 0–4 started requests. With zero
+requests, the final URL must equal the requested URL. Only
 success contains bytes; successful PDFs require the `%PDF-` marker. For PDF and
 listing, maximum permitted sizes are 20 MiB and 2 MiB respectively.
 
@@ -92,6 +93,12 @@ PostgreSQL prevents updates and deletions of checks and verifies their linked
 acquisition facts. Check validation, original retention, acquisition creation,
 and check insertion share one transaction. This layer does not activate sources,
 schedule requests, or infer release identity. Those steps remain separate.
+
+The database also requires a non-null final URL, identical requested/final URLs
+and no response facts for zero requests, and non-retryable success/304 outcomes.
+These structural invariants protect bulk inserts and direct SQL writers as well
+as changeset callers. Header interpretation and URL resolution remain in the
+shared pure helpers.
 
 <details>
 <summary>日本語</summary>
@@ -146,6 +153,7 @@ PDF判定の失敗はidentityエンコーディングを必要とする。
 生の文字列または情報を失わないBase64表現から読み取る。
 
 すべての結果に評価した最終URLと0〜4回の開始済み要求数が必要である。
+要求0回では最終URLが要求URLと一致する必要がある。
 バイト列を持つのは成功結果だけで、PDF成功には`%PDF-`が必要である。
 PDFと一覧の最大許容サイズは、それぞれ20 MiBと2 MiBである。
 
@@ -186,5 +194,10 @@ PostgreSQLで確認履歴の更新・削除を防ぎ、関連する取得履歴�
 確認内容の検証・原本保存・取得履歴作成・確認履歴挿入は同一トランザクションで
 実行する。この層はソースの有効化・要求スケジュール・資料同定の推定を行わず、
 それらは別の工程で扱う。
+
+DBでも最終URLの非NULL、要求0回の要求URL・最終URLの一致と応答情報なし、
+成功・304の再試行不可を保証する。これらの構造上の不変条件は、changesetを
+使う処理に加え、一括挿入や直接SQLの処理にも適用する。ヘッダーの解釈と
+URL解決は共有する副作用のない関数で担当する。
 
 </details>

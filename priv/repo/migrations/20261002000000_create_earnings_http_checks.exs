@@ -8,7 +8,7 @@ defmodule Lens.Repo.Migrations.CreateEarningsHTTPChecks do
       add(:issuer_code, :string, null: false)
       add(:kind, :string, null: false)
       add(:url, :text, null: false)
-      add(:final_url, :text)
+      add(:final_url, :text, null: false)
       add(:checked_at, :utc_datetime_usec, null: false)
       add(:published_on, :date)
       add(:status, :string, null: false)
@@ -51,6 +51,13 @@ defmodule Lens.Repo.Migrations.CreateEarningsHTTPChecks do
       constraint(:earnings_http_checks, :earnings_http_check_acquisition,
         check:
           "(kind = 'pdf' AND (status = 'success' OR (status = 'failed' AND requests > 0)) AND acquisition_id IS NOT NULL) OR ((kind = 'listing' OR status = 'not_modified' OR requests = 0) AND acquisition_id IS NULL)"
+      )
+    )
+
+    create(
+      constraint(:earnings_http_checks, :earnings_http_check_response,
+        check:
+          "(requests > 0 OR (final_url = url AND http_status IS NULL AND response_headers = '{}'::jsonb)) AND (status = 'failed' OR retryable = false)"
       )
     )
 

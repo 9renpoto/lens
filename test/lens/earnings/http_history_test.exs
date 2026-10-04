@@ -614,6 +614,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
 
     input =
       attrs("disabled", :failed, nil)
+      |> put_in([:result, :final_url], @url)
       |> put_in([:result, :requests], 0)
       |> put_in([:result, :failure_reason], :url_not_allowed)
       |> put_in([:result, :retryable], false)
@@ -691,6 +692,107 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Original, :count) == 0
   end
 
+  test "zero-request results cannot claim a different evaluated URL" do
+    for reason <- [:invalid_options, :url_not_allowed, :timeout, :transport_error] do
+      input = attrs("zero-target-#{reason}", :failed, nil)
+
+      result = %{
+        input.result
+        | requests: 0,
+          failure_reason: reason,
+          http_status: nil,
+          headers: %{},
+          retryable: reason in [:timeout, :transport_error]
+      }
+
+      assert {:error, %Ecto.Changeset{valid?: false}} =
+               HTTPHistory.record(%{input | result: result})
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "database requires a final URL even when changesets are bypassed" do
+    assert {:ok, check} = HTTPHistory.record(attrs("required-final", :not_modified, nil))
+    assert_db_rejects(check, %{final_url: nil}, :not_null_violation)
+    assert Repo.aggregate(HTTPCheck, :count) == 1
+  end
+
+  test "database requires zero-request URL and response consistency" do
+    input = attrs("zero-db", :failed, nil)
+
+    result = %{
+      input.result
+      | requests: 0,
+        failure_reason: :timeout,
+        final_url: @url,
+        http_status: nil,
+        headers: %{},
+        retryable: true
+    }
+
+    assert {:ok, check} = HTTPHistory.record(%{input | result: result})
+
+    for changes <- [
+          %{final_url: @final},
+          %{http_status: 503},
+          %{response_headers: %{"etag" => "impossible"}}
+        ] do
+      assert_db_rejects(check, changes, :check_violation)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 1
+  end
+
+  test "database accepts valid structural facts through bulk insertion" do
+    for {id, outcome, bytes} <- [
+          {"bulk-success", :success, "listing"},
+          {"bulk-304", :not_modified, nil},
+          {"bulk-zero", :failed, nil}
+        ] do
+      input = attrs(id, outcome, bytes) |> Map.put(:kind, :listing)
+
+      input =
+        if outcome == :failed do
+          %{
+            input
+            | result: %{
+                input.result
+                | failure_reason: :invalid_options,
+                  final_url: @url,
+                  http_status: nil,
+                  requests: 0,
+                  retryable: false,
+                  headers: %{}
+              }
+          }
+        else
+          input
+        end
+
+      assert {:ok, check} = HTTPHistory.record(input)
+      assert {1, nil} = Repo.insert_all(HTTPCheck, [copied_row(check, %{})])
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 6
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "database forbids retryable success and not-modified checks" do
+    for {id, outcome, bytes} <- [
+          {"retry-db-success", :success, "listing"},
+          {"retry-db-304", :not_modified, nil}
+        ] do
+      assert {:ok, check} =
+               HTTPHistory.record(attrs(id, outcome, bytes) |> Map.put(:kind, :listing))
+
+      assert_db_rejects(check, %{retryable: true}, :check_violation)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 2
+  end
+
   test "database rejects rewriting or deleting completed check facts" do
     assert {:ok, check} = HTTPHistory.record(attrs("immutable", :success, "%PDF-first"))
 
@@ -758,6 +860,26 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 1
+  end
+
+  defp assert_db_rejects(check, changes, code) do
+    row = copied_row(check, changes)
+
+    error =
+      assert_raise Postgrex.Error, fn ->
+        Repo.transaction(fn -> Repo.insert_all(HTTPCheck, [row]) end, mode: :savepoint)
+      end
+
+    assert error.postgres.code == code
+  end
+
+  defp copied_row(check, changes) do
+    check
+    |> Map.from_struct()
+    |> Map.take(HTTPCheck.facts() ++ [:inserted_at])
+    |> Map.merge(changes)
+    |> Map.put(:id, Ecto.UUID.generate())
+    |> Map.put(:check_id, Ecto.UUID.generate())
   end
 
   defp redirect_server(target) do
