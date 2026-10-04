@@ -1,6 +1,8 @@
 defmodule Lens.Earnings.HTTP do
   @moduledoc "Streaming HTTP acquisition with one total deadline and explicit URL policy."
 
+  alias Lens.Earnings.HTTPResponseFacts, as: ResponseFacts
+
   @redirects [301, 302, 303, 307, 308]
 
   def fetch(url, options \\ []) do
@@ -8,7 +10,7 @@ defmodule Lens.Earnings.HTTP do
     kind = Keyword.get(options, :kind, :pdf)
 
     limit =
-      Keyword.get(options, :max_bytes, if(kind == :listing, do: 2_097_152, else: 20_971_520))
+      Keyword.get(options, :max_bytes, ResponseFacts.size_cap(kind))
 
     timeout = Keyword.get(options, :timeout_ms, 20_000)
     redirects = Keyword.get(options, :max_redirects, 3)
@@ -17,7 +19,7 @@ defmodule Lens.Earnings.HTTP do
 
     cond do
       kind not in [:pdf, :listing] or not is_integer(limit) or limit < 1 or
-        limit > if(kind == :listing, do: 2_097_152, else: 20_971_520) or
+        limit > ResponseFacts.size_cap(kind) or
         not is_integer(timeout) or timeout not in 1..30_000 or
         not is_integer(redirects) or redirects not in 0..3 or not is_function(policy, 1) or
           (requested_deadline != nil and not is_integer(requested_deadline)) ->
@@ -322,20 +324,13 @@ defmodule Lens.Earnings.HTTP do
   end
 
   defp redirect(base, config, deadline, count, owner, ref) do
-    location = Map.get(base.headers, "location")
-
     cond do
       count > config.redirects ->
         %{base | failure_reason: :redirect_limit, retryable: false}
 
-      not is_binary(location) ->
-        %{base | failure_reason: :invalid_redirect, retryable: false}
-
       true ->
-        case URI.new(location) do
-          {:ok, reference} ->
-            target = base.final_url |> URI.merge(reference) |> URI.to_string()
-
+        case ResponseFacts.redirect_target(base.final_url, base.headers) do
+          {:ok, target} ->
             request(
               target,
               redirect_config(config, base.final_url, target),
@@ -345,7 +340,7 @@ defmodule Lens.Earnings.HTTP do
               ref
             )
 
-          {:error, _} ->
+          :error ->
             %{base | failure_reason: :invalid_redirect, retryable: false}
         end
     end
@@ -392,22 +387,9 @@ defmodule Lens.Earnings.HTTP do
 
   defp allowed?(_, _), do: false
 
-  defp oversized?(headers, limit) do
-    case Integer.parse(Map.get(headers(headers), "content-length", "")) do
-      {size, ""} -> size > limit
-      _ -> false
-    end
-  end
+  defp oversized?(values, limit), do: ResponseFacts.oversized?(headers(values), limit)
 
-  defp encoded?(values) do
-    case Map.get(headers(values), "content-encoding", "identity") do
-      value when is_binary(value) ->
-        value |> String.split(",") |> Enum.any?(&(String.downcase(String.trim(&1)) != "identity"))
-
-      _ ->
-        true
-    end
-  end
+  defp encoded?(values), do: not ResponseFacts.identity_encoding?(headers(values))
 
   defp headers(values),
     do:
