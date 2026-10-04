@@ -91,11 +91,11 @@ defmodule Lens.Earnings.HTTPCheck do
   end
 
   defp validate_final_url(changeset) do
-    denied_target? =
+    evaluated_target? =
       get_field(changeset, :status) == "failed" and
-        get_field(changeset, :failure_reason) == "url_not_allowed"
+        get_field(changeset, :failure_reason) in ["url_not_allowed", "timeout", "interrupted"]
 
-    if denied_target? do
+    if evaluated_target? do
       validate_change(changeset, :final_url, fn key, value ->
         if byte_size(value) <= 4096,
           do: [],

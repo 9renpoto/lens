@@ -227,6 +227,37 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Original, :count) == 0
   end
 
+  test "timeout and interruption retain an evaluated non-HTTP redirect target" do
+    target = "mailto:test@example.com"
+    url = redirect_server(target)
+    denied = HTTP.fetch(url, allowed_url?: &(&1 == url))
+    assert denied.failure_reason == :url_not_allowed
+    assert denied.final_url == target
+
+    for reason <- [:timeout, :interrupted] do
+      result = %{denied | failure_reason: reason, retryable: true}
+
+      input =
+        attrs("redirect-#{reason}", :failed, nil)
+        |> Map.put(:url, url)
+        |> Map.put(:result, result)
+
+      assert {:ok, check} = HTTPHistory.record(input)
+      assert check.final_url == target
+      assert check.requests == 1
+      assert check.http_status == nil
+      assert check.response_headers == %{}
+      acquisition = Repo.get!(Acquisition, check.acquisition_id)
+      assert acquisition.url == url
+      assert acquisition.failure_reason == Atom.to_string(reason)
+      assert {:ok, ^check} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 2
+    assert Repo.aggregate(Acquisition, :count) == 2
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
   test "zero-request failures require the evaluated URL before retaining immutable facts" do
     results = [
       HTTP.fetch(@url, max_bytes: 0),

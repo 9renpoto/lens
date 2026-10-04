@@ -43,7 +43,9 @@ An `unsupported_encoding` failure requires a non-identity `content-encoding`
 value in the normalized response headers.
 
 For `url_not_allowed`, the final URL retains the evaluated target, including
-non-HTTP targets rejected after a redirect. This bounded provenance text records
+non-HTTP targets rejected after a redirect. Timeout and interruption results also
+retain a non-HTTP target evaluated before the deadline or worker exit.
+This bounded provenance text records
 the evaluated destination. A failed acquisition still uses the requested
 HTTP(S) URL. Every check requires its evaluated final URL, including failures
 before the first request. Other outcomes require an HTTP(S) final URL.
@@ -99,7 +101,8 @@ PDF判定の失敗はidentityエンコーディングを必要とする。
 `content-encoding`値を必要とする。
 
 `url_not_allowed`の最終URLには評価した宛先を残し、リダイレクト後に拒否した
-非HTTPの宛先も保持する。評価した宛先を、長さを制限した出典情報として保存する。
+非HTTPの宛先も保持する。タイムアウト・中断時も、期限切れやworker終了前に
+評価した非HTTPの宛先を保持する。評価した宛先を、長さを制限した出典情報として保存する。
 取得失敗履歴には引き続き要求したHTTP(S) URLを使う。
 最初の要求前の失敗を含め、すべての確認履歴は評価した最終URLを必要とする。
 他の結果はHTTP(S)の最終URLを必要とする。
