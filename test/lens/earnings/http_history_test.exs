@@ -145,6 +145,63 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Original, :count) == 0
   end
 
+  test "response-level size failures need evidence while small configured limits remain valid" do
+    for {headers, index} <-
+          Enum.with_index([
+            %{},
+            %{"content-length" => nil},
+            %{"content-length" => "unknown"},
+            %{"content-length" => "2 bytes"},
+            %{"content-length" => "0"},
+            %{"content-length" => "1"},
+            %{"content-length" => "-2"},
+            %{"content-length" => <<255>>}
+          ]) do
+      input =
+        attrs("size-evidence-#{index}", :failed, nil)
+        |> put_in([:result, :failure_reason], :too_large)
+        |> put_in([:result, :http_status], 200)
+        |> put_in([:result, :headers], headers)
+        |> put_in([:result, :retryable], false)
+
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+
+    url = response_server("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nab")
+    result = HTTP.fetch(url, allowed_url?: &(&1 == url), max_bytes: 1)
+    assert result.failure_reason == :too_large
+    assert result.http_status == 200
+
+    input = attrs("small-limit", :failed, nil) |> Map.put(:url, url) |> Map.put(:result, result)
+    assert {:ok, check} = HTTPHistory.record(input)
+    assert check.response_headers["content-length"] == "2"
+    assert check.byte_size == nil
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
+  test "response failure facts respect size and encoding checks before PDF classification" do
+    for {reason, headers} <- [
+          {:non_pdf, %{"content-encoding" => "gzip"}},
+          {:non_pdf, %{"content-length" => "20971521"}},
+          {:unsupported_encoding, %{"content-length" => "20971521", "content-encoding" => "gzip"}}
+        ] do
+      input =
+        attrs("response-priority-#{reason}-#{inspect(headers)}", :failed, nil)
+        |> put_in([:result, :failure_reason], reason)
+        |> put_in([:result, :http_status], 200)
+        |> put_in([:result, :headers], headers)
+        |> put_in([:result, :retryable], false)
+
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
   test "a denied non-HTTP redirect retains the evaluated URL and can be persisted again" do
     target = "mailto:test@example.com"
     url = redirect_server(target)

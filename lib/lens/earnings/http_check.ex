@@ -153,7 +153,7 @@ defmodule Lens.Earnings.HTTPCheck do
         "failed" ->
           is_binary(reason) and is_nil(size) and is_nil(sha) and is_integer(requests) and
             get_field(changeset, :retryable) == retryable_failure?(reason, http_status) and
-            valid_failure_response?(changeset) and
+            valid_failure_response?(changeset, cap) and
             not is_nil(get_field(changeset, :final_url)) and
             (requests > 0 or
                (is_nil(http_status) and get_field(changeset, :response_headers) == %{}))
@@ -173,7 +173,7 @@ defmodule Lens.Earnings.HTTPCheck do
   defp retryable_failure?(reason, _),
     do: reason in ["timeout", "interrupted", "transport_error"]
 
-  defp valid_failure_response?(changeset) do
+  defp valid_failure_response?(changeset, cap) do
     reason = get_field(changeset, :failure_reason)
     status = get_field(changeset, :http_status)
     headers = get_field(changeset, :response_headers)
@@ -191,13 +191,15 @@ defmodule Lens.Earnings.HTTPCheck do
         started? and no_response?
 
       "too_large" ->
-        started? and (status == 200 or no_response?)
+        started? and (no_response? or (status == 200 and size_header_evidence?(headers)))
 
       "non_pdf" ->
-        started? and status == 200 and get_field(changeset, :kind) == "pdf"
+        started? and status == 200 and get_field(changeset, :kind) == "pdf" and
+          identity_encoding?(headers) and not guaranteed_size_overflow?(headers, cap)
 
       "unsupported_encoding" ->
-        started? and status == 200 and unsupported_encoding?(headers)
+        started? and status == 200 and unsupported_encoding?(headers) and
+          not guaranteed_size_overflow?(headers, cap)
 
       reason when reason in ["invalid_redirect", "redirect_limit"] ->
         started? and status in [301, 302, 303, 307, 308]
@@ -211,9 +213,7 @@ defmodule Lens.Earnings.HTTPCheck do
   end
 
   defp unsupported_encoding?(headers) do
-    with {:ok, json} <- Jason.encode(headers),
-         {:ok, %{} = canonical_headers} <- Jason.decode(json),
-         {:ok, encoding} <- header_bytes(Map.get(canonical_headers, "content-encoding")),
+    with {:ok, encoding} <- header_bytes(headers, "content-encoding"),
          :nomatch <- :binary.match(encoding, <<0>>) do
       if String.valid?(encoding) do
         encoding
@@ -224,6 +224,49 @@ defmodule Lens.Earnings.HTTPCheck do
       end
     else
       _ -> false
+    end
+  end
+
+  defp identity_encoding?(headers) do
+    with {:ok, encoding} <- header_bytes(headers, "content-encoding", "identity"),
+         true <- String.valid?(encoding) do
+      encoding
+      |> String.split(",")
+      |> Enum.all?(&(String.downcase(String.trim(&1)) == "identity"))
+    else
+      _ -> false
+    end
+  end
+
+  defp size_header_evidence?(headers) do
+    case header_size(headers) do
+      {:ok, size} -> size > 1
+      _ -> false
+    end
+  end
+
+  defp guaranteed_size_overflow?(headers, cap) do
+    case header_size(headers) do
+      {:ok, size} -> size > cap
+      _ -> false
+    end
+  end
+
+  defp header_size(headers) do
+    with {:ok, value} <- header_bytes(headers, "content-length"),
+         {size, ""} <- Integer.parse(value) do
+      {:ok, size}
+    else
+      _ -> :error
+    end
+  end
+
+  defp header_bytes(headers, name, default \\ nil) do
+    with {:ok, json} <- Jason.encode(headers),
+         {:ok, %{} = canonical_headers} <- Jason.decode(json) do
+      header_bytes(Map.get(canonical_headers, name, default))
+    else
+      _ -> :error
     end
   end
 

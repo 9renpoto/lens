@@ -33,7 +33,11 @@ Failure reasons must agree with the HTTP status, headers, request count, and
 retryability. Transport and policy failures have no response status or headers;
 response failures require the status appropriate to their reason. Size-limit
 failures may retain a 200 response or have no response facts when the streaming
-body exceeds the limit. Contradictory facts return a validation error before any
+body exceeds the limit. A 200 size failure requires a parseable `content-length`
+greater than the minimum permitted limit of one byte; smaller configured limits
+remain supported. Encoding and PDF failures cannot advertise a length beyond the
+maximum permitted limit, and PDF classification requires identity encoding.
+Contradictory facts return a validation error before any
 records are written.
 An `unsupported_encoding` failure requires a non-identity `content-encoding`
 value in the normalized response headers.
@@ -86,6 +90,10 @@ PDF要求の失敗は取得失敗履歴に残し、以前の原本を置き換�
 通信やポリシーによる失敗は応答ステータスとヘッダーを持たず、応答に由来する
 失敗は理由に応じたステータスを必要とする。サイズ上限の超過は200応答を保持
 する場合と、受信中の本文が上限を超えたため応答情報を持たない場合がある。
+200応答のサイズ超過は、許可する上限の最小値である1バイトを超える、整数として
+解釈できる`content-length`を必要とする。小さな取得上限も利用できる。
+エンコーディング・PDF判定の失敗は最大許容上限を超える長さを持てず、
+PDF判定の失敗はidentityエンコーディングを必要とする。
 矛盾する事実は、履歴を書き込む前に検証エラーとして返す。
 `unsupported_encoding`の失敗は、正規化した応答ヘッダーにidentity以外の
 `content-encoding`値を必要とする。
