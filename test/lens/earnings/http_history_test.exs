@@ -202,6 +202,123 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Acquisition, :count) == 0
   end
 
+  test "successful PDF and listing checks reject contradictory response headers" do
+    for {kind, bytes, cap} <- [
+          {:pdf, "%PDF-valid", 20_971_520},
+          {:listing, "<html>valid</html>", 2_097_152}
+        ],
+        headers <- [
+          %{"content-encoding" => "gzip"},
+          %{"content-encoding" => "identity, gzip"},
+          %{"content-encoding" => <<255>>},
+          %{"content-length" => Integer.to_string(cap + 1)}
+        ] do
+      input =
+        attrs("success-#{kind}-#{inspect(headers)}", :success, bytes) |> Map.put(:kind, kind)
+
+      input = put_in(input, [:result, :headers], headers)
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
+  test "invalid redirects require missing or unresolvable location evidence" do
+    for location <- [
+          "https://example.test/next",
+          "/next",
+          "../next",
+          "",
+          "mailto:test@example.com"
+        ] do
+      input = attrs("resolvable-#{location}", :failed, nil)
+
+      result = %{
+        input.result
+        | failure_reason: :invalid_redirect,
+          http_status: 302,
+          headers: %{"location" => location},
+          retryable: false
+      }
+
+      assert {:error, %Ecto.Changeset{valid?: false}} =
+               HTTPHistory.record(%{input | result: result})
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "legitimate header boundaries and redirect-limit results remain accepted" do
+    for {id, outcome, bytes, headers} <- [
+          {"success-identity", :success, "%PDF-valid",
+           %{"content-encoding" => "Identity, identity", "content-length" => "20971520"}},
+          {"success-unknown-length", :success, "%PDF-valid", %{"content-length" => "unknown"}},
+          {"success-no-headers", :success, "%PDF-valid", %{}},
+          {"304-unchecked-headers", :not_modified, nil,
+           %{"content-encoding" => "gzip", "content-length" => "999999999"}}
+        ] do
+      input = put_in(attrs(id, outcome, bytes), [:result, :headers], headers)
+      assert {:ok, check} = HTTPHistory.record(input)
+      assert {:ok, ^check} = HTTPHistory.record(input)
+    end
+
+    for {reason, headers} <- [
+          {:invalid_redirect, %{}},
+          {:invalid_redirect, %{"location" => "http://["}},
+          {:invalid_redirect, %{"location" => <<255>>}},
+          {:redirect_limit, %{}},
+          {:redirect_limit, %{"location" => "/next"}}
+        ] do
+      input = attrs("allowed-#{reason}-#{inspect(headers)}", :failed, nil)
+
+      result = %{
+        input.result
+        | failure_reason: reason,
+          http_status: 302,
+          headers: headers,
+          retryable: false
+      }
+
+      assert {:ok, check} = HTTPHistory.record(%{input | result: result})
+      assert {:ok, ^check} = HTTPHistory.record(%{input | result: result})
+    end
+  end
+
+  test "a worker exit before dialing retains history without an acquisition" do
+    input = attrs("interrupted-before-dialing", :failed, nil)
+
+    result = HTTP.fetch(@url, allowed_url?: fn _ -> Process.exit(self(), :kill) end)
+    assert result.failure_reason == :transport_error
+    assert result.requests == 0
+
+    assert {:ok, check} = HTTPHistory.record(%{input | result: result})
+    assert check.acquisition_id == nil
+    assert check.requests == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "an interrupted response requires a started request" do
+    input = attrs("interrupted-before-dialing", :failed, nil)
+
+    result = %{
+      input.result
+      | failure_reason: :interrupted,
+        requests: 0,
+        http_status: nil,
+        headers: %{},
+        retryable: true
+    }
+
+    assert {:error, %Ecto.Changeset{valid?: false}} =
+             HTTPHistory.record(%{input | result: result})
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
   test "a denied non-HTTP redirect retains the evaluated URL and can be persisted again" do
     target = "mailto:test@example.com"
     url = redirect_server(target)

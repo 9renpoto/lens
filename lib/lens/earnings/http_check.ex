@@ -1,4 +1,6 @@
 defmodule Lens.Earnings.HTTPCheck do
+  alias Lens.Earnings.HTTPResponseFacts, as: ResponseFacts
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -134,7 +136,7 @@ defmodule Lens.Earnings.HTTPCheck do
     size = get_field(changeset, :byte_size)
     sha = get_field(changeset, :sha256)
     requests = get_field(changeset, :requests)
-    cap = if get_field(changeset, :kind) == "listing", do: 2_097_152, else: 20_971_520
+    cap = ResponseFacts.size_cap(get_field(changeset, :kind))
 
     valid =
       case status do
@@ -142,6 +144,8 @@ defmodule Lens.Earnings.HTTPCheck do
           http_status == 200 and is_nil(reason) and is_integer(size) and size in 0..cap and
             is_binary(sha) and is_integer(requests) and requests > 0 and
             get_field(changeset, :retryable) == false and
+            ResponseFacts.identity_encoding?(get_field(changeset, :response_headers)) and
+            not ResponseFacts.oversized?(get_field(changeset, :response_headers), cap) and
             not is_nil(get_field(changeset, :final_url))
 
         "not_modified" ->
@@ -191,17 +195,21 @@ defmodule Lens.Earnings.HTTPCheck do
         started? and no_response?
 
       "too_large" ->
-        started? and (no_response? or (status == 200 and size_header_evidence?(headers)))
+        started? and (no_response? or (status == 200 and ResponseFacts.oversized?(headers, 1)))
 
       "non_pdf" ->
         started? and status == 200 and get_field(changeset, :kind) == "pdf" and
-          identity_encoding?(headers) and not guaranteed_size_overflow?(headers, cap)
+          ResponseFacts.identity_encoding?(headers) and not ResponseFacts.oversized?(headers, cap)
 
       "unsupported_encoding" ->
         started? and status == 200 and unsupported_encoding?(headers) and
-          not guaranteed_size_overflow?(headers, cap)
+          not ResponseFacts.oversized?(headers, cap)
 
-      reason when reason in ["invalid_redirect", "redirect_limit"] ->
+      "invalid_redirect" ->
+        started? and status in [301, 302, 303, 307, 308] and
+          ResponseFacts.redirect_target(get_field(changeset, :final_url), headers) == :error
+
+      "redirect_limit" ->
         started? and status in [301, 302, 303, 307, 308]
 
       "http_error" ->
@@ -213,67 +221,11 @@ defmodule Lens.Earnings.HTTPCheck do
   end
 
   defp unsupported_encoding?(headers) do
-    with {:ok, encoding} <- header_bytes(headers, "content-encoding"),
+    with {:ok, encoding} <- ResponseFacts.header_bytes(headers, "content-encoding"),
          :nomatch <- :binary.match(encoding, <<0>>) do
-      if String.valid?(encoding) do
-        encoding
-        |> String.split(",")
-        |> Enum.any?(&(String.downcase(String.trim(&1)) != "identity"))
-      else
-        true
-      end
+      not ResponseFacts.identity_encoding?(headers)
     else
       _ -> false
     end
   end
-
-  defp identity_encoding?(headers) do
-    with {:ok, encoding} <- header_bytes(headers, "content-encoding", "identity"),
-         true <- String.valid?(encoding) do
-      encoding
-      |> String.split(",")
-      |> Enum.all?(&(String.downcase(String.trim(&1)) == "identity"))
-    else
-      _ -> false
-    end
-  end
-
-  defp size_header_evidence?(headers) do
-    case header_size(headers) do
-      {:ok, size} -> size > 1
-      _ -> false
-    end
-  end
-
-  defp guaranteed_size_overflow?(headers, cap) do
-    case header_size(headers) do
-      {:ok, size} -> size > cap
-      _ -> false
-    end
-  end
-
-  defp header_size(headers) do
-    with {:ok, value} <- header_bytes(headers, "content-length"),
-         {size, ""} <- Integer.parse(value) do
-      {:ok, size}
-    else
-      _ -> :error
-    end
-  end
-
-  defp header_bytes(headers, name, default \\ nil) do
-    with {:ok, json} <- Jason.encode(headers),
-         {:ok, %{} = canonical_headers} <- Jason.decode(json) do
-      header_bytes(Map.get(canonical_headers, name, default))
-    else
-      _ -> :error
-    end
-  end
-
-  defp header_bytes(value) when is_binary(value), do: {:ok, value}
-
-  defp header_bytes(%{"encoding" => "base64", "value" => value}) when is_binary(value),
-    do: Base.decode64(value)
-
-  defp header_bytes(_), do: :error
 end

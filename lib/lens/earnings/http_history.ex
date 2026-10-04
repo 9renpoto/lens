@@ -2,6 +2,7 @@ defmodule Lens.Earnings.HTTPHistory do
   @moduledoc "Atomic persistence of immutable HTTP checks and actual PDF acquisition outcomes."
   alias Lens.Earnings
   alias Lens.Earnings.HTTPCheck
+  alias Lens.Earnings.HTTPResponseFacts, as: ResponseFacts
   alias Lens.Repo
 
   def record(%{result: result} = attrs) when is_map(result) do
@@ -47,7 +48,7 @@ defmodule Lens.Earnings.HTTPHistory do
             http_status: Map.get(result, :http_status),
             requests: Map.get(result, :requests),
             retryable: Map.get(result, :retryable),
-            response_headers: normalize_headers(Map.get(result, :headers, %{})),
+            response_headers: ResponseFacts.normalize_headers(Map.get(result, :headers, %{})),
             byte_size: if(is_binary(bytes), do: byte_size(bytes)),
             sha256:
               if(is_binary(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower))
@@ -66,20 +67,6 @@ defmodule Lens.Earnings.HTTPHistory do
       Map.update!(acc, field, fn value -> value |> Jason.encode!() |> Jason.decode!() end)
     end)
   end
-
-  defp normalize_headers(headers) when is_map(headers) and not is_struct(headers) do
-    Map.new(headers, fn {name, value} ->
-      normalized =
-        if is_binary(value) and not String.valid?(value) and
-             :binary.match(value, <<0>>) == :nomatch,
-           do: %{"encoding" => "base64", "value" => Base.encode64(value)},
-           else: value
-
-      {name, normalized}
-    end)
-  end
-
-  defp normalize_headers(headers), do: headers
 
   defp acquisition(%{kind: "pdf", status: "success"} = check, attrs, result) do
     input =

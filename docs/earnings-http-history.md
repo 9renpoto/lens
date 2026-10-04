@@ -42,6 +42,44 @@ records are written.
 An `unsupported_encoding` failure requires a non-identity `content-encoding`
 value in the normalized response headers.
 
+## Result contract
+
+Acquisition and persistence share `HTTPResponseFacts` for header bytes, kind size
+caps, encoding interpretation, and redirect resolution. Network execution and
+transactional persistence remain separate. Header evidence is interpreted from
+raw strings or the lossless Base64 representation after JSON normalization.
+
+All outcomes require an evaluated final URL and 0–4 started requests. Only
+success contains bytes; successful PDFs require the `%PDF-` marker. For PDF and
+listing, maximum permitted sizes are 20 MiB and 2 MiB respectively.
+
+| Outcome / failure reason | Started requests | Response evidence | Retryable |
+|---|---|---|---|
+| `success` | 1–4 | 200, identity encoding (or absent), retained bytes and advertised size within the kind cap | No |
+| `not_modified` | 1–4 | 304; size and encoding headers are not inspected | No |
+| `invalid_options` | 0 | No status, empty headers | No |
+| `url_not_allowed` | 0–4 | No status, empty headers | No |
+| `timeout` | 0–4 | No status, empty headers | Yes |
+| `transport_error` | 0–4 | No status, empty headers; includes worker exit during policy evaluation | Yes |
+| `interrupted` | 1–4 | No status, empty headers | Yes |
+| `too_large` | 1–4 | No response facts for streaming overflow, or 200 with integer Content-Length greater than 1 | No |
+| `unsupported_encoding` | 1–4 | 200, non-identity encoding evidence, no advertised size beyond the kind cap | No |
+| `non_pdf` | 1–4 | PDF kind, 200, identity encoding, no advertised size beyond the PDF cap | No |
+| `invalid_redirect` | 1–4 | 301/302/303/307/308; Location absent or unresolvable against final URL | No |
+| `redirect_limit` | 1–4 | 301/302/303/307/308; Location need not be valid because the limit is checked first | No |
+| `http_error` | 1–4 | Status other than 200, 304, or a redirect | Only 429 or 5xx |
+
+A relative, empty, or non-HTTP Location can resolve successfully; URL permission
+is a separate decision. Such a target cannot substantiate `invalid_redirect`.
+Missing or unparsable Content-Length does not establish size overflow.
+
+The result omits the configured `max_bytes` and redirect limit. Persistence
+rejects contradictions provable from retained facts, while allowing outcomes
+compatible with any permitted configuration. For example, Content-Length 2 can
+substantiate `too_large` with a one-byte limit, and the first redirect can exhaust
+a zero-redirect limit. Exact execution-limit validation requires additional
+recorded facts and remains subsequent work.
+
 For `url_not_allowed`, the final URL retains the evaluated target, including
 non-HTTP targets rejected after a redirect. Timeout and interruption results also
 retain a non-HTTP target evaluated before the deadline or worker exit.
@@ -99,6 +137,43 @@ PDF判定の失敗はidentityエンコーディングを必要とする。
 矛盾する事実は、履歴を書き込む前に検証エラーとして返す。
 `unsupported_encoding`の失敗は、正規化した応答ヘッダーにidentity以外の
 `content-encoding`値を必要とする。
+
+## 結果契約
+
+取得処理と保存処理は、ヘッダーのバイト列・種別ごとのサイズ上限・エンコーディング
+の解釈・リダイレクト先の解決を`HTTPResponseFacts`で共有する。通信の実行と
+トランザクションによる保存は別々に担当する。ヘッダーの根拠はJSON正規化後の
+生の文字列または情報を失わないBase64表現から読み取る。
+
+すべての結果に評価した最終URLと0〜4回の開始済み要求数が必要である。
+バイト列を持つのは成功結果だけで、PDF成功には`%PDF-`が必要である。
+PDFと一覧の最大許容サイズは、それぞれ20 MiBと2 MiBである。
+
+| 結果／失敗理由 | 開始済み要求数 | 応答の根拠 | 再試行可能 |
+|---|---|---|---|
+| `success` | 1〜4 | 200、identityエンコーディングまたはヘッダーなし、保持バイト数と広告サイズが種別上限以内 | いいえ |
+| `not_modified` | 1〜4 | 304。サイズとエンコーディングのヘッダーは検査しない | いいえ |
+| `invalid_options` | 0 | ステータスなし、空ヘッダー | いいえ |
+| `url_not_allowed` | 0〜4 | ステータスなし、空ヘッダー | いいえ |
+| `timeout` | 0〜4 | ステータスなし、空ヘッダー | はい |
+| `transport_error` | 0〜4 | ステータスなし、空ヘッダー。ポリシー評価中のworker終了を含む | はい |
+| `interrupted` | 1〜4 | ステータスなし、空ヘッダー | はい |
+| `too_large` | 1〜4 | 受信中の超過では応答情報なし、または200かつ1より大きい整数のContent-Length | いいえ |
+| `unsupported_encoding` | 1〜4 | 200、identity以外の根拠、広告サイズが種別上限を超えない | いいえ |
+| `non_pdf` | 1〜4 | PDF種別、200、identity、広告サイズがPDF上限を超えない | いいえ |
+| `invalid_redirect` | 1〜4 | 301/302/303/307/308。Locationが欠落、または最終URLに対して解決不能 | いいえ |
+| `redirect_limit` | 1〜4 | 301/302/303/307/308。上限検査が先なのでLocationが有効とは限らない | いいえ |
+| `http_error` | 1〜4 | 200・304・リダイレクト以外のステータス | 429または5xxのみ |
+
+相対・空・非HTTPのLocationも解決できる場合があり、URLの許可判定は別である。
+このような宛先は`invalid_redirect`の根拠にならない。
+Content-Lengthの欠落や解析不能な値は、サイズ超過の根拠にならない。
+
+結果には設定した`max_bytes`とリダイレクト上限が含まれない。保存層は保持した
+事実から確定する矛盾を拒否し、許可されるいずれかの設定で起こり得る結果は
+受け入れる。例えば1バイトの上限ではContent-Length 2が`too_large`の根拠となり、
+リダイレクト上限0では初回のリダイレクトで上限に到達する。
+実行上限との完全な一致の検証には追加情報の保存が必要であり、後続作業とする。
 
 `url_not_allowed`の最終URLには評価した宛先を残し、リダイレクト後に拒否した
 非HTTPの宛先も保持する。タイムアウト・中断時も、期限切れやworker終了前に
