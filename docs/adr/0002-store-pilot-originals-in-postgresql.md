@@ -13,8 +13,9 @@ initial small corpus.
 ## Consequences
 
 - Enforce an initial limit of 20 MiB (20,971,520 bytes) per original. Record
-  oversized downloads and acquisition errors as retryable failures; keep
-  previously retained originals and do not automatically delete them for space.
+  oversized downloads as non-retryable failures and transient acquisition errors,
+  such as timeouts and transport errors, as retryable failures. Keep previously
+  retained originals and do not automatically delete them for space.
 - Verify raw-byte integrity and text regeneration after database restore.
 - Keep original bytes out of ordinary search/list responses.
 - Revisit this storage choice when corpus size or backup cost justifies it.
@@ -31,7 +32,7 @@ and restore evidence is still tracked by [#74](https://github.com/9renpoto/lens/
 
 ## 影響
 
-- 原本1件の初期上限を20 MiB（20,971,520バイト）とする。上限超過・取得エラーは再試行可能な失敗として記録し、保存済みの原本を維持する。容量確保のための自動削除は行わない。
+- 原本1件の初期上限を20 MiB（20,971,520バイト）とする。上限超過は再試行不可の失敗として、タイムアウトや通信エラーなど一時的な取得エラーは再試行可能な失敗として記録する。保存済みの原本を維持し、容量確保のための自動削除は行わない。
 - DB復元後に、原本のバイト列の整合性と本文の再生成を検証する。
 - 通常の検索・一覧レスポンスには原本のバイト列を含めない。
 - データ量やバックアップの負担が増えた段階で、保存先を再検討する。
