@@ -169,6 +169,17 @@ defmodule Lens.Earnings.HTTPTest do
     assert result.requests == 1
   end
 
+  test "non UTF-8 redirect locations are reported as invalid redirects" do
+    url = server(fn socket, _ -> respond(socket, 302, "", [{"Location", "/bad-" <> <<255>>}]) end)
+
+    result = HTTP.fetch(url, allowed_url?: allow(url))
+
+    assert result.failure_reason == :invalid_redirect
+    assert result.final_url == url
+    assert result.requests == 1
+    refute result.retryable
+  end
+
   test "a redirect policy process failure is contained in the monitored worker" do
     url = server(fn socket, _ -> respond(socket, 302, "", [{"Location", "/next"}]) end)
 
@@ -269,8 +280,8 @@ defmodule Lens.Earnings.HTTPTest do
 
   test "worker exits are classified against the absolute deadline" do
     now = System.monotonic_time(:millisecond)
-    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now - 1) == :timeout
-    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now + 1000) == :transport_error
+    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now - 1, now) == :transport_error
+    assert Lens.Earnings.HTTPNotifications.worker_exit_reason(now + 1, now) == :timeout
   end
 
   test "timeout cleanup retains queued request-start accounting" do
@@ -285,9 +296,32 @@ defmodule Lens.Earnings.HTTPTest do
     send(self(), {ref, :result, 0, %{final_url: evaluated, requests: 1}})
     send(self(), {unrelated, :started, original, 9})
 
-    assert Lens.Earnings.HTTPNotifications.drain(ref, original, 0) == {evaluated, 2}
+    assert Lens.Earnings.HTTPNotifications.drain(ref, original, 0) ==
+             {:result, 0, %{final_url: evaluated, requests: 1}, 2}
+
     assert_receive {^unrelated, :started, ^original, 9}
     refute_receive {^ref, _, _, _}, 0
+  end
+
+  test "timeout cleanup rechecks terminal notifications after the worker stops" do
+    ref = make_ref()
+    url = "https://example.test/file.pdf"
+
+    assert Lens.Earnings.HTTPNotifications.drain(ref, url, 0) == {:none, url, 0}
+    send(self(), {ref, :worker_exit, 123})
+
+    assert Lens.Earnings.HTTPNotifications.drain(ref, url, 0) ==
+             {:worker_exit, 123, url, 0}
+  end
+
+  test "timeout cleanup retains queued result completion timestamps" do
+    ref = make_ref()
+    url = "https://example.test/file.pdf"
+    result = %{final_url: url, requests: 1}
+
+    send(self(), {ref, :result, 123, result})
+
+    assert Lens.Earnings.HTTPNotifications.drain(ref, url, 0) == {:result, 123, result, 1}
   end
 
   test "caller termination cancels an in-flight download and closes its socket" do
@@ -308,6 +342,36 @@ defmodule Lens.Earnings.HTTPTest do
     assert_receive :stream_open, 1000
     Process.exit(caller, :kill)
     assert_receive {:stream_closed, {:error, :closed}}, 1000
+  end
+
+  test "caller termination during URL policy evaluation prevents the request" do
+    owner = self()
+
+    url =
+      server(fn socket, _ ->
+        send(owner, :unexpected_fetch)
+        respond(socket, 200, "%PDF-fake")
+      end)
+
+    caller =
+      spawn(fn ->
+        HTTP.fetch(url,
+          allowed_url?: fn _ ->
+            send(owner, {:policy_started, self()})
+
+            receive do
+              :continue -> true
+            end
+          end,
+          timeout_ms: 2_000
+        )
+      end)
+
+    assert_receive {:policy_started, policy_worker}, 1_000
+    Process.exit(caller, :kill)
+    send(policy_worker, :continue)
+
+    refute_receive :unexpected_fetch, 100
   end
 
   test "rejects nonidentity content encoding to preserve exact original bytes" do
@@ -355,6 +419,38 @@ defmodule Lens.Earnings.HTTPTest do
     result =
       HTTP.fetch("https://example.test/file.pdf", allowed_url?: fn _ -> exit(:unavailable) end)
 
+    assert result.failure_reason == :transport_error
+    assert result.requests == 0
+  end
+
+  test "worker exits before the deadline retain their reason when the caller resumes late" do
+    owner = self()
+
+    caller =
+      spawn(fn ->
+        result =
+          HTTP.fetch("https://example.test/file.pdf",
+            timeout_ms: 5_000,
+            allowed_url?: fn _ ->
+              send(owner, {:policy_waiting, self()})
+
+              receive do
+                :continue ->
+                  exit(:unavailable)
+              end
+            end
+          )
+
+        send(owner, {:fetch_result, result})
+      end)
+
+    assert_receive {:policy_waiting, policy_worker}, 1_000
+    :erlang.suspend_process(caller)
+    send(policy_worker, :continue)
+    Process.sleep(5_100)
+    :erlang.resume_process(caller)
+
+    assert_receive {:fetch_result, result}, 1_000
     assert result.failure_reason == :transport_error
     assert result.requests == 0
   end
@@ -441,6 +537,41 @@ defmodule Lens.Earnings.HTTPTest do
         do: refute(String.contains?(request, name <> ":"))
 
     assert String.contains?(request, "accept: application/pdf")
+  end
+
+  test "caller headers cannot override the URL authority" do
+    owner = self()
+
+    url =
+      server(fn socket, request ->
+        send(owner, {:request, request})
+        respond(socket, 200, "%PDF-exact")
+      end)
+
+    result =
+      HTTP.fetch(url,
+        allowed_url?: allow(url),
+        headers: [{"Host", "attacker.example"}]
+      )
+
+    assert result.outcome == :success
+    assert_receive {:request, request}
+    request = String.downcase(request)
+    authority = URI.parse(url).host <> ":" <> to_string(URI.parse(url).port)
+    assert String.contains?(request, "host: " <> authority)
+    refute String.contains?(request, "attacker.example")
+  end
+
+  test "caller headers cannot set the HTTP authority pseudo-header" do
+    url = server(fn socket, _ -> respond(socket, 200, "%PDF-exact") end)
+
+    result =
+      HTTP.fetch(url,
+        allowed_url?: allow(url),
+        headers: [{":authority", "attacker.example"}]
+      )
+
+    assert result.outcome == :success
   end
 
   test "changing deadlines reuse one stable Finch connection configuration" do

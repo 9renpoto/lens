@@ -30,7 +30,7 @@ defmodule Lens.Earnings.HTTP do
           deadline: min(started + timeout, requested_deadline || started + timeout),
           redirects: redirects,
           policy: policy,
-          headers: Keyword.get(options, :headers, [])
+          headers: safe_headers(Keyword.get(options, :headers, []))
         })
     end
   end
@@ -43,17 +43,31 @@ defmodule Lens.Earnings.HTTP do
     {worker, monitor} =
       spawn_monitor(fn ->
         worker = self()
-        spawn(fn -> guard(owner, worker) end)
-        result = request(url, config, deadline, 0, owner, ref)
-        send(owner, {ref, :result, now(), result})
+
+        spawn(fn -> guard(owner, worker, ref) end)
+
+        receive do
+          {^ref, :guard_ready} ->
+            if Process.alive?(owner) do
+              try do
+                result = request(url, config, deadline, 0, owner, ref)
+                send(owner, {ref, :result, now(), result})
+              catch
+                kind, reason ->
+                  send(owner, {ref, :worker_exit, now()})
+                  :erlang.raise(kind, reason, __STACKTRACE__)
+              end
+            end
+        end
       end)
 
     await(worker, monitor, ref, deadline, url, 0)
   end
 
-  defp guard(owner, worker) do
+  defp guard(owner, worker, ref) do
     owner_ref = Process.monitor(owner)
     worker_ref = Process.monitor(worker)
+    send(worker, {ref, :guard_ready})
 
     receive do
       {:DOWN, ^owner_ref, :process, _, _} -> Process.exit(worker, :kill)
@@ -77,18 +91,68 @@ defmodule Lens.Earnings.HTTP do
           do: failure(:timeout, result.final_url || url, requests),
           else: %{result | requests: requests}
 
+      {^ref, :worker_exit, completed_at} ->
+        Process.demonitor(monitor, [:flush])
+
+        failure(
+          Lens.Earnings.HTTPNotifications.worker_exit_reason(completed_at, deadline),
+          url,
+          requests
+        )
+
       {:DOWN, ^monitor, :process, _, _} ->
-        failure(Lens.Earnings.HTTPNotifications.worker_exit_reason(deadline), url, requests)
+        failure(
+          Lens.Earnings.HTTPNotifications.worker_exit_reason(now(), deadline),
+          url,
+          requests
+        )
     after
       max(deadline - now(), 0) ->
-        Process.exit(worker, :kill)
+        case Lens.Earnings.HTTPNotifications.drain(ref, url, requests) do
+          {:result, completed_at, result, requests} ->
+            Process.demonitor(monitor, [:flush])
 
-        receive do
-          {:DOWN, ^monitor, :process, _, _} -> :ok
+            if completed_at >= deadline,
+              do: failure(:timeout, result.final_url || url, requests),
+              else: %{result | requests: requests}
+
+          {:worker_exit, completed_at, url, requests} ->
+            Process.demonitor(monitor, [:flush])
+
+            failure(
+              Lens.Earnings.HTTPNotifications.worker_exit_reason(completed_at, deadline),
+              url,
+              requests
+            )
+
+          {:none, url, requests} ->
+            Process.exit(worker, :kill)
+
+            receive do
+              {:DOWN, ^monitor, :process, _, _} -> :ok
+            end
+
+            case Lens.Earnings.HTTPNotifications.drain(ref, url, requests) do
+              {:result, completed_at, result, requests} ->
+                Process.demonitor(monitor, [:flush])
+
+                if completed_at >= deadline,
+                  do: failure(:timeout, result.final_url || url, requests),
+                  else: %{result | requests: requests}
+
+              {:worker_exit, completed_at, url, requests} ->
+                Process.demonitor(monitor, [:flush])
+
+                failure(
+                  Lens.Earnings.HTTPNotifications.worker_exit_reason(completed_at, deadline),
+                  url,
+                  requests
+                )
+
+              {:none, url, requests} ->
+                failure(:timeout, url, requests)
+            end
         end
-
-        {url, requests} = Lens.Earnings.HTTPNotifications.drain(ref, url, requests)
-        failure(:timeout, url, requests)
     end
   end
 
@@ -285,6 +349,8 @@ defmodule Lens.Earnings.HTTP do
             %{base | failure_reason: :invalid_redirect, retryable: false}
         end
     end
+  rescue
+    _ -> %{base | failure_reason: :invalid_redirect, retryable: false}
   end
 
   defp redirect_config(config, from, to) do
@@ -298,6 +364,12 @@ defmodule Lens.Earnings.HTTP do
 
       %{config | headers: headers}
     end
+  end
+
+  defp safe_headers(headers) do
+    Enum.reject(headers, fn {name, _value} ->
+      String.downcase(to_string(name)) in ["host", ":authority"]
+    end)
   end
 
   defp origin(url) do

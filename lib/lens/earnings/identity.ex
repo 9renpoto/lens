@@ -10,16 +10,17 @@ defmodule Lens.Earnings.Identity do
     codes = Regex.scan(~r/コード\s*番号\s*[:：]?\s*([0-9]{4})(?![0-9])/u, text, capture: :all_but_first)
     code = codes |> Enum.map(&hd/1) |> unique_value()
 
-    titles =
+    {year_ends, periods} =
       Regex.scan(
-        ~r/^[ \t]*(?:\(訂正\)[ \t]*)?「?(?<year>[0-9]{4})\s*年\s*(?<month>[0-9]{1,2})\s*月期\s*(?:第\s*(?<quarter>[123])\s*四半期\s*(?<interim>\(中間期\))?\s*)?決算短信/mu,
+        ~r/^[ \t]*(?:\(訂正\)[ \t]*)?「?(?<year>[0-9]{4})\s*年\s*(?<month>[0-9]{1,2})\s*月期\s*(?:第\s*(?<quarter>[123])\s*四半期\s*(?<interim>\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\r\n]*〕|\([^\)\r\n]*\)))*」?(?:\s*の\s*(?:一部|決算数値の)?\s*訂正(?:について|に関する(?:お知らせ|補足資料)))?[ \t]*\r?$(?!\n[ \t]*(?:\r?\n[ \t]*)*(?:の|[をにはがともでへ]|ご参照|参照|記載|掲載))/mu,
         text,
         capture: ["year", "month", "quarter", "interim"]
       )
       |> Enum.map(&title_fields(&1, Map.fetch!(@fiscal_months, issuer)))
-      |> unique_value()
+      |> Enum.unzip()
 
-    {year_end, period} = titles || {nil, nil}
+    year_end = unique_value(year_ends)
+    period = unique_value(periods)
     category = category(text)
 
     fields = %{
@@ -86,12 +87,18 @@ defmodule Lens.Earnings.Identity do
     year = String.to_integer(year)
     month = String.to_integer(month)
 
-    if year > 0 and month == fiscal_month and (interim == "" or quarter == "2") do
-      {:ok, first} = Date.new(year, month, 1)
-      {Date.end_of_month(first), if(quarter == "", do: "full_year", else: "q" <> quarter)}
-    else
-      {nil, nil}
-    end
+    year_end =
+      if year > 0 and month == fiscal_month do
+        {:ok, first} = Date.new(year, month, 1)
+        Date.end_of_month(first)
+      end
+
+    period =
+      if interim == "" or quarter == "2" do
+        if quarter == "", do: "full_year", else: "q" <> quarter
+      end
+
+    {year_end, period}
   end
 
   defp category(text) do
@@ -106,8 +113,11 @@ defmodule Lens.Earnings.Identity do
           ) ->
         "correction"
 
+      unsupported_correction_heading?(text) ->
+        nil
+
       Regex.match?(
-        ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?!(?:[ \t]*(?:〔[^〕\n]*訂正[^〕\n]*〕|\([^\)\n]*訂正[^\)\n]*\))))(?:[ \t]*(?:〔[^〕\n]*〕|\([^\)\n]*\)))*[ \t]*\r?$(?!\r?\n[ \t]*(?:\r?\n[ \t]*)*(?:の|(?:\([^\)\n]*訂正[^\)\n]*\)|〔[^〕\n]*訂正[^〕\n]*〕|(?:一部)?訂正(?:について|版)?)[ \t]*\r?$))/mu,
+        ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?!(?:[ \t]*(?:〔[^〕\n]*訂正[^〕\n]*〕|\([^\)\n]*訂正[^\)\n]*\))))(?:[ \t]*(?:〔[^〕\n]*〕|\([^\)\n]*\)))*[ \t]*\r?$(?!\r?\n[ \t]*(?:\r?\n[ \t]*)*(?:の|(?:\([^\)\n]*訂正[^\)\n]*\)|〔[^〕\n]*訂正[^〕\n]*〕|(?:一部|決算数値の)?訂正(?:について|版|に関するお知らせ)?)[ \t]*\r?$))/mu,
         text
       ) ->
         "earnings_release"
@@ -117,10 +127,31 @@ defmodule Lens.Earnings.Identity do
     end
   end
 
+  defp unsupported_correction_heading?(text) do
+    Regex.match?(
+      ~r/^[ \t]*(?:[\p{Ps}\p{Pi}<][^\p{Pe}\p{Pf}>\r\n]*訂正[^\p{Pe}\p{Pf}>\r\n]*[\p{Pe}\p{Pf}>])\s*「?[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\r\n]*〕|\([^\)\r\n]*\)))*」?(?:\s*の\s*(?:一部|決算数値の)?\s*訂正(?:について|に関する(?:お知らせ|補足資料)))?[ \t]*\r?$(?!\n[ \t]*(?:\r?\n[ \t]*)*(?:の|[をにはがともでへ]|ご参照|参照|記載|掲載))/mu,
+      text
+    ) or
+      Regex.match?(
+        ~r/^[ \t]*(?:[\p{Ps}\p{Pi}<][^\p{Pe}\p{Pf}>\r\n]*訂正[^\p{Pe}\p{Pf}>\r\n]*[\p{Pe}\p{Pf}>]|(?:一部|決算数値の)?訂正(?:について|版|に関する(?:お知らせ|補足資料))?)[ \t]*\r?$\s*(?=[ \t]*「?[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\r\n]*〕|\([^\)\r\n]*\)))*」?[ \t]*\r?$(?!\n[ \t]*(?:\r?\n[ \t]*)*(?:の|[をにはがともでへ]|ご参照|参照|記載|掲載)))/mu,
+        text
+      ) or
+      Regex.match?(
+        ~r/^[ \t]*「?[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\))?\s*)?決算短信(?:[ \t]*(?:〔[^〕\r\n]*〕|\([^\)\r\n]*\)))*」?(?:\s*の\s*(?:一部|決算数値の)?\s*訂正(?:について|に関する(?:補足資料|お知らせ))|\s*(?:[\p{Ps}\p{Pi}<][^\p{Pe}\p{Pf}>\r\n]*訂正[^\p{Pe}\p{Pf}>\r\n]*[\p{Pe}\p{Pf}>]|(?:一部)?訂正(?:について|版|に関するお知らせ)?))[ \t]*\r?$(?!\n[ \t]*(?:\r?\n[ \t]*)*(?:[をにはがともでへ]|ご参照|参照|記載|掲載))/mu,
+        text
+      )
+  end
+
   defp publication_date(text) do
+    header =
+      case Regex.split(~r/コード\s*番号\s*[:：]?\s*[0-9]{4}(?![0-9])/u, text, parts: 2) do
+        [header, _body] -> header
+        [_text] -> ""
+      end
+
     Regex.scan(
-      ~r/^\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日[ \t]*\r?$(?!\n[ \t]*(?:\r?\n[ \t]*)*(?:[をにはがともでへ付]|公表|ご?参照))/mu,
-      text,
+      ~r/^\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日[ \t]*\r?$(?!\n[ \t]*(?:\r?\n[ \t]*)*(?:[をにはがともでへ付]|公表|発表|開示|公開|発行|掲載|記載|現在|時点|基準|残高|ご?参照))/mu,
+      header,
       capture: :all_but_first
     )
     |> Enum.map(fn [year, month, day] ->
