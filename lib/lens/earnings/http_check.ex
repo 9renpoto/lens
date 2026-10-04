@@ -34,7 +34,7 @@ defmodule Lens.Earnings.HTTPCheck do
     |> cast(attrs, @facts)
     |> validate_text_fields()
     |> validate_required(
-      ~w(check_id issuer_code kind url checked_at status requests retryable metadata response_headers)a
+      ~w(check_id issuer_code kind url final_url checked_at status requests retryable metadata response_headers)a
     )
     |> validate_length(:check_id, min: 1, max: 180)
     |> validate_inclusion(:issuer_code, ~w(6857 9983 8035))
@@ -154,7 +154,7 @@ defmodule Lens.Earnings.HTTPCheck do
           is_binary(reason) and is_nil(size) and is_nil(sha) and is_integer(requests) and
             get_field(changeset, :retryable) == retryable_failure?(reason, http_status) and
             valid_failure_response?(changeset) and
-            (requests == 0 or not is_nil(get_field(changeset, :final_url))) and
+            not is_nil(get_field(changeset, :final_url)) and
             (requests > 0 or
                (is_nil(http_status) and get_field(changeset, :response_headers) == %{}))
 
@@ -197,7 +197,7 @@ defmodule Lens.Earnings.HTTPCheck do
         started? and status == 200 and get_field(changeset, :kind) == "pdf"
 
       "unsupported_encoding" ->
-        started? and status == 200
+        started? and status == 200 and unsupported_encoding?(headers)
 
       reason when reason in ["invalid_redirect", "redirect_limit"] ->
         started? and status in [301, 302, 303, 307, 308]
@@ -207,6 +207,18 @@ defmodule Lens.Earnings.HTTPCheck do
 
       _ ->
         false
+    end
+  end
+
+  defp unsupported_encoding?(headers) do
+    with {:ok, json} <- Jason.encode(headers),
+         {:ok, %{} = canonical_headers} <- Jason.decode(json),
+         encoding when is_binary(encoding) <- Map.get(canonical_headers, "content-encoding") do
+      encoding
+      |> String.split(",")
+      |> Enum.any?(&(String.downcase(String.trim(&1)) != "identity"))
+    else
+      _ -> false
     end
   end
 end

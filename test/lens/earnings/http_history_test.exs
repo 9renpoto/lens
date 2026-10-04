@@ -170,6 +170,78 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Original, :count) == 0
   end
 
+  test "zero-request failures require the evaluated URL before retaining immutable facts" do
+    results = [
+      HTTP.fetch(@url, max_bytes: 0),
+      HTTP.fetch(@url, deadline: System.monotonic_time(:millisecond) - 1),
+      HTTP.fetch(@url)
+    ]
+
+    for result <- results do
+      assert result.requests == 0
+      input = attrs("missing-evaluated-#{result.failure_reason}", :failed, nil)
+      input = Map.put(input, :result, Map.delete(result, :final_url))
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+
+    for result <- results do
+      input = attrs("evaluated-#{result.failure_reason}", :failed, nil)
+      assert {:ok, check} = HTTPHistory.record(Map.put(input, :result, result))
+      assert check.final_url == @url
+      assert check.requests == 0
+      assert check.acquisition_id == nil
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 3
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "unsupported encoding failures require header evidence after JSON normalization" do
+    for {headers, index} <-
+          Enum.with_index([
+            %{},
+            %{"content-encoding" => nil},
+            %{"content-encoding" => ["gzip"]},
+            %{"content-encoding" => "identity"},
+            %{"content-encoding" => " Identity , IDENTITY "},
+            %{:"content-encoding" => :identity}
+          ]) do
+      input =
+        attrs("unsupported-identity-#{index}", :failed, nil)
+        |> put_in([:result, :failure_reason], :unsupported_encoding)
+        |> put_in([:result, :http_status], 200)
+        |> put_in([:result, :headers], headers)
+        |> put_in([:result, :retryable], false)
+
+      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 0
+
+    for {headers, index} <-
+          Enum.with_index([
+            %{"content-encoding" => "gzip"},
+            %{"content-encoding" => "identity, GZip"},
+            %{:"content-encoding" => :gzip}
+          ]) do
+      input =
+        attrs("unsupported-evidence-#{index}", :failed, nil)
+        |> put_in([:result, :failure_reason], :unsupported_encoding)
+        |> put_in([:result, :http_status], 200)
+        |> put_in([:result, :headers], headers)
+        |> put_in([:result, :retryable], false)
+
+      assert {:ok, check} = HTTPHistory.record(input)
+      assert check.failure_reason == "unsupported_encoding"
+      assert check.response_headers == headers |> Jason.encode!() |> Jason.decode!()
+      assert {:ok, ^check} = HTTPHistory.record(input)
+    end
+  end
+
   test "identical reacquisition adds history while changed bytes preserve old originals" do
     for {id, bytes} <- [{"one", "%PDF-one"}, {"two", "%PDF-one"}, {"three", "%PDF-two"}] do
       assert {:ok, _} = HTTPHistory.record(attrs(id, :success, bytes))
