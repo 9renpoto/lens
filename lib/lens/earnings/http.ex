@@ -30,7 +30,7 @@ defmodule Lens.Earnings.HTTP do
           deadline: min(started + timeout, requested_deadline || started + timeout),
           redirects: redirects,
           policy: policy,
-          headers: Keyword.get(options, :headers, [])
+          headers: safe_headers(Keyword.get(options, :headers, []))
         })
     end
   end
@@ -364,6 +364,12 @@ defmodule Lens.Earnings.HTTP do
 
       %{config | headers: headers}
     end
+  end
+
+  defp safe_headers(headers) do
+    Enum.reject(headers, fn {name, _value} ->
+      String.downcase(to_string(name)) in ["host", ":authority"]
+    end)
   end
 
   defp origin(url) do

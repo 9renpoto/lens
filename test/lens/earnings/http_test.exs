@@ -539,6 +539,41 @@ defmodule Lens.Earnings.HTTPTest do
     assert String.contains?(request, "accept: application/pdf")
   end
 
+  test "caller headers cannot override the URL authority" do
+    owner = self()
+
+    url =
+      server(fn socket, request ->
+        send(owner, {:request, request})
+        respond(socket, 200, "%PDF-exact")
+      end)
+
+    result =
+      HTTP.fetch(url,
+        allowed_url?: allow(url),
+        headers: [{"Host", "attacker.example"}]
+      )
+
+    assert result.outcome == :success
+    assert_receive {:request, request}
+    request = String.downcase(request)
+    authority = URI.parse(url).host <> ":" <> to_string(URI.parse(url).port)
+    assert String.contains?(request, "host: " <> authority)
+    refute String.contains?(request, "attacker.example")
+  end
+
+  test "caller headers cannot set the HTTP authority pseudo-header" do
+    url = server(fn socket, _ -> respond(socket, 200, "%PDF-exact") end)
+
+    result =
+      HTTP.fetch(url,
+        allowed_url?: allow(url),
+        headers: [{":authority", "attacker.example"}]
+      )
+
+    assert result.outcome == :success
+  end
+
   test "changing deadlines reuse one stable Finch connection configuration" do
     before = DynamicSupervisor.count_children(Req.FinchSupervisor).active
 
