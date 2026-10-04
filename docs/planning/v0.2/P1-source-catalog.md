@@ -13,7 +13,8 @@ Investigate the official Japanese IR listings for Advantest, Fast Retailing, and
 ## Checklist
 
 - [x] Record issuer code/name, 2026-09-14 selection evidence, official listing URL, original URLs, and verification date for all three.
-- [x] Record applicable acquisition/preservation conditions and a daily request policy. Report unavailable or unresolved routes explicitly; keep routes inactive while publisher permission and cadence are unknown.
+- [x] Record applicable acquisition/preservation conditions and a daily request policy. Report unavailable or unresolved routes explicitly.
+- [ ] Resolve publisher permission and request cadence for each proposed route; keep routes inactive until both are confirmed.
 - [x] Verify actual link discovery, rather than generating URLs from known filenames.
 - [x] Map listing/PDF metadata to company, fiscal year-end, reporting period, category, and publisher-reported publication date. Keep unknown dates unknown.
 - [x] Define and demonstrate the latest regular reporting-release selection rule at initialization, including fiscal-year label differences and separately listed corrections.
@@ -45,7 +46,8 @@ GitHub issue: [#69](https://github.com/9renpoto/lens/issues/69)
 ## チェックリスト
 
 - [x] 3社の企業コード・名称、2026-09-14の選定根拠、公式一覧URL、原本URL、確認日を記録する。
-- [x] 適用される取得・保存条件と日次リクエスト方針を記録し、利用不可・未確認の経路を明示する。発行元の許可と頻度が不明な間は取得経路を無効にする。
+- [x] 適用される取得・保存条件と日次リクエスト方針を記録し、利用不可・未確認の経路を明示する。
+- [ ] 提案する各経路について発行元の許可とリクエスト頻度を確認する。両方を確認するまで取得経路を無効にする。
 - [x] 既知のファイル名からURLを生成せず、実際のリンク発見を検証する。
 - [x] 一覧・PDFの情報を企業・決算期末・対象期間・資料種類・発行元の公開日に対応付ける。不明な日付は不明のまま扱う。
 - [x] 初期化時に最新の通常の決算短信を選ぶ規則を定義し、年度表記の差や別掲載の訂正資料を含めて実証する。
