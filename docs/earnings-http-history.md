@@ -13,6 +13,10 @@ stay absent. Metadata can retain listing labels and pending identity evidence.
 Metadata and headers must each encode as JSON within 32 KiB.
 JSON-backed facts are normalized before comparison, so atom keys and
 JSON-encodable values match the representation reloaded from PostgreSQL.
+Non-UTF-8 response header values containing HTTP obs-text are retained as
+`%{"encoding" => "base64", "value" => "..."}` so their exact bytes can be recovered.
+UTF-8 header values use strings. The 32 KiB bound includes the encoded representation;
+header values containing NUL are rejected.
 
 A successful PDF check atomically stores the exact original bytes and an
 acquisition identified by `http:` followed by the check ID. Its digest and byte
@@ -63,6 +67,10 @@ schedule requests, or infer release identity. Those steps remain separate.
 以内に収まる必要がある。
 JSON形式の事実は比較前に正規化し、atomキーやJSONに変換できる値を
 PostgreSQLから再取得した表現と一致させる。
+UTF-8ではないHTTP obs-textの応答ヘッダー値は、正確なバイト列を復元できるよう
+`%{"encoding" => "base64", "value" => "..."}`として保持する。UTF-8のヘッダー値は
+文字列で保存する。32 KiBの上限はエンコード後の表現に適用し、NULを含む
+ヘッダー値は拒否する。
 
 PDF取得成功時は、原本の正確なバイト列と、確認IDに`http:`を付けた取得履歴を
 同一トランザクションで保存する。ダイジェストとバイト数は保存原本と一致する

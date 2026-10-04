@@ -199,12 +199,53 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Acquisition, :count) == 0
   end
 
+  test "non-UTF-8 HTTP response header bytes survive persistence and retries exactly" do
+    raw = <<255>>
+
+    inputs =
+      for {field, status, body, outcome, reason} <- [
+            {"location", 302, "", :failed, :invalid_redirect},
+            {"etag", 200, "%PDF-original", :success, nil},
+            {"content-encoding", 200, "%PDF-unused", :failed, :unsupported_encoding}
+          ] do
+        url =
+          response_server(
+            "HTTP/1.1 #{status} OK\r\n#{field}: #{raw}\r\nContent-Length: #{byte_size(body)}\r\nConnection: close\r\n\r\n#{body}"
+          )
+
+        result = HTTP.fetch(url, allowed_url?: &(&1 == url))
+        assert result.outcome == outcome
+        assert result.failure_reason == reason
+        assert result.headers[field] == raw
+
+        input =
+          attrs("binary-header-#{field}", outcome, result.bytes)
+          |> Map.put(:url, url)
+          |> Map.put(:result, result)
+
+        {field, input}
+      end
+
+    for {field, input} <- inputs do
+      assert {:ok, check} = HTTPHistory.record(input)
+      assert check.response_headers[field] == %{"encoding" => "base64", "value" => "/w=="}
+      assert Base.decode64!(check.response_headers[field]["value"]) == raw
+      assert {:ok, ^check} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 3
+    assert Repo.aggregate(Acquisition, :count) == 3
+    assert Repo.aggregate(Original, :count) == 1
+  end
+
   test "unsupported encoding failures require header evidence after JSON normalization" do
     for {headers, index} <-
           Enum.with_index([
             %{},
             %{"content-encoding" => nil},
             %{"content-encoding" => ["gzip"]},
+            %{"content-encoding" => %{"encoding" => "base64", "value" => "aWRlbnRpdHk="}},
+            %{"content-encoding" => %{"encoding" => "base64", "value" => "not base64"}},
             %{"content-encoding" => "identity"},
             %{"content-encoding" => " Identity , IDENTITY "},
             %{:"content-encoding" => :identity}
@@ -416,6 +457,9 @@ defmodule Lens.Earnings.HTTPHistoryTest do
           attrs("nul-key", :success, "%PDF-first") |> Map.put(:metadata, %{"a\0b" => "value"}),
           put_in(attrs("nul-header", :success, "%PDF-first"), [:result, :headers], %{
             "etag" => "a\0b"
+          }),
+          put_in(attrs("binary-nul-header", :success, "%PDF-first"), [:result, :headers], %{
+            "etag" => <<255, 0>>
           })
         ] do
       assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
@@ -512,6 +556,12 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   end
 
   defp redirect_server(target) do
+    response_server(
+      "HTTP/1.1 302 Found\r\nLocation: #{target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    )
+  end
+
+  defp response_server(response) do
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, ip: {127, 0, 0, 1}])
     {:ok, {_, port}} = :inet.sockname(listener)
 
@@ -519,10 +569,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       spawn(fn ->
         with {:ok, socket} <- :gen_tcp.accept(listener, 1000),
              {:ok, _request} <- :gen_tcp.recv(socket, 0, 1000) do
-          :gen_tcp.send(
-            socket,
-            "HTTP/1.1 302 Found\r\nLocation: #{target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-          )
+          :gen_tcp.send(socket, response)
 
           :gen_tcp.close(socket)
         end

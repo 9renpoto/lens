@@ -213,12 +213,24 @@ defmodule Lens.Earnings.HTTPCheck do
   defp unsupported_encoding?(headers) do
     with {:ok, json} <- Jason.encode(headers),
          {:ok, %{} = canonical_headers} <- Jason.decode(json),
-         encoding when is_binary(encoding) <- Map.get(canonical_headers, "content-encoding") do
-      encoding
-      |> String.split(",")
-      |> Enum.any?(&(String.downcase(String.trim(&1)) != "identity"))
+         {:ok, encoding} <- header_bytes(Map.get(canonical_headers, "content-encoding")),
+         :nomatch <- :binary.match(encoding, <<0>>) do
+      if String.valid?(encoding) do
+        encoding
+        |> String.split(",")
+        |> Enum.any?(&(String.downcase(String.trim(&1)) != "identity"))
+      else
+        true
+      end
     else
       _ -> false
     end
   end
+
+  defp header_bytes(value) when is_binary(value), do: {:ok, value}
+
+  defp header_bytes(%{"encoding" => "base64", "value" => value}) when is_binary(value),
+    do: Base.decode64(value)
+
+  defp header_bytes(_), do: :error
 end
