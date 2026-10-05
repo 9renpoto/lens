@@ -12,9 +12,8 @@ In the pilot, its identity is the company, fiscal year-end, reporting period
 _Avoid_: Earnings presentation, annual securities report
 
 **Pilot company set**:
-The fixed set of three companies selected by Nikkei 225 index weight on a
-recorded reference date for the initial earnings-collection evaluation.
-_Avoid_: Dynamic watchlist, daily contribution ranking
+The small set of companies chosen by the operator for earnings collection.
+_Avoid_: Hardcoded issuer list, index ranking
 
 **Original material**:
 The source material as acquired from its publisher, before text extraction or
@@ -64,8 +63,8 @@ Lensは、情報を継続して収集・保存・検索・発見するための�
 _区別する語_: 決算説明資料、有価証券報告書
 
 **Pilot company set（パイロット対象企業）**:
-決算情報の初期収集評価に使う、記録された基準日の日経平均構成比率で選定した固定3社。
-_区別する語_: 動的な監視対象一覧、当日の騰落寄与度ランキング
+決算情報の収集に使う、運用者が選んだ少数の企業。
+_区別する語_: コードに固定した企業一覧、指数の順位
 
 **Original material（原本資料）**:
 本文抽出や正規化を行う前の、発行元から取得したままの資料。

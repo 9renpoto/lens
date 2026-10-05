@@ -3,8 +3,8 @@
 `Lens.Earnings.HTTP.fetch/2` provides the transport foundation for
 [#71](https://github.com/9renpoto/lens/issues/71). It performs no database writes,
 identity confirmation, scheduling, or extraction. The collector must enforce
-source activation and request cadence before invoking it; all catalog routes
-remain inactive pending the [source conditions](earnings-source-evaluation.md).
+source activation and request cadence before invoking it. Source registration
+and collector integration remain [planned work](../tasks/v0.2.md).
 An explicit `allowed_url?` predicate is required. Without one, every URL is
 rejected before a request. The predicate is applied to the initial URL and each
 redirect destination before that destination is contacted. URLs must use
@@ -80,7 +80,7 @@ and capped retry/backoff remains subsequent stack work.
 
 `Lens.Earnings.HTTP.fetch/2`は[#71](https://github.com/9renpoto/lens/issues/71)の取得基盤。
 DB書込・識別確定・日次実行・抽出は行わない。収集側は呼び出し前に取得元の有効状態と
-巡回間隔を確認する。[取得条件](earnings-source-evaluation.md)の解決まで全経路は無効。
+巡回間隔を確認する。取得先の登録と収集への接続は[計画中の作業](../tasks/v0.2.md)。
 明示的な`allowed_url?`判定が必須で、指定がなければ通信前に全URLを拒否する。
 初期URLと各リダイレクト先を、その先へ通信する前に判定する。URLはHTTP(S)、
 ホストあり、埋め込み認証情報なしを必須とする。本番資料の判定では台帳の検証済み

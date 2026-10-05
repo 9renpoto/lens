@@ -1,42 +1,20 @@
 ---
-status: accepted
+status: superseded
 ---
 
 # Store pilot originals in PostgreSQL
 
-For the three-company earnings pilot, store original PDF bytes in PostgreSQL
-alongside their metadata and acquisition records. This increases database size
-but keeps originals and provenance within one backup and restore boundary,
-avoiding a separate persistent file volume or object-storage service for the
-initial small corpus.
+Historical decision: store PDF bytes with their acquisition records in PostgreSQL to keep a small initial corpus within one backup and restore boundary. This reduced the initial operational work but increased database size.
 
-## Consequences
-
-- Enforce an initial limit of 20 MiB (20,971,520 bytes) per original. Record
-  oversized downloads as non-retryable failures and transient acquisition errors,
-  such as timeouts and transport errors, as retryable failures. Keep previously
-  retained originals and do not automatically delete them for space.
-- Verify raw-byte integrity and text regeneration after database restore.
-- Keep original bytes out of ordinary search/list responses.
-- Revisit this storage choice when corpus size or backup cost justifies it.
-
-This accepted storage choice is implemented on `main` as of `5bdd33b`. Backup
-and restore evidence is still tracked by [#74](https://github.com/9renpoto/lens/issues/74).
+Superseded by [ADR 0005](0005-store-pdfs-in-rustfs.md). The existing implementation still retains bytes in PostgreSQL; the RustFS integration and migration are planned in [tasks B–D](../tasks/v0.2.md). Changing this ADR does not migrate data.
 
 <details>
 <summary>日本語</summary>
 
 # パイロットの原本をPostgreSQLに保存する
 
-3社を対象とする決算情報パイロットでは、原本PDFのバイト列をメタデータ・取得記録とともにPostgreSQLへ保存する。DB容量は増えるが、原本と出典情報を一緒にバックアップ・復元でき、初期の少量データのために永続ファイルボリュームやオブジェクトストレージを追加せずに済む。
+過去の判断：小規模な初期データを一組でバックアップ・復元できるよう、PDFのバイト列と取得記録をPostgreSQLへ保存する。初期の運用作業を減らせる一方、DB容量が増える。
 
-## 影響
-
-- 原本1件の初期上限を20 MiB（20,971,520バイト）とする。上限超過は再試行不可の失敗として、タイムアウトや通信エラーなど一時的な取得エラーは再試行可能な失敗として記録する。保存済みの原本を維持し、容量確保のための自動削除は行わない。
-- DB復元後に、原本のバイト列の整合性と本文の再生成を検証する。
-- 通常の検索・一覧レスポンスには原本のバイト列を含めない。
-- データ量やバックアップの負担が増えた段階で、保存先を再検討する。
-
-この保存先の選択は合意済みで、`main`の`5bdd33b`時点で実装済み。バックアップと復元の証跡は[#74](https://github.com/9renpoto/lens/issues/74)で引き続き確認する。
+[ADR 0005](0005-store-pdfs-in-rustfs.md)へ引き継いだ。既存実装は現在もバイト列をPostgreSQLに保存しており、RustFS接続と移行は[タスクB〜D](../tasks/v0.2.md)に記載する。ADRの変更だけでデータが移行されるわけではない。
 
 </details>

@@ -146,7 +146,8 @@ report = %{
 }
 
 File.write!(
-  "docs/planning/v0.2/pdf-runner-samples.json",
+  System.get_env("PDF_COMPARISON_REPORT") ||
+    Path.join(System.tmp_dir!(), "lens-pdf-runner-samples.json"),
   Jason.encode!(report, pretty: true) <> "\n"
 )
 
