@@ -2,6 +2,14 @@ name: Elixir CI
 
 on:
   pull_request:
+    paths:
+      - "**/*.ex"
+      - "**/*.exs"
+      - "mix.lock"
+      - "**/*.c"
+      - "**/*.h"
+      - "Dockerfile"
+      - ".github/workflows/**"
   push:
     branches: [main]
     tags:
