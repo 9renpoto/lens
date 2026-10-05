@@ -10,7 +10,7 @@ Memory-only work tracking disappears when the application restarts. A database w
 
 Allow automatic recovery with a finite retry count and manual recovery by the operator. Repeating recovery must not duplicate records or overwrite saved PDFs. When automatic retries reach their limit, retain the unfinished work for operator attention. The exact retry count and spacing remain undecided.
 
-This adds persistent work tracking, but makes interrupted storage recoverable without relying on process memory. It is a condition for adopting external storage, not a selection of a storage product or a statement that recovery is already implemented. See [the storage comparison](0005-store-pilot-pdfs-with-their-records.md).
+This adds persistent work tracking, but makes interrupted storage recoverable without relying on process memory. It does not claim that recovery is already implemented. See [the RustFS storage decision](0005-store-pdfs-in-rustfs.md).
 
 <details>
 <summary>日本語</summary>
@@ -23,6 +23,6 @@ Lensで独立したファイル保存サービスを使う場合、PDFを書き�
 
 自動復旧は再試行回数を制限し、運用者による手動復旧も可能にする。繰り返しても記録の重複や保存済みPDFの上書きを起こさない。自動再試行が上限に達した場合は、未完了の作業を残して運用者の対応を待つ。具体的な再試行回数と間隔は未決定。
 
-永続的な作業管理は増えるが、メモリに頼らず中断した保存処理を復旧できるようになる。これは外部ストレージの採用条件であり、製品の選定や復旧機能の実装完了を意味しない。[保存先の比較](0005-store-pilot-pdfs-with-their-records.md)を参照。
+永続的な作業管理は増えるが、メモリに頼らず中断した保存処理を復旧できるようになる。復旧機能の実装完了を意味しない。[RustFSへの保存方針](0005-store-pdfs-in-rustfs.md)を参照。
 
 </details>
