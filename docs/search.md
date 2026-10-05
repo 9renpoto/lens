@@ -1,5 +1,7 @@
 # Search API
 
+The existing choices and reasons are recorded in [ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md) and [ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). Remaining v0.2 search decisions are listed in [the task breakdown](tasks/v0.2.md).
+
 Lens keeps canonical Documents in PostgreSQL. Its full-text vector, normalized
 search text, and GIN indexes are derived from each Document's title and
 plain-text content, so they can be regenerated without fetching any source
@@ -101,6 +103,8 @@ search completeness or Japanese morphological analysis. Feed matching is unchang
 
 <details>
 <summary>日本語</summary>
+
+既存方式と理由は[ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md)と[ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)に記載する。残るv0.2の検索の判断は[タスク分解](tasks/v0.2.md)を参照する。
 
 ## 決算本文の検索
 

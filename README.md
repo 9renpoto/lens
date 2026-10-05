@@ -92,14 +92,10 @@ The generated [API reference](docs/api.md) describes the HTTP JSON contract.
 
 ## Next release planning
 
-The [v0.2 planning notes](docs/next-minor-plan.md) describe the agreed direction
-and remaining decisions for the earnings-collection pilot. See the
-[issue breakdown](docs/next-minor-issues.md),
-[source evaluation](docs/earnings-source-evaluation.md), and
-[domain glossary](CONTEXT.md) for implementation handoff context. These are
-planning documents, not descriptions of currently available capabilities.
-New planning documents use English with Japanese translations in collapsed
-sections.
+The [documentation index](docs/README.md) links the agreed ADRs, operational
+references and [v0.2 task breakdown](docs/tasks/v0.2.md). See the
+[domain glossary](CONTEXT.md) for shared terms. Planned capabilities are
+distinguished from existing implementation behavior.
 
 Delivery is tracked in [milestone v0.2](https://github.com/9renpoto/lens/milestone/2)
 and [issue #68](https://github.com/9renpoto/lens/issues/68).
@@ -109,7 +105,7 @@ and [issue #68](https://github.com/9renpoto/lens/issues/68).
 
 ## 次のリリースの計画
 
-[v0.2の計画](docs/next-minor-plan.md)に、決算情報の収集パイロットについて合意した方針と残る実施事項を記載しています。実装担当への引き継ぎには、[issue分解](docs/next-minor-issues.md)、[取得元の評価](docs/earnings-source-evaluation.md)、[用語集](CONTEXT.md)も参照してください。これらは計画資料であり、現在利用できる機能の説明ではありません。新しい計画ドキュメントは英語を本文とし、日本語訳を折りたたみ内に併記します。
+[文書一覧](docs/README.md)から合意したADR・操作資料・[v0.2タスク分解](docs/tasks/v0.2.md)を参照できます。共通の用語は[用語集](CONTEXT.md)に記載します。計画中の機能と既存実装の挙動を区別しています。
 
 実施状況は[v0.2マイルストーン](https://github.com/9renpoto/lens/milestone/2)と[issue #68](https://github.com/9renpoto/lens/issues/68)で管理します。
 

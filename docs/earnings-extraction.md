@@ -1,5 +1,7 @@
 # Extract retained earnings originals
 
+Current storage is PostgreSQL. The accepted [RustFS direction](adr/0005-store-pdfs-in-rustfs.md) requires integration and migration before these operations read objects from RustFS.
+
 Apply database migrations before processing. Run these commands in a fresh Mix
 process with the usual PostgreSQL configuration. The task starts only Ecto and
 the repository, and refuses to run if the collection scheduler is already
@@ -101,6 +103,8 @@ conditionally on unchanged plain text to avoid overwriting a concurrent success.
 
 ## Verification
 
+The optional historical runner comparison tool, `test/system/pdf_runner_comparison.exs`, writes its report to `PDF_COMPARISON_REPORT` or the system temporary directory (`lens-pdf-runner-samples.json`). It does not recreate archived planning documents.
+
 Synthetic PDFs and their ReportLab generator live in `test/fixtures/`.
 Build the helper with `cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner`
 for checkout development on Linux. `test/pdf_native_runner_check.sh` checks
@@ -116,6 +120,8 @@ only PostgreSQL available; do not use a production database.
 <summary>日本語</summary>
 
 # 保存した決算原本からの抽出
+
+現在の保存先はPostgreSQL。[RustFSの方針](adr/0005-store-pdfs-in-rustfs.md)は合意済みだが、これらの操作がRustFSから原本を読むには接続と移行が必要である。
 
 処理前にDBマイグレーションを適用する。通常のPostgreSQL設定を使い、新しい
 Mixプロセスで上記の4コマンドを実行する。タスクはEctoとRepoだけを起動し、
@@ -184,6 +190,8 @@ CPU上限を設ける。既定は20秒・本文8 MiB。`--timeout-ms`（1〜3000
 再構築は本文が変わっていない場合だけ更新し、同時に完了した成功本文を上書きしない。
 
 ## 検証
+
+任意の過去ランナー比較ツール`test/system/pdf_runner_comparison.exs`は、`PDF_COMPARISON_REPORT`またはシステム一時ディレクトリの`lens-pdf-runner-samples.json`へ報告を書き込む。削除した計画文書を再作成しない。
 
 合成PDFとReportLab生成器は `test/fixtures/` にある。
 Linuxのチェックアウト開発では
