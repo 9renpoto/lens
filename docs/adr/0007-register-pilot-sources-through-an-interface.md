@@ -12,6 +12,10 @@ Reuse `analysis_targets` as the shared security registry. Associate multiple acq
 
 Keep acquisition enablement per source, independent of the target's `active` flag. New sources default to enabled when the setting is omitted; operators can explicitly register a disabled source or stop an existing one. Registering a target alone does not create sources or start acquisition. Enablement makes a source eligible for collection; it does not specify when a crawl runs.
 
+Source registration uses an existing target ID and `listing_url`, with optional `enabled`; no additional source name or classifier settings are required. Reject duplicate listing URLs within one target. A source's target is fixed after registration, while its listing URL and enablement can change. Register a separate source for another target rather than reassigning its identity.
+
+Do not automatically import the former fixed three-company catalog or create targets during migration. Operators register their chosen targets and listing sources through the API. Preserve existing originals, acquisition records and HTTP checks independently of current source configuration; historical issuers do not require a newly registered source.
+
 Operators review acquisition and preservation conditions before registering or enabling an active source. Keep that review in the operating procedure rather than introducing a separate reviewed/approved state or approval gate in the application. Automated interpretation of publisher terms is outside this decision.
 
 The initial acquisition implementation supports PDFs, but source registration must not require PDF-specific fields or a document-format declaration. Discover published document links from the registered listing and handle external document hosts without routine manual host configuration. Registration and crawling do not depend on a particular document-category classifier. Existing request and response-size bounds remain applicable; detailed URL validation and transport behavior belong to implementation.
@@ -80,6 +84,10 @@ Existing #69–#74 retain their historical scope and foundations; the new tasks 
 `analysis_targets`を共通の銘柄台帳として再利用する。企業台帳を別に持たず、対象ごとに複数の取得先を関連付ける。取得先URLは資料一覧ページを示し、資料を直接指すURLではない。登録だけでは資料の企業・種類・対象期間の識別は確定しない。
 
 取得先ごとの有効状態を、対象の`active`と独立させる。新規取得先は指定を省略すると有効とし、運用者が明示的に無効で登録したり、既存取得先を停止したりできる。対象の登録だけでは取得先を作成せず、取得を開始しない。有効化は収集対象となることを意味し、クローリングの実行時期を指定するものではない。
+
+取得先登録には既存対象のIDと`listing_url`を使い、`enabled`を任意項目とする。取得先固有の名称や判定設定は必須にしない。同じ対象内で一覧URLの重複を拒否する。登録後の対象は固定し、一覧URLと有効状態は変更できる。別の対象には取得先を新規登録し、既存取得先の同一性を付け替えない。
+
+移行では従来の固定3社の台帳を自動取り込みせず、対象も作成しない。運用者が選んだ対象と一覧取得先をAPIから登録する。既存原本・取得記録・HTTP確認記録は現在の取得先設定と独立して保持し、過去の企業に取得先の新規登録を要求しない。
 
 運用者は、有効な取得先を登録または有効化する前に、取得・保存の条件を確認する。アプリに確認済み・承認済みの別状態や承認による有効化の制限を設けず、確認は運用手順に残す。発行元の利用条件の自動解釈はこの決定に含めない。
 

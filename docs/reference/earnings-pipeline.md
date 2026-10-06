@@ -1,6 +1,6 @@
 # Earnings discovery and identity reference
 
-This describes existing foundation functions, not an integrated collector. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [task A](../tasks/v0.2.md) must replace with registered configuration. The registration interface follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
+This describes existing foundation functions, not an integrated collector. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [#127](https://github.com/9renpoto/lens/issues/127) must replace with evidence-backed assessment. The [registration interface](earnings-sources.md) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
 
 ## Listing discovery
 
@@ -55,7 +55,7 @@ permission to acquire/preserve its PDFs. No new live-source check is claimed.
 
 `from_text/2` normalizes Unicode compatibility characters, including full-width
 digits. It requires an explicit matching `コード番号` and an unambiguous Japanese
-`YYYY年M月期 ... 決算短信` title. The current parser checks a configured fiscal month through a fixed implementation map; task A must replace that restriction with registered configuration. The stored
+`YYYY年M月期 ... 決算短信` title. The current parser checks a configured fiscal month through a fixed implementation map; [#127](https://github.com/9renpoto/lens/issues/127) must replace that restriction with evidence-backed assessment. The stored
 fiscal year-end comes from the PDF title, never a listing-year label or filename.
 The result uses the persistence period values `q1`, `q2`, `q3`, and `full_year`.
 A title without a quarter denotes full year. An explicit second-quarter
@@ -95,7 +95,7 @@ See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md)
 
 # 決算資料の発見・識別の参照情報
 
-既存の基盤関数の説明であり、一体化した収集処理ではない。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[タスクA](../tasks/v0.2.md)で登録設定へ置き換える必要がある。登録インターフェースは[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
+既存の基盤関数の説明であり、一体化した収集処理ではない。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[#127](https://github.com/9renpoto/lens/issues/127)で根拠に基づく判定へ置き換える必要がある。[登録インターフェース](earnings-sources.md)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
 
 ## 一覧からの発見
 
@@ -141,7 +141,7 @@ HTTP取得は初期URLと各リダイレクト先を、その先へ通信する�
 
 `from_text/2`は全角数字などUnicode互換文字を正規化する。企業と一致する
 `コード番号`と、一意な日本語の`YYYY年M月期 ... 決算短信`表題を必須とする。
-現行パーサーは実装内の固定マップで決算月を確認する。タスクAでこの制限を登録設定へ置き換える。
+現行パーサーは実装内の固定マップで決算月を確認する。[#127](https://github.com/9renpoto/lens/issues/127)でこの制限を根拠に基づく判定へ置き換える。
 決算期末はPDF表題から読み、一覧の年度ラベルやファイル名から補わない。
 保存期間値は`q1`・`q2`・`q3`・`full_year`。四半期表記のない表題は通期とする。明示的な第2四半期の`(中間期)`表記と、
 抽出された日付の各要素間の空白にも対応する。
