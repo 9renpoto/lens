@@ -21,6 +21,10 @@ defmodule LensWeb.Router do
     resources("/targets", TargetController, only: [:index, :show, :create])
     patch("/targets/:id", TargetController, :update)
     post("/targets/:id/deactivate", TargetController, :deactivate)
+    get("/targets/:target_id/earnings-sources", EarningsSourceController, :index)
+    post("/targets/:target_id/earnings-sources", EarningsSourceController, :create)
+    get("/targets/:target_id/earnings-sources/:id", EarningsSourceController, :show)
+    patch("/targets/:target_id/earnings-sources/:id", EarningsSourceController, :update)
     get("/targets/:target_id/memberships", TargetController, :index_memberships)
     post("/targets/:target_id/memberships", TargetController, :create_membership)
 
