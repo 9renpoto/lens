@@ -5,6 +5,22 @@ discovering information over time.
 
 ## Language
 
+**Analysis target**:
+A security selected by the operator for analysis. Being an analysis target does not itself mean that earnings acquisition is enabled.
+_Avoid_: Analytics target
+
+**Earnings acquisition source**:
+A route associated with an analysis target from which earnings documents can be discovered and acquired.
+
+**Document candidate**:
+An acquired document considered for inclusion among a target's earnings materials. Acquisition alone does not establish its document kind or reporting identity.
+
+**Document assessment**:
+A judgment about a candidate's relationship to an analysis target and earnings document kind, with supporting evidence. An inconclusive assessment leaves the candidate pending confirmation.
+
+**Operator decision**:
+An explicit human decision to adopt or exclude a document candidate. It is distinct from an automated document assessment.
+
 **Earnings release**:
 A company's published summary of its financial results for a reporting period.
 In the pilot, its identity is the company, fiscal year-end, reporting period
@@ -56,6 +72,22 @@ _Avoid_: Revision detection, period-over-period financial comparison
 Lensは、情報を継続して収集・保存・検索・発見するための個人向けWeb観測基盤です。
 
 ## 用語
+
+**Analysis target（分析対象）**:
+運用者が分析のために選んだ銘柄。分析対象であること自体は、決算資料の取得が有効であることを意味しない。
+_区別する語_: Analytics target
+
+**Earnings acquisition source（決算取得先）**:
+分析対象に関連付けられ、決算資料の発見と取得に使う経路。
+
+**Document candidate（資料候補）**:
+対象の決算資料に含めるかを検討する取得済み資料。取得だけでは資料種類や対象期間の識別は確定しない。
+
+**Document assessment（資料判定）**:
+候補と分析対象の関係や決算資料の種類について、根拠を伴う判断。判定できない場合は候補を確認待ちに残す。
+
+**Operator decision（運用者判断）**:
+資料候補を採用・除外する明示的な人間の判断。自動の資料判定とは区別する。
 
 **Earnings release（決算短信）**:
 企業が公表する、対象期間の決算の概要。
