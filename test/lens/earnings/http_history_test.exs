@@ -7,6 +7,34 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   @url "https://example.test/request.pdf"
   @final "https://example.test/actual.pdf"
 
+  test "records listing and PDF checks for issuers outside the former pilot without registration" do
+    for {kind, body} <- [{:listing, "<html>listing</html>"}, {:pdf, "%PDF-non-pilot"}] do
+      input =
+        attrs("non-pilot-#{kind}", :success, body)
+        |> Map.put(:issuer_code, "7203")
+        |> Map.put(:kind, kind)
+        |> Map.delete(:release)
+
+      assert {:ok, check} = HTTPHistory.record(input)
+      assert check.issuer_code == "7203"
+      assert {:ok, ^check} = HTTPHistory.record(input)
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 2
+    assert Repo.aggregate(Acquisition, :count) == 1
+  end
+
+  test "database bounds permit non-pilot listing issuers while still enforcing response bounds" do
+    input =
+      attrs("listing-bounds", :success, "<html>listing</html>")
+      |> Map.put(:kind, :listing)
+      |> Map.delete(:release)
+
+    assert {:ok, check} = HTTPHistory.record(input)
+    assert {1, nil} = Repo.insert_all(HTTPCheck, [copied_row(check, %{issuer_code: "7203"})])
+    assert_db_rejects(check, %{issuer_code: "7203", requests: 5}, :check_violation)
+  end
+
   test "persists an original and distinct publisher/acquisition facts atomically" do
     attrs = attrs("first", :success, "%PDF-first") |> Map.put(:published_on, ~D[2026-07-29])
     assert {:ok, check} = HTTPHistory.record(attrs)

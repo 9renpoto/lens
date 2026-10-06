@@ -1,56 +1,7 @@
 defmodule Lens.Earnings.DiscoveryTest do
   use ExUnit.Case, async: true
 
-  alias Lens.Earnings.{Discovery, Identity, SourceCatalog}
-
-  test "fixed sources remain inactive until acquisition conditions are resolved" do
-    sources = SourceCatalog.all()
-    assert Enum.map(sources, & &1.issuer_code) == ["6857", "9983", "8035"]
-    assert Enum.all?(sources, &(&1.enabled == false))
-    assert Enum.all?(sources, &(&1.disabled_reason == :acquisition_conditions_unresolved))
-    assert SourceCatalog.fetch("1234") == {:error, :unsupported_issuer}
-  end
-
-  test "catalog limits document URLs to the reviewed HTTPS issuer routes" do
-    for {issuer, url} <- [
-          {"6857", "https://www.advantest.com/document/ja/investors/ir-library/result/file.pdf"},
-          {"9983", "https://www.fastretailing.com/jp/ir/library/pdf/file.pdf"},
-          {"8035", "https://www.tel.co.jp/ir/library/report/archive/file.pdf"}
-        ] do
-      assert SourceCatalog.document_url_allowed?(issuer, url)
-      refute SourceCatalog.document_url_allowed?(issuer, String.replace(url, "https:", "http:"))
-
-      refute SourceCatalog.document_url_allowed?(
-               issuer,
-               String.replace(url, "https://", "https://user:password@")
-             )
-
-      uri = URI.parse(url)
-      refute SourceCatalog.document_url_allowed?(issuer, URI.to_string(%{uri | port: 444}))
-    end
-
-    refute SourceCatalog.document_url_allowed?("8035", "https://external.example/file.pdf")
-    refute SourceCatalog.document_url_allowed?("8035", "https://www.tel.co.jp/other/file.pdf")
-
-    refute SourceCatalog.document_url_allowed?(
-             "8035",
-             "https://www.tel.co.jp/ir/library/report/" <> <<255>> <> "file.pdf"
-           )
-
-    refute SourceCatalog.document_url_allowed?(
-             "1234",
-             "https://www.tel.co.jp/ir/library/report/file.pdf"
-           )
-  end
-
-  test "document route checks reject decoded traversal outside the reviewed prefix" do
-    for path <- ["../../outside.pdf", "%2e%2e/%2e%2e/outside.pdf", "..%2F..%2Foutside.pdf"] do
-      refute SourceCatalog.document_url_allowed?(
-               "8035",
-               "https://www.tel.co.jp/ir/library/report/" <> path
-             )
-    end
-  end
+  alias Lens.Earnings.{Discovery, Identity}
 
   test "discovers the exact URL sets from all source fixtures" do
     fixtures =

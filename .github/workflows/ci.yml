@@ -78,6 +78,12 @@ jobs:
           mix ecto.create
           mix run --no-start test/system/earnings_search_migration_check.exs
       - run: mix dialyzer
+      - name: Verify source registration migration preserves existing history
+        env:
+          POSTGRES_DB: lens_source_migration_test
+        run: |
+          mix ecto.create
+          mix run --no-start test/system/earnings_source_migration_check.exs
       - run: mix coveralls.lcov
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
