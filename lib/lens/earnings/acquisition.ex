@@ -39,7 +39,7 @@ defmodule Lens.Earnings.Acquisition do
     |> cast(attrs, [:acquisition_id, :issuer_code, :url, :acquired_at])
     |> validate_required([:acquisition_id, :issuer_code, :url, :acquired_at])
     |> validate_length(:acquisition_id, min: 1, max: 200)
-    |> validate_format(:issuer_code, ~r/^\d{4}$/)
+    |> validate_length(:issuer_code, min: 1, max: 50, count: :codepoints)
     |> validate_length(:url, max: 4096)
     |> validate_url()
   end

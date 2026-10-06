@@ -24,6 +24,42 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert Repo.aggregate(Acquisition, :count) == 1
   end
 
+  test "persists PDF history for a registered target with a non-four-digit security code" do
+    target = %Lens.Analysis.Target{}
+
+    assert {:ok, target} =
+             target
+             |> Lens.Analysis.Target.changeset(%{
+               security_code: "A7203",
+               market: "TSE",
+               display_name: "Example Corp",
+               sector: "Technology",
+               tags: [],
+               active: true
+             })
+             |> Repo.insert()
+
+    success = attrs("registered-target-success", :success, "%PDF-registered-target")
+    success = Map.put(success, :issuer_code, target.security_code)
+
+    assert {:ok, success_check} = HTTPHistory.record(success)
+    success_acquisition = Repo.get!(Acquisition, success_check.acquisition_id)
+    assert success_acquisition.issuer_code == target.security_code
+
+    assert Repo.get!(Lens.Earnings.Release, success_acquisition.release_id).issuer_code ==
+             target.security_code
+
+    failure = attrs("registered-target-failure", :failed, nil)
+    failure = Map.put(failure, :issuer_code, target.security_code)
+
+    assert {:ok, failure_check} = HTTPHistory.record(failure)
+
+    assert Repo.get!(Acquisition, failure_check.acquisition_id).issuer_code ==
+             target.security_code
+
+    assert Repo.aggregate(HTTPCheck, :count) == 2
+  end
+
   test "database bounds permit non-pilot listing issuers while still enforcing response bounds" do
     input =
       attrs("listing-bounds", :success, "<html>listing</html>")
