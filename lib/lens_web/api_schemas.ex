@@ -17,13 +17,6 @@ defmodule LensWeb.ApiSchemas do
           type: :boolean,
           description: """
           Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
-
-          <details>
-          <summary>日本語</summary>
-
-          取得先が収集候補として有効かどうか。有効化はHTTP取得の許可やクローリングの開始を意味しない。
-
-          </details>
           """
         }
       },
@@ -74,13 +67,6 @@ defmodule LensWeb.ApiSchemas do
               default: true,
               description: """
               Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
-
-              <details>
-              <summary>日本語</summary>
-
-              取得先が収集候補として有効かどうか。有効化はHTTP取得の許可やクローリングの開始を意味しない。
-
-              </details>
               """
             }
           },
@@ -111,13 +97,6 @@ defmodule LensWeb.ApiSchemas do
               type: :boolean,
               description: """
               Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
-
-              <details>
-              <summary>日本語</summary>
-
-              取得先が収集候補として有効かどうか。有効化はHTTP取得の許可やクローリングの開始を意味しない。
-
-              </details>
               """
             }
           },
