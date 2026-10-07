@@ -1,6 +1,6 @@
 # Earnings discovery and identity reference
 
-This describes existing foundation functions, not an integrated collector. `SourceCatalog`, `Identity`, `HTTPCheck` and the database still contain issuer restrictions that [task A](../tasks/v0.2.md) will remove. They do not define the accepted pilot policy: operators will register companies and routes through the API in [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Current routes remain disabled pending acquisition-condition review.
+This describes existing foundation functions, not an integrated collector. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [task A](../tasks/v0.2.md) must replace with registered configuration. The registration interface follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
 
 ## Listing discovery
 
@@ -30,17 +30,24 @@ Other explicit errors are `:listing_too_large`, `:invalid_html`, and
 per-original acquisition limit. This function does no network access or storage.
 
 Discovered links are untrusted candidates. Before any acquisition, the collector
-must check source activation and `SourceCatalog.document_url_allowed?/2` for the
-initial URL and every redirect target. That predicate allows only the catalog's
-HTTPS host on port 443 and reviewed PDF path prefix, without credentials or
-decoded dot-segment traversal. It does not authorize fetching a disabled route.
-New hosts/paths require source review. The bounded HTTP transport, per-company
-initial candidate filtering, acquisition state, schedule, and manual CLI remain
-subsequent work for [task E](../tasks/v0.2.md).
+must check source enablement and supply an explicit `allowed_url?` predicate to
+`Lens.Earnings.HTTP.fetch/2`. The transport applies that predicate to the initial
+URL and every redirect destination before contacting it; without a predicate,
+all URLs are rejected. Source registration and enablement are not URL-policy
+approval. `SourceCatalog` stores no document host/path policy and provides no
+route-authorization predicate. The collector's policy for listing and discovered
+document URLs, including external document hosts consistent with
+[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md), remains
+unimplemented. Policy implementation and collector integration belong to
+[#125](https://github.com/9renpoto/lens/issues/125) and
+[task E](../tasks/v0.2.md), together with per-company initial candidate filtering,
+acquisition state, scheduling, and the manual CLI. The bounded HTTP transport
+already exists; it must not be invoked without an explicit acquisition policy.
 
 Tests compare the exact discovered URL sets from all bundled source fixtures and
 exercise HTML parsing, relative links, provenance, heading transitions,
-duplicate fragments, input bounds, and reviewed route boundaries. Reduced
+duplicate fragments, and input bounds. HTTP tests separately verify rejection
+without a policy and rejection of redirect destinations before contact. Reduced
 fixtures do not prove compatibility with a publisher's complete live page or
 permission to acquire/preserve its PDFs. No new live-source check is claimed.
 
@@ -88,7 +95,7 @@ See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md)
 
 # 決算資料の発見・識別の参照情報
 
-既存の基盤関数の説明であり、一体化した収集処理ではない。`SourceCatalog`、`Identity`、`HTTPCheck`とDBには[タスクA](../tasks/v0.2.md)で除去する企業制限が残る。これは合意した対象方針ではなく、運用者は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)のAPIで企業と経路を登録する。現行経路は取得条件の確認待ちで無効のままである。
+既存の基盤関数の説明であり、一体化した収集処理ではない。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[タスクA](../tasks/v0.2.md)で登録設定へ置き換える必要がある。登録インターフェースは[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
 
 ## 一覧からの発見
 
@@ -113,15 +120,20 @@ HTML実体参照はパーサーで復号する。リンクはHTTP(S)、認証情
 `:listing_too_large`・`:invalid_html`・`:invalid_listing_url`。
 この発見上限は原本取得の20 MiB上限とは別。この関数は通信や保存を行わない。
 
-発見リンクは未確認候補。収集側は取得前に経路の有効状態を確認し、初期URLと全ての
-リダイレクト先で`SourceCatalog.document_url_allowed?/2`を確認する必要がある。
-この判定は台帳のHTTPSホスト・443ポート・検証済みPDFパス接頭辞だけを許容し、
-認証情報や復号後のドット区間による経路逸脱を拒否する。無効経路の取得許可ではない。
-新しいホスト・パスは取得元レビューが必要。上限付きHTTP取得、企業別初期候補選別、
-取得状態、日次実行、手動CLIは[タスクE](../tasks/v0.2.md)の後続作業。
+発見リンクは未確認候補。収集側は取得前に取得先の有効状態を確認し、
+`Lens.Earnings.HTTP.fetch/2`へ明示的な`allowed_url?`判定を渡す必要がある。
+HTTP取得は初期URLと各リダイレクト先を、その先へ通信する前に判定し、判定が
+未指定なら全URLを拒否する。取得先の登録・有効化はURLポリシーの承認ではない。
+`SourceCatalog`は資料のホスト・パスポリシーを保持せず、経路の取得許可判定も提供しない。
+一覧URLと発見した資料URLに対する収集側のポリシーは、
+[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に沿う外部資料ホストへの対応を含め、未実装である。
+ポリシーの実装と収集への接続は[#125](https://github.com/9renpoto/lens/issues/125)と
+[タスクE](../tasks/v0.2.md)で、企業別初期候補選別、取得状態、日次実行、手動CLIとともに扱う。
+上限付きHTTP取得は実装済みであり、明示的な取得ポリシーなしに呼び出してはならない。
 
 テストは同梱されたすべての取得元固定データのリンク集合を完全比較し、HTML解析、相対リンク、
-出典保持、見出し遷移、フラグメント重複、入力上限、検証済み経路境界を確認する。
+出典保持、見出し遷移、フラグメント重複、入力上限を確認する。HTTPテストでは別途、
+ポリシー未指定時の拒否と、リダイレクト先への通信前の拒否を確認する。
 縮小した固定データだけで発行元の実ページ全体との互換性やPDF取得・保存の許可を
 実証したとは扱わない。新しい実サイト確認を行ったとは主張しない。
 
