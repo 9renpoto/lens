@@ -1,6 +1,6 @@
 # Earnings discovery and identity reference
 
-This describes existing foundation functions, not an integrated collector. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [#127](https://github.com/9renpoto/lens/issues/127) must replace with evidence-backed assessment. The [registration interface](earnings-sources.md) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
+This describes existing foundation functions, not an integrated collector. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [#127](https://github.com/9renpoto/lens/issues/127) must replace with evidence-backed assessment. The [registration interface](https://9renpoto.github.io/lens/) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
 
 ## Listing discovery
 
@@ -95,7 +95,7 @@ See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md)
 
 # 決算資料の発見・識別の参照情報
 
-既存の基盤関数の説明であり、一体化した収集処理ではない。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[#127](https://github.com/9renpoto/lens/issues/127)で根拠に基づく判定へ置き換える必要がある。[登録インターフェース](earnings-sources.md)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
+既存の基盤関数の説明であり、一体化した収集処理ではない。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[#127](https://github.com/9renpoto/lens/issues/127)で根拠に基づく判定へ置き換える必要がある。[登録インターフェース](https://9renpoto.github.io/lens/)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
 
 ## 一覧からの発見
 

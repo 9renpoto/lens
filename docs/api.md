@@ -25,7 +25,7 @@ Operators can manage analysis targets and effective-dated Nikkei 225 membership 
 
 ## Earnings source management API
 
-Register, list, inspect and partially update sources under `/api/targets/:target_id/earnings-sources`. See [source registration](reference/earnings-sources.md) for request examples, enablement, URL validation and migration/compatibility behavior. The existing `/api/sources` endpoints continue to manage feed sources.
+Register, list, inspect and partially update sources under `/api/targets/:target_id/earnings-sources`. Use the [generated OpenAPI reference](https://9renpoto.github.io/lens/) for request examples, enablement and URL validation. [ADR 0007](adr/0007-register-pilot-sources-through-an-interface.md#registration-migration-and-compatibility) records registration decisions and migration/compatibility behavior. The existing `/api/sources` endpoints continue to manage feed sources.
 
 ## Generate locally
 
@@ -79,7 +79,7 @@ GitHub Actions経由で公開するようGitHub Pagesを設定すると、リフ
 
 ## 決算取得先の管理API
 
-`/api/targets/:target_id/earnings-sources`配下で取得先の登録・一覧・詳細・部分更新を提供する。リクエスト例、有効状態、URL検証、移行・互換性の挙動は[取得先登録](reference/earnings-sources.md)を参照する。既存の`/api/sources`エンドポイントは引き続きフィード取得先を管理する。
+`/api/targets/:target_id/earnings-sources`配下で取得先の登録・一覧・詳細・部分更新を提供する。リクエスト例、有効状態、URL検証は[生成OpenAPIリファレンス](https://9renpoto.github.io/lens/)を参照する。登録方針と移行・互換性の挙動は[ADR 0007](adr/0007-register-pilot-sources-through-an-interface.md#registration-migration-and-compatibility)に記録する。既存の`/api/sources`エンドポイントは引き続きフィード取得先を管理する。
 
 ## ローカルでの生成
 

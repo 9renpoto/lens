@@ -19,6 +19,11 @@ defmodule LensWeb.EarningsSourceController do
 
   operation :index,
     summary: "List earnings sources for a target",
+    description: """
+    Return all registered sources for an existing analysis target, including disabled sources.
+    Each target may have multiple listing sources. Source enablement is independent of the
+    target's active flag and index memberships. An unknown or malformed target ID returns 404.
+    """,
     parameters: [
       target_id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]
     ],
@@ -29,6 +34,10 @@ defmodule LensWeb.EarningsSourceController do
 
   operation :show,
     summary: "Inspect an earnings source",
+    description: """
+    Return a source belonging to the target in the path. An unknown or malformed target/source
+    ID, or a source belonging to a different target, returns 404 with {"error":"not_found"}.
+    """,
     parameters: [
       target_id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}],
       id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]
@@ -40,6 +49,24 @@ defmodule LensWeb.EarningsSourceController do
 
   operation :create,
     summary: "Register an earnings listing source",
+    description: """
+    First register or select an existing analysis target through /api/targets; index membership
+    is optional. Send a JSON source object with listing_url and optional enabled. The target ID
+    comes from the path and cannot be supplied in the body. Omitted enabled defaults to true;
+    explicit false registers a disabled source. No source name, PDF, classifier or approval
+    settings are required. Registering a target alone creates no source.
+
+    Review the publisher's acquisition and preservation conditions before registering or
+    enabling an active source. Lens has no approval state or automatic terms assessment.
+    Registration does not contact publishers, authorize HTTP acquisition or start a crawl.
+    Registered-source crawling remains work in #125.
+
+    An exactly matching listing_url is unique within a target; different targets may use the
+    same URL. URLs are not canonicalized or rewritten. Missing/invalid attributes, a missing
+    or non-object source, a supplied target_id, or a duplicate URL return 422 with field errors
+    in errors. An unknown or malformed target ID with a valid source object returns 404.
+    Existing /api/sources endpoints continue to manage feed sources separately.
+    """,
     parameters: [
       target_id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]
     ],
@@ -53,6 +80,18 @@ defmodule LensWeb.EarningsSourceController do
 
   operation :update,
     summary: "Change a source URL or enablement; omitted fields are preserved",
+    description: """
+    Send a JSON source object containing listing_url and/or enabled. Omitted fields retain
+    their values; {"source":{}} is a valid no-op. Set enabled to false to stop collection
+    eligibility. Explicit null/blank URL or enablement and invalid boolean values return 422.
+
+    The source ID and target stay fixed when the URL changes. Supplying target_id or changing
+    the URL to another source's exact URL within the target returns 422. Register a new source
+    for a different target. There is no deletion endpoint; disable unwanted sources instead.
+    Changes do not relabel historical URLs or issuers, authorize HTTP acquisition or start a crawl.
+    An unknown or malformed target/source ID, or a source belonging to a different target,
+    with a valid source object returns 404 with {"error":"not_found"}.
+    """,
     parameters: [
       target_id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}],
       id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]

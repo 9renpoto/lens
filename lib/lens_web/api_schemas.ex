@@ -12,7 +12,11 @@ defmodule LensWeb.ApiSchemas do
       properties: %{
         id: %Schema{type: :string, format: :uuid},
         target_id: %Schema{type: :string, format: :uuid},
-        listing_url: %Schema{type: :string, format: :uri},
+        listing_url: %Schema{
+          type: :string,
+          format: :uri,
+          description: "The listing-page URL as registered, without canonicalization."
+        },
         enabled: %Schema{
           type: :boolean,
           description: """
@@ -52,6 +56,9 @@ defmodule LensWeb.ApiSchemas do
     OpenApiSpex.schema(%{
       title: "CreateEarningsSourceRequest",
       type: :object,
+      example: %{
+        source: %{listing_url: "https://publisher.example/ir/results", enabled: false}
+      },
       properties: %{
         source: %Schema{
           type: :object,
@@ -59,8 +66,12 @@ defmodule LensWeb.ApiSchemas do
             listing_url: %Schema{
               type: :string,
               format: :uri,
-              description:
-                "HTTP(S) listing page, without credentials or fragments, at most 2048 bytes; direct PDF URLs are rejected"
+              description: """
+              Absolute HTTP(S) listing-page URL with a nonempty host, no credentials, whitespace,
+              control characters or fragments, and at most 2048 UTF-8 bytes. Paths ending in .pdf
+              are rejected after percent decoding, without case sensitivity. Validation does not
+              fetch the page or establish that its content is a listing; the operator selects it.
+              """
             },
             enabled: %Schema{
               type: :boolean,
@@ -83,6 +94,7 @@ defmodule LensWeb.ApiSchemas do
     OpenApiSpex.schema(%{
       title: "UpdateEarningsSourceRequest",
       type: :object,
+      example: %{source: %{enabled: false}},
       properties: %{
         source: %Schema{
           type: :object,
@@ -90,8 +102,12 @@ defmodule LensWeb.ApiSchemas do
             listing_url: %Schema{
               type: :string,
               format: :uri,
-              description:
-                "HTTP(S) listing page, without credentials or fragments, at most 2048 bytes; direct PDF URLs are rejected"
+              description: """
+              Absolute HTTP(S) listing-page URL with a nonempty host, no credentials, whitespace,
+              control characters or fragments, and at most 2048 UTF-8 bytes. Paths ending in .pdf
+              are rejected after percent decoding, without case sensitivity. Validation does not
+              fetch the page or establish that its content is a listing; the operator selects it.
+              """
             },
             enabled: %Schema{
               type: :boolean,
