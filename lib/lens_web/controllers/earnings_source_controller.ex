@@ -43,7 +43,8 @@ defmodule LensWeb.EarningsSourceController do
     parameters: [
       target_id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]
     ],
-    request_body: {"Source attributes", "application/json", CreateEarningsSourceRequest},
+    request_body:
+      {"Source attributes", "application/json", CreateEarningsSourceRequest, required: true},
     responses: [
       created: {"Registered source", "application/json", EarningsSourceResponse},
       not_found: {"Target not found", "application/json", ErrorResponse},
@@ -56,7 +57,8 @@ defmodule LensWeb.EarningsSourceController do
       target_id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}],
       id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]
     ],
-    request_body: {"Source changes", "application/json", UpdateEarningsSourceRequest},
+    request_body:
+      {"Source changes", "application/json", UpdateEarningsSourceRequest, required: true},
     responses: [
       ok: {"Updated source", "application/json", EarningsSourceResponse},
       not_found: {"Source not found", "application/json", ErrorResponse},

@@ -1,6 +1,19 @@
 defmodule LensWeb.ApiSpecTest do
   use ExUnit.Case, async: true
 
+  test "earnings source creation and updates require a JSON request body" do
+    document = LensWeb.ApiSpec.spec() |> Jason.encode!() |> Jason.decode!()
+
+    for {path, method} <- [
+          {"/api/targets/{target_id}/earnings-sources", "post"},
+          {"/api/targets/{target_id}/earnings-sources/{id}", "patch"}
+        ] do
+      body = document["paths"][path][method]["requestBody"]
+      assert body["required"] == true
+      assert body["content"]["application/json"]["schema"]
+    end
+  end
+
   test "describes every public JSON API operation" do
     document =
       LensWeb.ApiSpec.spec()
