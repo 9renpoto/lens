@@ -3,13 +3,20 @@
 `Lens.Earnings.HTTP.fetch/2` provides the transport foundation for
 [#71](https://github.com/9renpoto/lens/issues/71). It performs no database writes,
 identity confirmation, scheduling, or extraction. The collector must enforce
-source activation and request cadence before invoking it. Source registration
-and collector integration remain [planned work](../tasks/v0.2.md).
+source activation and request cadence before invoking it. Source persistence is
+implemented; the registration interface and collector integration remain [planned work](../tasks/v0.2.md).
 An explicit `allowed_url?` predicate is required. Without one, every URL is
 rejected before a request. The predicate is applied to the initial URL and each
 redirect destination before that destination is contacted. URLs must use
 HTTP(S), have a host, and contain no embedded credentials. Production document
-policies must also apply the catalog's reviewed-document route predicate.
+policies are the caller's responsibility. `SourceCatalog` stores registered
+listing sources but provides no document route-authorization predicate.
+Registering or enabling a source does not authorize its listing or document
+URLs. The collector must supply an explicit acquisition policy; its implementation,
+including support for external document hosts under
+[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md), remains
+[#125](https://github.com/9renpoto/lens/issues/125) work. Until that policy is
+available, collector acquisition must not start.
 
 ## Bounds and response handling
 
@@ -80,11 +87,17 @@ and capped retry/backoff remains subsequent stack work.
 
 `Lens.Earnings.HTTP.fetch/2`は[#71](https://github.com/9renpoto/lens/issues/71)の取得基盤。
 DB書込・識別確定・日次実行・抽出は行わない。収集側は呼び出し前に取得元の有効状態と
-巡回間隔を確認する。取得先の登録と収集への接続は[計画中の作業](../tasks/v0.2.md)。
+巡回間隔を確認する。取得先の永続化は実装済みで、登録インターフェースと収集への
+接続は[計画中の作業](../tasks/v0.2.md)。
 明示的な`allowed_url?`判定が必須で、指定がなければ通信前に全URLを拒否する。
 初期URLと各リダイレクト先を、その先へ通信する前に判定する。URLはHTTP(S)、
-ホストあり、埋め込み認証情報なしを必須とする。本番資料の判定では台帳の検証済み
-資料経路の判定も適用する必要がある。
+ホストあり、埋め込み認証情報なしを必須とする。本番資料のポリシーは呼び出し側の責務。
+`SourceCatalog`は登録済みの一覧取得先を保持するが、資料経路の取得許可判定は提供しない。
+取得先の登録・有効化は一覧URLや資料URLへの取得許可ではない。収集側は明示的な
+取得ポリシーを渡す必要があり、その実装は
+[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う外部資料ホストへの対応を含め、
+[#125](https://github.com/9renpoto/lens/issues/125)で扱う。
+そのポリシーが利用可能になるまで収集による取得を開始してはならない。
 
 ## 上限と応答処理
 

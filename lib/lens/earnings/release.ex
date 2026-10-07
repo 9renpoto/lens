@@ -16,7 +16,7 @@ defmodule Lens.Earnings.Release do
     release
     |> cast(attrs, [:issuer_code, :fiscal_year_end, :period, :category])
     |> validate_required([:issuer_code, :fiscal_year_end, :period, :category])
-    |> validate_format(:issuer_code, ~r/^\d{4}$/)
+    |> validate_length(:issuer_code, min: 1, max: 50, count: :codepoints)
     |> validate_inclusion(:period, ~w(q1 q2 q3 full_year))
     |> validate_length(:category, min: 1, max: 100)
     |> unique_constraint([:issuer_code, :fiscal_year_end, :period, :category])

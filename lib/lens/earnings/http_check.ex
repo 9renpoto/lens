@@ -39,7 +39,7 @@ defmodule Lens.Earnings.HTTPCheck do
       ~w(check_id issuer_code kind url final_url checked_at status requests retryable metadata response_headers)a
     )
     |> validate_length(:check_id, min: 1, max: 180)
-    |> validate_inclusion(:issuer_code, ~w(6857 9983 8035))
+    |> validate_length(:issuer_code, min: 1, max: 50, count: :codepoints)
     |> validate_inclusion(:kind, ~w(pdf listing))
     |> validate_inclusion(:status, ~w(success not_modified failed))
     |> validate_number(:requests, greater_than_or_equal_to: 0, less_than_or_equal_to: 4)
