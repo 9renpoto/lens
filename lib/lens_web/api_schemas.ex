@@ -3,6 +3,110 @@ defmodule LensWeb.ApiSchemas do
 
   alias OpenApiSpex.Schema
 
+  defmodule EarningsSource do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "EarningsSource",
+      type: :object,
+      properties: %{
+        id: %Schema{type: :string, format: :uuid},
+        target_id: %Schema{type: :string, format: :uuid},
+        listing_url: %Schema{type: :string, format: :uri},
+        enabled: %Schema{
+          type: :boolean,
+          description: """
+          Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
+          """
+        }
+      },
+      required: [:id, :target_id, :listing_url, :enabled]
+    })
+  end
+
+  defmodule EarningsSourceResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "EarningsSourceResponse",
+      type: :object,
+      properties: %{source: EarningsSource},
+      required: [:source]
+    })
+  end
+
+  defmodule EarningsSourcesResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "EarningsSourcesResponse",
+      type: :object,
+      properties: %{sources: %Schema{type: :array, items: EarningsSource}},
+      required: [:sources]
+    })
+  end
+
+  defmodule CreateEarningsSourceRequest do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "CreateEarningsSourceRequest",
+      type: :object,
+      properties: %{
+        source: %Schema{
+          type: :object,
+          properties: %{
+            listing_url: %Schema{
+              type: :string,
+              format: :uri,
+              description:
+                "HTTP(S) listing page, without credentials or fragments, at most 2048 bytes; direct PDF URLs are rejected"
+            },
+            enabled: %Schema{
+              type: :boolean,
+              default: true,
+              description: """
+              Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
+              """
+            }
+          },
+          required: [:listing_url]
+        }
+      },
+      required: [:source]
+    })
+  end
+
+  defmodule UpdateEarningsSourceRequest do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "UpdateEarningsSourceRequest",
+      type: :object,
+      properties: %{
+        source: %Schema{
+          type: :object,
+          properties: %{
+            listing_url: %Schema{
+              type: :string,
+              format: :uri,
+              description:
+                "HTTP(S) listing page, without credentials or fragments, at most 2048 bytes; direct PDF URLs are rejected"
+            },
+            enabled: %Schema{
+              type: :boolean,
+              description: """
+              Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
+              """
+            }
+          },
+          description: "Omitted fields are preserved. target_id cannot be supplied or changed."
+        }
+      },
+      required: [:source]
+    })
+  end
+
   defmodule HealthResponse do
     require OpenApiSpex
 
