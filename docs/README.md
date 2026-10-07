@@ -8,7 +8,7 @@ Use ADRs for decisions and their reasons, GitHub issues for current implementati
 - Operations: [deployment](deployment.md), [backup and recovery](operations.md), [ingestion](ingestion.md), [PDF extraction](earnings-extraction.md), [search](search.md).
 - Reference: [API](api.md), [pipeline](reference/earnings-pipeline.md), [HTTP transport](reference/earnings-http.md), [HTTP history](reference/earnings-http-history.md), [run budgets](reference/earnings-run-budget.md), [glossary](../CONTEXT.md).
 
-The implementation currently stores PDF bytes in PostgreSQL. RustFS and source registration are accepted directions awaiting implementation; their ADRs are not claims of operational availability. Local k3s Lens is the agreed deployment-verification environment.
+The implementation currently stores PDF bytes in PostgreSQL. Source registration is implemented; its API contract is in the generated OpenAPI, and its decisions and migration/compatibility contract are in ADR 0007. RustFS remains an accepted direction awaiting implementation; its ADR is not a claim of operational availability. Local k3s Lens is the agreed deployment-verification environment.
 
 <details>
 <summary>日本語</summary>
@@ -23,6 +23,6 @@ The implementation currently stores PDF bytes in PostgreSQL. RustFS and source r
 - 操作：[配置](deployment.md)、[バックアップ・復旧](operations.md)、[取り込み](ingestion.md)、[PDF抽出](earnings-extraction.md)、[検索](search.md)。
 - 参照：[API](api.md)、[処理基盤](reference/earnings-pipeline.md)、[HTTP取得](reference/earnings-http.md)、[HTTP履歴](reference/earnings-http-history.md)、[実行予算](reference/earnings-run-budget.md)、[用語集](../CONTEXT.md)。
 
-現在の実装はPDFバイト列をPostgreSQLへ保存する。RustFSと取得先登録は合意した方針だが実装待ちであり、ADRは利用可能という主張ではない。実環境の検証にはローカルk3s上のLensを使う。
+現在の実装はPDFバイト列をPostgreSQLへ保存する。取得先登録は実装済みで、API契約は生成OpenAPI、判断と移行・互換性の契約はADR 0007に記載する。RustFSは合意した方針だが実装待ちであり、そのADRは利用可能という主張ではない。実環境の検証にはローカルk3s上のLensを使う。
 
 </details>

@@ -12,9 +12,34 @@ Reuse `analysis_targets` as the shared security registry. Associate multiple acq
 
 Keep acquisition enablement per source, independent of the target's `active` flag. New sources default to enabled when the setting is omitted; operators can explicitly register a disabled source or stop an existing one. Registering a target alone does not create sources or start acquisition. Enablement makes a source eligible for collection; it does not specify when a crawl runs.
 
+Source registration uses an existing target ID and `listing_url`, with optional `enabled`; no additional source name or classifier settings are required. Reject duplicate listing URLs within one target. A source's target is fixed after registration, while its listing URL and enablement can change. Register a separate source for another target rather than reassigning its identity.
+
+Do not automatically import the former fixed three-company catalog or create targets during migration. Operators register their chosen targets and listing sources through the API. Preserve existing originals, acquisition records and HTTP checks independently of current source configuration; historical issuers do not require a newly registered source.
+
 Operators review acquisition and preservation conditions before registering or enabling an active source. Keep that review in the operating procedure rather than introducing a separate reviewed/approved state or approval gate in the application. Automated interpretation of publisher terms is outside this decision.
 
 The initial acquisition implementation supports PDFs, but source registration must not require PDF-specific fields or a document-format declaration. Discover published document links from the registered listing and handle external document hosts without routine manual host configuration. Registration and crawling do not depend on a particular document-category classifier. Existing request and response-size bounds remain applicable; detailed URL validation and transport behavior belong to implementation.
+
+## Registration migration and compatibility
+
+Keep the HTTP registration contract, examples and validation rules in the [generated OpenAPI reference](https://9renpoto.github.io/lens/). Keep the registration decisions and migration/compatibility contract in this ADR rather than adding a separate source-registration reference. The API publishing and local generation procedure is in [API documentation](../api.md).
+
+Apply `mix ecto.migrate` before serving the registration API. `20261006000000` creates `earnings_sources` with a restricted target foreign key, per-target URL uniqueness and enabled-by-default rows, without importing the former catalog or creating targets. The 2048-byte listing URL bound keeps full-URL uniqueness within PostgreSQL's index entry bound. Operators manually register any former pilot routes they want to retain.
+
+`20261006000100` replaces the former three-issuer restriction in `earnings_http_check_bounds` with a nonblank issuer code of 1–50 characters. Request counts, HTTP status and PDF/listing byte caps remain enforced. Existing original, acquisition, HTTP check and assessment rows and history immutability triggers are preserved. Historical checks need no registered source. `HTTPHistory.record/1` retains its input/result contract and persistence retries for previous issuer codes. Source changes do not relabel historical URLs or issuers.
+
+Whitelist removal is forward-only: rollback could reject new issuer history. Its `down` migration fails explicitly rather than deleting history or restoring an incompatible constraint. Use a coordinated pre-migration backup if restoring the old schema is necessary.
+
+The existing `/api/sources` feed API and `/api/targets` responses retain their contracts. `SourceCatalog.all/0` reads registered sources and current target names; `all(enabled_only: true)` filters only by source enablement. `for_issuer/1` returns all routes. `fetch/1` returns a route only when exactly one is registered, `:unsupported_issuer` for none, or `:multiple_sources` for multiple routes, including disabled ones. The obsolete fixed host/path helper `document_url_allowed?/2` is removed. Registration supplies no document URL permission policy: HTTP acquisition still requires an explicit `allowed_url?` predicate for the initial URL and every redirect. Registered-source crawling and its external-host policy remain #125 work; fixed-issuer classifier changes remain #127 work.
+
+Verify forward migration against an empty disposable database:
+
+```sh
+MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix ecto.create
+MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix run --no-start test/system/earnings_source_migration_check.exs
+```
+
+The check seeds old-schema successes and a failure, compares prior original/acquisition/check/target rows after migration, verifies no automatic source import, changes source settings without changing history, exercises existing persistence callers and new issuers, and verifies history immutability. API tests cover a synthetic non-pilot `7203` target with no membership and `active: false`, multiple sources, defaults, explicit false, partial updates, duplicates, isolation and URL validation. Existing feed/target tests cover client compatibility, and HTTP history tests cover non-pilot listing/PDF checks and retained bounds. These deterministic checks do not establish live publisher access or local k3s verification; the broader workflow remains #131 work.
 
 ## Assessment and recording boundary
 
@@ -81,9 +106,34 @@ Existing #69–#74 retain their historical scope and foundations; the new tasks 
 
 取得先ごとの有効状態を、対象の`active`と独立させる。新規取得先は指定を省略すると有効とし、運用者が明示的に無効で登録したり、既存取得先を停止したりできる。対象の登録だけでは取得先を作成せず、取得を開始しない。有効化は収集対象となることを意味し、クローリングの実行時期を指定するものではない。
 
+取得先登録には既存対象のIDと`listing_url`を使い、`enabled`を任意項目とする。取得先固有の名称や判定設定は必須にしない。同じ対象内で一覧URLの重複を拒否する。登録後の対象は固定し、一覧URLと有効状態は変更できる。別の対象には取得先を新規登録し、既存取得先の同一性を付け替えない。
+
+移行では従来の固定3社の台帳を自動取り込みせず、対象も作成しない。運用者が選んだ対象と一覧取得先をAPIから登録する。既存原本・取得記録・HTTP確認記録は現在の取得先設定と独立して保持し、過去の企業に取得先の新規登録を要求しない。
+
 運用者は、有効な取得先を登録または有効化する前に、取得・保存の条件を確認する。アプリに確認済み・承認済みの別状態や承認による有効化の制限を設けず、確認は運用手順に残す。発行元の利用条件の自動解釈はこの決定に含めない。
 
 初期の取得実装はPDFに対応するが、取得先登録ではPDF固有の項目や資料形式の指定を必須にしない。登録した一覧から公開された資料リンクを発見し、通常の手動ドメイン設定なしで外部の資料ドメインにも対応する。登録・クローリングは特定の資料種類の判定処理に依存させない。既存のリクエスト・応答サイズの上限を引き続き適用し、詳細なURL検証と取得時の挙動は実装で決める。
+
+## 登録の移行と互換性
+
+HTTP登録の契約・例・検証規則は[生成OpenAPIリファレンス](https://9renpoto.github.io/lens/)に集約する。登録方針と移行・互換性の契約は、独立した取得先登録の参照資料を追加せず、このADRに保持する。APIの公開とローカル生成の手順は[APIドキュメント](../api.md)に記載する。
+
+登録APIを提供する前に`mix ecto.migrate`を適用する。`20261006000000`は、対象削除を制限する外部キー、対象ごとのURL一意性、有効が既定の行を持つ`earnings_sources`を作成し、従来の台帳の取り込みや対象の作成は行わない。一覧URLの2048バイト上限により完全なURLの一意性インデックスもPostgreSQLのインデックス項目上限に収まる。従来のパイロット経路を引き続き使う場合も、運用者が手動登録する。
+
+`20261006000100`は`earnings_http_check_bounds`の固定3社制限を、空白だけではない1〜50文字の企業コードに置き換える。リクエスト回数・HTTPステータス・PDF／一覧のバイト上限は維持する。既存の原本・取得・HTTP確認・判定の行と履歴変更禁止トリガーを保持する。過去の確認履歴には取得先登録を要求しない。`HTTPHistory.record/1`の入力・結果契約と以前の企業コードでの保存再試行を維持する。取得先変更で過去のURLや企業を付け替えない。
+
+企業制限の解除は前進専用とする。戻すと新しい企業の履歴を拒否し得るため、`down`マイグレーションは履歴削除や互換性のない制約の復元を行わず、明示的に失敗する。旧スキーマへの復元が必要なら、移行前の整合したバックアップを使う。
+
+既存のフィードAPI `/api/sources`と`/api/targets`応答の契約を維持する。`SourceCatalog.all/0`は登録取得先と現在の対象名を読み、`all(enabled_only: true)`は取得先の有効状態だけで絞る。`for_issuer/1`は全経路を返す。`fetch/1`は登録がちょうど1件の場合だけその経路を返し、0件なら`:unsupported_issuer`、無効な取得先も含め複数なら`:multiple_sources`を返す。固定ホスト・パス用の古い関数`document_url_allowed?/2`は削除する。登録は資料URLの取得許可ポリシーを提供しない。HTTP取得には引き続き初期URLと各リダイレクト先に適用する明示的な`allowed_url?`判定が必要。登録取得先のクローリングと外部ホストのポリシーは#125、固定企業の判定器変更は#127の作業として残る。
+
+空の使い捨てDBで前進マイグレーションを検証する：
+
+```sh
+MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix ecto.create
+MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix run --no-start test/system/earnings_source_migration_check.exs
+```
+
+旧スキーマに成功と失敗の記録を作り、移行後に既存の原本／取得／確認／対象の行を比較する。自動取得先取り込みがないこと、設定変更で履歴が変わらないこと、既存の保存呼び出しと新しい企業、履歴の変更禁止を確認する。APIテストでは固定3社外の合成対象`7203`を使い、所属なし・`active: false`、複数取得先、既定値、明示的なfalse、部分更新、重複、対象の分離、URL検証を確認する。既存のフィード／対象テストでクライアント互換性を確認し、HTTP履歴テストで固定3社外の一覧／PDF確認と維持した上限を検証する。この再現可能な検証は実サイトへのアクセスやローカルk3sでの検証を証明しない。広いフローは#131の作業として残る。
 
 ## 判定と記録の境界
 
