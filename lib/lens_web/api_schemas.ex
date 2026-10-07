@@ -13,7 +13,19 @@ defmodule LensWeb.ApiSchemas do
         id: %Schema{type: :string, format: :uuid},
         target_id: %Schema{type: :string, format: :uuid},
         listing_url: %Schema{type: :string, format: :uri},
-        enabled: %Schema{type: :boolean}
+        enabled: %Schema{
+          type: :boolean,
+          description: """
+          Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
+
+          <details>
+          <summary>日本語</summary>
+
+          取得先が収集候補として有効かどうか。有効化はHTTP取得の許可やクローリングの開始を意味しない。
+
+          </details>
+          """
+        }
       },
       required: [:id, :target_id, :listing_url, :enabled]
     })
@@ -57,7 +69,20 @@ defmodule LensWeb.ApiSchemas do
               description:
                 "HTTP(S) listing page, without credentials or fragments, at most 2048 bytes; direct PDF URLs are rejected"
             },
-            enabled: %Schema{type: :boolean, default: true}
+            enabled: %Schema{
+              type: :boolean,
+              default: true,
+              description: """
+              Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
+
+              <details>
+              <summary>日本語</summary>
+
+              取得先が収集候補として有効かどうか。有効化はHTTP取得の許可やクローリングの開始を意味しない。
+
+              </details>
+              """
+            }
           },
           required: [:listing_url]
         }
@@ -82,7 +107,19 @@ defmodule LensWeb.ApiSchemas do
               description:
                 "HTTP(S) listing page, without credentials or fragments, at most 2048 bytes; direct PDF URLs are rejected"
             },
-            enabled: %Schema{type: :boolean}
+            enabled: %Schema{
+              type: :boolean,
+              description: """
+              Whether the source is an enabled collection candidate. Enabling it does not authorize HTTP acquisition or start a crawl.
+
+              <details>
+              <summary>日本語</summary>
+
+              取得先が収集候補として有効かどうか。有効化はHTTP取得の許可やクローリングの開始を意味しない。
+
+              </details>
+              """
+            }
           },
           description: "Omitted fields are preserved. target_id cannot be supplied or changed."
         }
