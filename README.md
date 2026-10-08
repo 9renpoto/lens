@@ -95,11 +95,11 @@ The generated [API reference](docs/api.md) describes the HTTP JSON contract.
 The [documentation index](docs/README.md) links agreed ADRs and operational
 references. See the [ADR maintenance policy](docs/adr/README.md) and
 [domain glossary](CONTEXT.md) for decision management and shared terms.
-Planning documents are deprecated; the temporary `docs/tasks/v0.2.md` summary,
-other temporary planning files and their links must be removed before creating
-the v0.2 tag, after required content has been
-moved to ADRs, maintained references or GitHub issues. Planned capabilities
-are distinguished from existing implementation behavior.
+Planning documents are deprecated. Required content from the temporary v0.2 task
+summary is maintained in ADRs, operational references and GitHub issues; the
+summary has been removed. Check for other temporary planning files and their
+links before creating the v0.2 tag. Planned capabilities remain distinct from
+existing implementation behavior.
 
 Delivery is tracked in [milestone v0.2](https://github.com/9renpoto/lens/milestone/2)
 and [issue #68](https://github.com/9renpoto/lens/issues/68).
@@ -109,7 +109,7 @@ and [issue #68](https://github.com/9renpoto/lens/issues/68).
 
 ## 次のリリースの計画
 
-[文書一覧](docs/README.md)から合意したADR・操作資料を参照できます。判断の管理と共通の用語は[ADR管理方針](docs/adr/README.md)と[用語集](CONTEXT.md)を参照してください。Planning文書は非推奨とし、必要な内容をADR・維持する参照資料・GitHub Issueへ移したうえで、v0.2タグ作成前に一時的な要約`docs/tasks/v0.2.md`、ほかの一時的なPlanningファイルと参照リンクを削除します。計画中の機能と既存実装の挙動を区別しています。
+[文書一覧](docs/README.md)から合意したADR・操作資料を参照できます。判断の管理と共通の用語は[ADR管理方針](docs/adr/README.md)と[用語集](CONTEXT.md)を参照してください。Planning文書は非推奨とします。一時的なv0.2タスク要約の必要な内容はADR・操作資料・GitHub Issueへ移し、要約を削除しました。v0.2タグ作成前に、ほかの一時的なPlanningファイルと参照リンクがないか確認します。計画中の機能と既存実装の挙動を区別しています。
 
 実施状況は[v0.2マイルストーン](https://github.com/9renpoto/lens/milestone/2)と[issue #68](https://github.com/9renpoto/lens/issues/68)で管理します。
 
