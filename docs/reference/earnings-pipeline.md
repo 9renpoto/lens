@@ -1,6 +1,6 @@
 # Earnings discovery and identity reference
 
-This describes existing foundation functions, not an integrated collector. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [#127](https://github.com/9renpoto/lens/issues/127) must replace with evidence-backed assessment. The [registration interface](https://9renpoto.github.io/lens/) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
+This describes discovery and identity foundations. The [registered candidate collector](earnings-collector.md) connects bounded discovery, acquisition and history independently of assessment. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [#127](https://github.com/9renpoto/lens/issues/127) must replace with evidence-backed assessment. The [registration interface](https://9renpoto.github.io/lens/) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
 
 ## Listing discovery
 
@@ -35,14 +35,7 @@ must check source enablement and supply an explicit `allowed_url?` predicate to
 URL and every redirect destination before contacting it; without a predicate,
 all URLs are rejected. Source registration and enablement are not URL-policy
 approval. `SourceCatalog` stores no document host/path policy and provides no
-route-authorization predicate. The collector's policy for listing and discovered
-document URLs, including external document hosts consistent with
-[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md), remains
-unimplemented. Policy implementation and collector integration belong to
-[#125](https://github.com/9renpoto/lens/issues/125) and
-[task E](../tasks/v0.2.md), together with per-company initial candidate filtering,
-acquisition state, scheduling, and the manual CLI. The bounded HTTP transport
-already exists; it must not be invoked without an explicit acquisition policy.
+route-authorization predicate. The [registered candidate collector](earnings-collector.md) supplies an explicit HTTP(S) URL policy for listing and external document URLs, and records candidate provenance without invoking identity classification. Release-aware initial selection, acquisition state, scheduling and a dedicated CLI remain follow-up work. See its reference for run limits and policy customization.
 
 Tests compare the exact discovered URL sets from all bundled source fixtures and
 exercise HTML parsing, relative links, provenance, heading transitions,
@@ -95,7 +88,7 @@ See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md)
 
 # 決算資料の発見・識別の参照情報
 
-既存の基盤関数の説明であり、一体化した収集処理ではない。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[#127](https://github.com/9renpoto/lens/issues/127)で根拠に基づく判定へ置き換える必要がある。[登録インターフェース](https://9renpoto.github.io/lens/)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
+発見と識別の基盤関数を説明する。[登録候補の収集処理](earnings-collector.md)は、上限付きの発見・取得・履歴を判定と独立して接続する。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[#127](https://github.com/9renpoto/lens/issues/127)で根拠に基づく判定へ置き換える必要がある。[登録インターフェース](https://9renpoto.github.io/lens/)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
 
 ## 一覧からの発見
 
@@ -125,11 +118,7 @@ HTML実体参照はパーサーで復号する。リンクはHTTP(S)、認証情
 HTTP取得は初期URLと各リダイレクト先を、その先へ通信する前に判定し、判定が
 未指定なら全URLを拒否する。取得先の登録・有効化はURLポリシーの承認ではない。
 `SourceCatalog`は資料のホスト・パスポリシーを保持せず、経路の取得許可判定も提供しない。
-一覧URLと発見した資料URLに対する収集側のポリシーは、
-[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に沿う外部資料ホストへの対応を含め、未実装である。
-ポリシーの実装と収集への接続は[#125](https://github.com/9renpoto/lens/issues/125)と
-[タスクE](../tasks/v0.2.md)で、企業別初期候補選別、取得状態、日次実行、手動CLIとともに扱う。
-上限付きHTTP取得は実装済みであり、明示的な取得ポリシーなしに呼び出してはならない。
+[登録候補の収集処理](earnings-collector.md)は、一覧と外部資料URLに明示的なHTTP(S) URLポリシーを適用し、識別判定を呼び出さず候補の出典を記録する。決算回に基づく初期選択、取得状態、日次実行、専用CLIは後続作業に残る。実行上限とポリシーの変更方法は収集処理の参照資料を確認する。
 
 テストは同梱されたすべての取得元固定データのリンク集合を完全比較し、HTML解析、相対リンク、
 出典保持、見出し遷移、フラグメント重複、入力上限を確認する。HTTPテストでは別途、
