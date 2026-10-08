@@ -145,6 +145,71 @@ defmodule Lens.Earnings.CollectorTest do
     assert Repo.aggregate(HTTPCheck, :count) == 0
   end
 
+  test "an invalid listing remains recorded while another source continues" do
+    invalid = server(<<255>>, "/results")
+    good = server("<html>No PDFs</html>", "/results")
+
+    {:ok, target} =
+      Analysis.create_target(%{
+        security_code: "7203",
+        market: "TSE",
+        display_name: "Example",
+        sector: "Test"
+      })
+
+    {:ok, bad_source} = Sources.create(target, %{listing_url: invalid})
+    {:ok, good_source} = Sources.create(target, %{listing_url: good})
+
+    assert {:ok, run} = Collector.run()
+    assert run.stopped == nil
+    assert run.errors == [%{source_id: bad_source.id, reason: :invalid_html}]
+    assert length(run.checks) == 2
+    assert Enum.any?(run.checks, &(&1.metadata["source_id"] == good_source.id))
+    assert Repo.aggregate(HTTPCheck, :count) == 2
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "candidate persistence failure stops before fetching another link or source" do
+    pdf = server("%PDF-candidate", "/report.pdf")
+
+    listing =
+      server(
+        ~s(<a href="#{pdf}">#{String.duplicate("x", 33_000)}</a><a href="http://localhost:1/later.pdf">Later</a>),
+        "/results"
+      )
+
+    {:ok, target} =
+      Analysis.create_target(%{
+        security_code: "7203",
+        market: "TSE",
+        display_name: "Example",
+        sector: "Test"
+      })
+
+    {:ok, source} = Sources.create(target, %{listing_url: listing})
+
+    {:ok, later_target} =
+      Analysis.create_target(%{
+        security_code: "9999",
+        market: "TSE",
+        display_name: "Later",
+        sector: "Test"
+      })
+
+    {:ok, _} = Sources.create(later_target, %{listing_url: "http://localhost:1/later"})
+
+    assert {:ok, run} = Collector.run()
+    assert run.stopped == :persistence_failed
+    assert run.budget.operations == 2
+    assert [%{source_id: source_id, reason: %Ecto.Changeset{} = reason}] = run.errors
+    assert source_id == source.id
+    assert errors_on(reason).metadata != []
+    assert length(run.checks) == 1
+    assert Repo.aggregate(HTTPCheck, :count) == 1
+    assert Repo.aggregate(Acquisition, :count) == 0
+    assert Repo.aggregate(Lens.Earnings.Original, :count) == 0
+  end
+
   defp serve(listener, body) do
     case :gen_tcp.accept(listener) do
       {:ok, socket} ->

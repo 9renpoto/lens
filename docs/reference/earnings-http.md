@@ -2,21 +2,9 @@
 
 `Lens.Earnings.HTTP.fetch/2` provides the transport foundation for
 [#71](https://github.com/9renpoto/lens/issues/71). It performs no database writes,
-identity confirmation, scheduling, or extraction. The collector must enforce
-source activation and request cadence before invoking it. [Source registration](https://9renpoto.github.io/lens/) is available; collector integration
-remains work in [#125](https://github.com/9renpoto/lens/issues/125).
-An explicit `allowed_url?` predicate is required. Without one, every URL is
-rejected before a request. The predicate is applied to the initial URL and each
-redirect destination before that destination is contacted. URLs must use
-HTTP(S), have a host, and contain no embedded credentials. Production document
-policies are the caller's responsibility. `SourceCatalog` stores registered
-listing sources but provides no document route-authorization predicate.
-Registering or enabling a source does not authorize its listing or document
-URLs. The collector must supply an explicit acquisition policy; its implementation,
-including support for external document hosts under
-[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md), remains
-[#125](https://github.com/9renpoto/lens/issues/125) work. Until that policy is
-available, collector acquisition must not start.
+identity confirmation, scheduling, or extraction. [Source registration](https://9renpoto.github.io/lens/) and the [registered candidate collector](earnings-collector.md) are available. The collector checks source enablement and uses one shared run budget for a manual run; request cadence and daily scheduling remain follow-up work. Operators review acquisition conditions before enabling sources under [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md).
+
+An explicit `allowed_url?` predicate is required by the transport. Without one, every URL is rejected before a request. The predicate is applied to the initial URL and each redirect destination before that destination is contacted. URLs must use HTTP(S), have a host, and contain no embedded credentials. `SourceCatalog` provides registered listings, not a document route-authorization predicate. The collector explicitly supplies a default policy accepting valid HTTP(S) URLs within 4096 bytes, including external document hosts, without restricting network addresses. Callers can supply a stricter policy. Registration alone is not a transport policy or evidence of publisher permission. See the collector reference for manual execution, policy customization and provenance persistence.
 
 ## Bounds and response handling
 
@@ -31,8 +19,8 @@ available, collector acquisition must not start.
   shorten this bound. Connection options stay fixed to reuse one Finch pool.
 - `max_redirects` accepts 0–3 and defaults to 3: at most four HTTP attempts per
   invocation. Redirects are followed explicitly, with policy checks before each
-  hop. There are zero automatic retries; later retry/backoff and run budgets are
-  collector responsibilities, subject to publisher conditions.
+  hop. There are zero automatic retries. The collector applies a shared run budget;
+  retry/backoff and request cadence remain follow-up work subject to publisher conditions.
 - Req streams each body chunk into a byte-counted accumulator. Oversized
   Content-Length is rejected, and actual chunks are checked even without that
   header. Error and redirect bodies are not retained. Automatic decompression
@@ -76,9 +64,8 @@ history are untouched because this layer does not write to storage.
 Tests use actual local TCP/HTTP responses for exact bytes, chunked size bounds,
 advertised size rejection, conditional headers, 304, HTTP errors, interrupted
 responses, denied/relative/looping redirects, total deadlines, caller termination,
-content encoding, and connection failure. No publisher is contacted. Connecting
-this layer to acquisition history, per-source exclusion, daily/manual execution,
-and capped retry/backoff remains subsequent stack work.
+content encoding, and connection failure. No publisher is contacted. The collector connects this layer to acquisition history and manual bounded runs.
+Per-source concurrent-run exclusion, daily scheduling and capped retry/backoff remain follow-up work.
 
 <details>
 <summary>日本語</summary>
@@ -86,18 +73,9 @@ and capped retry/backoff remains subsequent stack work.
 # 上限付きの決算HTTP取得
 
 `Lens.Earnings.HTTP.fetch/2`は[#71](https://github.com/9renpoto/lens/issues/71)の取得基盤。
-DB書込・識別確定・日次実行・抽出は行わない。収集側は呼び出し前に取得元の有効状態と
-巡回間隔を確認する。[取得先登録](https://9renpoto.github.io/lens/)は利用でき、収集への接続は
-[#125](https://github.com/9renpoto/lens/issues/125)の作業として残る。
-明示的な`allowed_url?`判定が必須で、指定がなければ通信前に全URLを拒否する。
-初期URLと各リダイレクト先を、その先へ通信する前に判定する。URLはHTTP(S)、
-ホストあり、埋め込み認証情報なしを必須とする。本番資料のポリシーは呼び出し側の責務。
-`SourceCatalog`は登録済みの一覧取得先を保持するが、資料経路の取得許可判定は提供しない。
-取得先の登録・有効化は一覧URLや資料URLへの取得許可ではない。収集側は明示的な
-取得ポリシーを渡す必要があり、その実装は
-[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う外部資料ホストへの対応を含め、
-[#125](https://github.com/9renpoto/lens/issues/125)で扱う。
-そのポリシーが利用可能になるまで収集による取得を開始してはならない。
+DB書込・識別確定・日次実行・抽出は行わない。[取得先登録](https://9renpoto.github.io/lens/)と[登録候補の収集処理](earnings-collector.md)は利用できる。収集側は取得先の有効状態を確認し、手動の1回の実行で共有の実行上限を適用する。巡回間隔と日次実行は後続作業に残る。運用者は [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md) に従い、取得先を有効にする前に取得条件を確認する。
+
+HTTP取得には明示的な`allowed_url?`判定が必須で、未指定なら通信前に全URLを拒否する。初期URLと各リダイレクト先を通信前に判定する。URLはHTTP(S)、ホストあり、埋め込み認証情報なしを必須とする。`SourceCatalog`は登録一覧を提供するが、資料経路の取得許可判定は提供しない。収集側は4096バイト以内の有効なHTTP(S) URLを外部資料ホストも含めて許可する既定ポリシーを明示的に渡し、ネットワークアドレスは制限しない。呼び出し側はより厳しいポリシーを指定できる。登録だけでは取得ポリシーや発行元の許可の証跡にはならない。手動実行、ポリシーの変更、出典の永続化は収集処理の参照資料を確認する。
 
 ## 上限と応答処理
 
@@ -110,7 +88,7 @@ DB書込・識別確定・日次実行・抽出は行わない。収集側は呼
   （単調時計のミリ秒値）で上限を短縮できる。接続設定を固定しFinchプールを再利用する。
 - `max_redirects`は0〜3、既定3で、呼び出しごとにHTTP試行は最大4回。
   各宛先の通信前に判定し、明示的にリダイレクトする。自動再試行は0回。
-  後続の再試行・待機と実行上限は発行元条件に従う収集側の責務。
+  収集側は共有の実行上限を適用する。再試行・待機と巡回間隔は発行元条件に従う後続作業。
 - Reqの受信チャンクをバイト数付きで蓄積する。Content-Length超過を拒否し、
   ヘッダー欠落時も実チャンクの量を確認する。エラー・リダイレクト本文は保持しない。
   自動展開・本文変換を無効にし、identity圧縮方式を要求して他のContent-Encodingを
@@ -149,6 +127,6 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 実際のローカルTCP/HTTP応答で、正確なバイト列、チャンク量、申告サイズ超過、
 条件付きヘッダー、304、HTTP失敗、受信中断、拒否・相対・循環リダイレクト、
 全体期限、呼び出し元終了、圧縮方式、接続失敗を検証する。発行元には通信しない。
-取得履歴・企業別排他・日次と手動実行・上限付き再試行と待機への接続は後続作業。
+収集側は取得履歴と上限付き手動実行へ接続している。取得先ごとの同時実行排他・日次実行・上限付き再試行と待機は後続作業。
 
 </details>
