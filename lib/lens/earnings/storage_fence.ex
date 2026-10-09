@@ -14,11 +14,17 @@ defmodule Lens.Earnings.StorageFence do
   end
 
   def rollback_active? do
-    Repo.one!(
-      from(c in "earnings_storage_controls",
-        where: field(c, :id) == 1,
-        select: field(c, :rollback_active)
-      )
-    )
+    case Repo.query!("SELECT to_regclass('earnings_storage_controls') IS NOT NULL").rows do
+      [[false]] ->
+        false
+
+      [[true]] ->
+        Repo.one!(
+          from(c in "earnings_storage_controls",
+            where: field(c, :id) == 1,
+            select: field(c, :rollback_active)
+          )
+        )
+    end
   end
 end
