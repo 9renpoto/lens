@@ -10,11 +10,23 @@ Keep identical PDF contents only once and retain changed contents as separate fi
 
 Keeping PDFs in PostgreSQL would allow files and their records to be backed up together without another service. We instead accept operating RustFS and coordinating file and record recovery in order to delegate file storage. Back up and restore PostgreSQL and RustFS as one recovery point. After restoration, reconcile every completed database reference against the RustFS object key and content hash. Repair a missing or mismatched object from the coordinated backup when possible; if no valid copy exists, mark the original unavailable and surface it for operator recovery. Never treat the release as complete or silently serve a different PDF. This protects against inconsistent restores that ordinary interrupted-write recovery cannot detect. Follow [ADR 0006](0006-record-file-storage-work-before-writing.md) for interrupted writes.
 
-Consider migration to another compatible storage service only when a need arises. Do not build support for multiple storage products in this release. This is a storage decision, not a claim that the existing PostgreSQL implementation has already been migrated.
+Consider migration to another compatible storage service only when a need arises. Do not build support for multiple storage products in this release.
+
+## Original locations and rollback (#145)
+
+Keep original identity and acquisition/extraction history in PostgreSQL. Record each verified physical copy in the append-only `earnings_original_storage_locations` table and select one active read location per original in `earnings_original_read_locations`. Legacy rows without a selection continue to read from PostgreSQL. Reads follow the selected backend exactly; a RustFS read failure is returned and never falls back to PostgreSQL.
+
+`Lens.Earnings.StorageMigration.migrate_batch/2` processes at most 100 UUID-ordered originals per call. It verifies the retained PostgreSQL bytes, writes and retrieves the RustFS object, and changes the active read location only after exact-byte, size and SHA-256 verification. It keeps PostgreSQL copies and returns per-original failures to the caller. When a batch has failures, `next_after` stops immediately before the earliest failed UUID, so callers can resume without skipping failed rows; already migrated rows are safely skipped when retried.
+
+`mix lens.earnings.storage.rollback` performs an explicit bounded rollback. A durable database flag and PostgreSQL advisory lock fence original writes while rollback is active. Existing PostgreSQL copies are reverified before selection; RustFS-only originals are fetched, verified and hydrated into `bytes` once. The fence remains active across incomplete batches and process restarts, and clears only after no original reads from RustFS. If a batch has failures, its `next_after` stops before the earliest failed UUID for safe resumption. Keep both location records and PostgreSQL copies; deletion and retention duration require a separately agreed cleanup.
+
+The forward Ecto migration adds the location and control tables and permits a one-time `NULL`-to-bytes restoration for RustFS-only originals. Deploy it through the existing release migration hook. A separate PDF-copy Mix task or Kubernetes Job is not required for the current deployment when its pre-deploy inventory confirms there are no PostgreSQL originals to copy.
+
+This is a storage decision, not a claim that a deployment has completed or that retained PostgreSQL originals have been copied.
 
 ## Storage client foundation (#143)
 
-`Lens.Earnings.RustFS.new/0` reads runtime configuration; `new/1` accepts explicit options. `put/2` accepts nonempty raw bytes up to 20 MiB and returns a reference containing `key`, `sha256` and `byte_size`. The key is `earnings/originals/sha256/<lowercase-sha256>.pdf`. `get/2` accepts that reference and returns the exact bytes only after checking size and SHA-256. This client has no database writes, publisher access, automatic retries or redirects. Existing acquisition and extraction remain PostgreSQL-backed until #146 connects the durable preparation and recovery protocol in [ADR 0006](0006-record-file-storage-work-before-writing.md).
+`Lens.Earnings.RustFS.new/0` reads runtime configuration; `new/1` accepts explicit options. `put/2` accepts nonempty raw bytes up to 20 MiB and returns a reference containing `key`, `sha256` and `byte_size`. The key is `earnings/originals/sha256/<lowercase-sha256>.pdf`. `get/2` accepts that reference and returns the exact bytes only after checking size and SHA-256. This client has no database writes, publisher access, automatic retries or redirects. `StorageWork.recover/3` passes its verified object reference into acquisition completion, which records a RustFS read location and leaves new RustFS-only originals with `bytes = NULL`. Acquisition preparation is not yet connected to collection; that remains #146.
 
 Writes use signed S3 requests with `If-None-Match: *`, never a check followed by an unconditional write. Successful creates and existing-object responses (`412`) both require retrieval and byte verification before returning success. A concurrent conflict (`409`) remains explicit for the recovery layer. Missing objects return `:not_found`; mismatched or encoded bytes return `:integrity_error`; authentication failures return `:unauthorized`; service failures return `:unavailable`. Transport failures and total request timeouts are explicit. Error bodies and credentials are not included in results or client inspection. Actual streamed bytes are bounded by the reference size; ETags do not establish integrity.
 
@@ -42,11 +54,23 @@ CI runs `mix run --no-start test/system/rustfs_storage_check.exs` against RustFS
 
 PDFをPostgreSQLに残せば、別のサービスを運用せずファイルと記録をまとめてバックアップできる。今回はファイル保存を任せるため、RustFSの運用と、ファイル・記録を揃えて復旧する責任を引き受ける。PostgreSQLとRustFSは一つの復旧時点としてバックアップ・復元する。復元後は、DB上の完了済み記録を一件ずつRustFSのオブジェクトキーと内容ハッシュに照合する。欠落・不一致のファイルは、可能なら同じ復旧用バックアップから修復する。有効なコピーがなければ原本を利用不可として運用者に示し、処理完了として扱ったり、別のPDFを黙って返したりしない。これは通常の中断書き込み復旧では検出できない、整合しない復元から守るためである。中断書き込みには[ADR 0006](0006-record-file-storage-work-before-writing.md)を適用し、保存前に作業記録を残し、回数を制限した自動復旧と手動復旧に対応する。
 
-他の互換ストレージへの移行は、必要になった時点で検討する。今回のリリースでは複数製品への対応を作り込まない。これは保存先の決定であり、既存のPostgreSQL実装の移行完了を意味しない。
+他の互換ストレージへの移行は、必要になった時点で検討する。今回のリリースでは複数製品への対応を作り込まない。
+
+## 原本の保存先とロールバック（#145）
+
+原本の識別情報と取得・抽出の履歴はPostgreSQLに残す。検証済みの物理コピーは追記専用の`earnings_original_storage_locations`テーブルに記録し、原本ごとの有効な読取先を`earnings_original_read_locations`で選ぶ。選択記録がない既存行は引き続きPostgreSQLから読む。読取は選択された保存先だけを使い、RustFSの読取失敗時にPostgreSQLへ黙って切り替えない。
+
+`Lens.Earnings.StorageMigration.migrate_batch/2`は、呼び出しごとにUUID順で最大100件を処理する。PostgreSQLに保持したバイト列を検証し、RustFSへ書き込んで再取得し、バイト列・サイズ・SHA-256が完全一致した後にだけ有効な読取先を切り替える。PostgreSQLコピーは保持し、原本ごとの失敗を呼び出し元へ返す。バッチに失敗がある場合、`next_after`は最も早い失敗UUIDの直前で止まるため、失敗行を飛ばさず再開できる。再試行時に移行済みの行は安全にスキップする。
+
+`mix lens.earnings.storage.rollback`で明示的な上限付きロールバックを実行する。DBの永続フラグとPostgreSQL advisory lockで、ロールバック中の原本書込をフェンスする。既存PostgreSQLコピーは再検証してから選択する。RustFS専用原本は取得・検証し、`bytes`へ一度だけ復元する。未完了バッチやプロセス再起動後もフェンスを維持し、RustFSを読む原本がなくなった場合だけ解除する。バッチに失敗がある場合、`next_after`は最も早い失敗UUIDの直前で止まり、安全に再開できる。保存先記録とPostgreSQLコピーを保持し、削除や保持期間は別途合意する整理作業で扱う。
+
+前方Ecto migrationで保存先・制御テーブルを追加し、RustFS専用原本を一度だけ`NULL`からバイト列へ復元できるようにする。既存のリリースmigration hookで適用する。現在の配備前件数確認でコピー対象のPostgreSQL原本がない場合、PDFコピー専用Mix taskやKubernetes Jobは追加しない。
+
+これは保存先の判断であり、配備完了やPostgreSQL原本のコピー完了を意味しない。
 
 ## 保存クライアント基盤（#143）
 
-`Lens.Earnings.RustFS.new/0`は実行時設定を読み、`new/1`は明示的な設定を受け取る。`put/2`は空でない20 MiB以下の生バイト列を受け取り、`key`・`sha256`・`byte_size`を含む参照を返す。キーは`earnings/originals/sha256/<lowercase-sha256>.pdf`。`get/2`はこの参照を受け取り、サイズ・SHA-256を照合してから正確なバイト列を返す。このクライアントはDB書込・公開元へのアクセス・自動再試行・リダイレクトを行わない。#146で[ADR 0006](0006-record-file-storage-work-before-writing.md)の永続的な準備・復旧プロトコルへ接続するまで、既存の取得・抽出はPostgreSQLを使う。
+`Lens.Earnings.RustFS.new/0`は実行時設定を読み、`new/1`は明示的な設定を受け取る。`put/2`は空でない20 MiB以下の生バイト列を受け取り、`key`・`sha256`・`byte_size`を含む参照を返す。キーは`earnings/originals/sha256/<lowercase-sha256>.pdf`。`get/2`はこの参照を受け取り、サイズ・SHA-256を照合してから正確なバイト列を返す。このクライアントはDB書込・公開元へのアクセス・自動再試行・リダイレクトを行わない。`StorageWork.recover/3`は検証済みオブジェクト参照を取得完了処理へ渡し、RustFSの読取先を記録する。新しいRustFS専用原本の`bytes`は`NULL`にする。取得準備はまだ収集処理に接続しておらず、#146で扱う。
 
 書込は署名付きS3リクエストと`If-None-Match: *`を使い、存在確認後の無条件書込にはしない。新規作成成功・既存オブジェクトの応答（`412`）のどちらも、取得・バイト検証後に成功を返す。同時書込の競合（`409`）は復旧層へ明示する。欠落は`:not_found`、バイト不一致・エンコードされた内容は`:integrity_error`、認証失敗は`:unauthorized`、サービス障害は`:unavailable`を返す。通信失敗・リクエスト全体のタイムアウトも明示する。エラー本文・認証情報は結果やクライアントの表示に含めない。実際のストリームバイト列を参照サイズで制限し、ETagを整合性の根拠にしない。
 

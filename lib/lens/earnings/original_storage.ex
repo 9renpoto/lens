@@ -18,6 +18,56 @@ defmodule Lens.Earnings.OriginalStorage do
     {:ok, selection}
   end
 
+  def active_backend(original_id) do
+    case read_location(original_id) do
+      {:ok, nil} -> "postgresql"
+      {:ok, location} -> location.backend
+    end
+  end
+
+  def switch_to_rustfs(%Original{} = original, reference) do
+    with :ok <- validate_bytes(original, original.bytes),
+         true <- reference.sha256 == original.sha256,
+         true <- reference.byte_size == original.byte_size do
+      select_rustfs(original, reference)
+    else
+      false -> {:error, :integrity_error}
+      {:error, _} = error -> error
+    end
+  end
+
+  def switch_to_postgresql(original_id, bytes) when is_binary(bytes) do
+    transact(fn ->
+      original =
+        Repo.one(from(o in Original, where: o.id == ^original_id, lock: "FOR UPDATE"))
+
+      with %Original{} <- original,
+           :ok <- validate_bytes(original, bytes),
+           :ok <- hydrate(original, bytes),
+           {:ok, postgresql} <- ensure_location(postgresql_attrs(%{original | bytes: bytes})),
+           :ok <- select_location(original.id, postgresql.id) do
+        {:ok, postgresql}
+      else
+        nil -> {:error, :not_found}
+        false -> {:error, :integrity_error}
+        {:error, _} = error -> error
+      end
+    end)
+  end
+
+  def switch_to_postgresql(_, _), do: {:error, :invalid_bytes}
+
+  def count_active(backend) do
+    Repo.aggregate(
+      from(s in OriginalReadLocation,
+        join: l in OriginalStorageLocation,
+        on: l.id == s.location_id,
+        where: l.backend == ^backend
+      ),
+      :count
+    )
+  end
+
   def select_rustfs(%Original{} = original, reference) do
     transact(fn ->
       with :ok <- validate_reference(original, reference),
@@ -28,6 +78,24 @@ defmodule Lens.Earnings.OriginalStorage do
       end
     end)
   end
+
+  defp hydrate(%Original{bytes: bytes}, bytes) when is_binary(bytes), do: :ok
+
+  defp hydrate(%Original{bytes: nil} = original, bytes) do
+    query =
+      from(o in Original,
+        where:
+          o.id == ^original.id and is_nil(o.bytes) and o.sha256 == ^original.sha256 and
+            o.byte_size == ^original.byte_size
+      )
+
+    case Repo.update_all(query, set: [bytes: bytes]) do
+      {1, _} -> :ok
+      {0, _} -> {:error, :original_conflict}
+    end
+  end
+
+  defp hydrate(_, _), do: {:error, :original_conflict}
 
   defp postgresql_attrs(original) do
     %{
