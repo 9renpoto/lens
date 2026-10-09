@@ -49,8 +49,12 @@ defmodule Lens.Earnings.Processing do
   defp allocate_and_process(original_id, options, retry?) do
     with {:ok, id} <- Ecto.UUID.cast(original_id),
          true <- valid_bounds?(options),
-         {:ok, {bytes, attempt}} <- allocate_attempt(id, options, retry?) do
-      process(bytes, attempt, options)
+         {:ok, attempt} <- allocate_attempt(id, options, retry?) do
+      case Lens.Earnings.original_bytes(id, Keyword.take(options, [:rustfs])) do
+        {:ok, bytes} -> process(bytes, attempt, options)
+        {:error, reason} -> Extractions.fail(attempt.id, failure_name(reason))
+        :error -> Extractions.fail(attempt.id, "original_unavailable")
+      end
     else
       :error -> {:error, :not_found}
       false -> {:error, :invalid_options}
@@ -86,11 +90,15 @@ defmodule Lens.Earnings.Processing do
              "unavailable",
              effective_bounds(options)
            ) do
-        {:ok, attempt} -> {original.bytes, attempt}
+        {:ok, attempt} -> attempt
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
   end
+
+  defp failure_name(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp failure_name({:http_error, status}) when is_integer(status), do: "http_#{status}"
+  defp failure_name(_), do: "original_unavailable"
 
   defp process(bytes, attempt, options) do
     extractor = Keyword.get(options, :extractor, PDFExtractor)

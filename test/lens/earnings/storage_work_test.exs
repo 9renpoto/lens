@@ -1,6 +1,7 @@
 defmodule Lens.Earnings.StorageWorkTest do
   use Lens.DataCase, async: false
-  alias Lens.Earnings.{Acquisition, RustFS, StorageWork}
+  alias Lens.Earnings.{Acquisition, Original, RustFS, StorageWork}
+  alias Lens.Earnings
 
   setup do
     {:ok, client} =
@@ -129,6 +130,11 @@ defmodule Lens.Earnings.StorageWorkTest do
     assert completed.status == "completed"
     assert {:error, :not_eligible} = StorageWork.recover(work.id, client, c.now)
     assert Repo.aggregate(Acquisition, :count) == 1
+
+    acquisition = Repo.get_by!(Acquisition, acquisition_id: c.attrs.acquisition_id)
+    original = Repo.get!(Original, acquisition.original_id)
+    assert original.bytes == nil
+    assert Earnings.original_bytes(original.id, rustfs: client) == {:ok, c.attrs.bytes}
   end
 
   test "missing object writes retained bytes; changed destination never receives I/O", c do

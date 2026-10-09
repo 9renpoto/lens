@@ -22,4 +22,14 @@ defmodule Lens.Earnings.Original do
     |> validate_number(:byte_size, greater_than: 0, less_than_or_equal_to: @limit)
     |> unique_constraint(:sha256)
   end
+
+  def rustfs_changeset(original, attrs) when is_map(attrs) do
+    original
+    |> cast(attrs, [:id, :sha256, :byte_size])
+    |> put_change(:bytes, nil)
+    |> validate_required([:sha256, :byte_size])
+    |> validate_format(:sha256, ~r/\A[0-9a-f]{64}\z/)
+    |> validate_number(:byte_size, greater_than: 0, less_than_or_equal_to: @limit)
+    |> unique_constraint(:sha256)
+  end
 end
