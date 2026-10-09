@@ -1,5 +1,31 @@
 import Config
 
+rustfs_values = [
+  endpoint: System.get_env("LENS_RUSTFS_ENDPOINT"),
+  bucket: System.get_env("LENS_RUSTFS_BUCKET"),
+  access_key_id: System.get_env("LENS_RUSTFS_ACCESS_KEY_ID"),
+  secret_access_key: System.get_env("LENS_RUSTFS_SECRET_ACCESS_KEY")
+]
+
+rustfs_region = System.get_env("LENS_RUSTFS_REGION")
+rustfs_timeout = System.get_env("LENS_RUSTFS_TIMEOUT_MS")
+
+if Enum.any?(rustfs_values, fn {_, value} -> not is_nil(value) end) or
+     not is_nil(rustfs_region) or not is_nil(rustfs_timeout) do
+  timeout = Integer.parse(rustfs_timeout || "30000")
+
+  unless Enum.all?(rustfs_values, fn {_, value} -> is_binary(value) and value != "" end) and
+           match?({milliseconds, ""} when milliseconds in 1..30_000, timeout) do
+    raise ArgumentError, "invalid RustFS configuration"
+  end
+
+  {timeout_ms, ""} = timeout
+
+  config :lens,
+         Lens.Earnings.RustFS,
+         rustfs_values ++ [region: rustfs_region || "us-east-1", timeout_ms: timeout_ms]
+end
+
 if config_env() == :prod do
   database_url = System.fetch_env!("DATABASE_URL")
   secret_key_base = System.get_env("SECRET_KEY_BASE")
