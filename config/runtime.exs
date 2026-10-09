@@ -26,6 +26,13 @@ if Enum.any?(rustfs_values, fn {_, value} -> not is_nil(value) end) or
          rustfs_values ++ [region: rustfs_region || "us-east-1", timeout_ms: timeout_ms]
 end
 
+case System.get_env("LENS_STORAGE_RECOVERY_ENABLED") do
+  nil -> :ok
+  "true" -> config :lens, Lens.Earnings.StorageRecovery, enabled: true
+  "false" -> config :lens, Lens.Earnings.StorageRecovery, enabled: false
+  _ -> raise ArgumentError, "invalid storage recovery configuration"
+end
+
 if config_env() == :prod do
   database_url = System.fetch_env!("DATABASE_URL")
   secret_key_base = System.get_env("SECRET_KEY_BASE")

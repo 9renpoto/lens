@@ -8,9 +8,25 @@ If Lens uses a separate file storage service, save a work record in the database
 
 Memory-only work tracking disappears when the application restarts. A database work record lets recovery find unfinished work after restart, check whether the PDF was saved and complete its corresponding acquisition record. Treat storage as complete only when both the PDF and its record are available. When the PDF is already saved, reuse it instead of downloading it again from the publisher.
 
-Allow automatic recovery with a finite retry count and manual recovery by the operator. Repeating recovery must not duplicate records or overwrite saved PDFs. When automatic retries reach their limit, retain the unfinished work for operator attention. The exact retry count and spacing remain undecided.
+Allow automatic recovery with a finite retry count and manual recovery by the operator. Repeating recovery must not duplicate records or overwrite saved PDFs. When automatic retries reach their limit, retain the unfinished work for operator attention. Allow one initial attempt and at most three automatic retries, eligible 1 minute, 5 minutes and 30 minutes after the preceding failure. Consume the persisted attempt budget before object I/O. Authentication, configuration and integrity failures require operator attention. An operator may schedule one additional audited attempt without resetting the automatic budget.
 
-This protocol recovers interrupted writes, not loss or inconsistency after restoring backups. For the latter, restore PostgreSQL and RustFS as a coordinated pair and verify completed object references and content hashes under [the RustFS storage decision](0005-store-pdfs-in-rustfs.md). If a valid object cannot be restored, keep it explicitly unavailable for operator recovery. This adds persistent work tracking, but does not claim that recovery is already implemented.
+This protocol recovers interrupted writes, not loss or inconsistency after restoring backups. For the latter, restore PostgreSQL and RustFS as a coordinated pair and verify completed object references and content hashes under [the RustFS storage decision](0005-store-pdfs-in-rustfs.md). If a valid object cannot be restored, keep it explicitly unavailable for operator recovery. The recovery foundation below implements interrupted-write recovery; collection activation, migration and coordinated restore remain separate tasks.
+
+## Durable recovery foundation (#144)
+
+`Lens.Earnings.StorageWork.prepare/2` commits provenance, normalized release identity (if present), endpoint, bucket, content-derived key, SHA-256, byte size and accepted bytes to `earnings_storage_work`. Reusing an acquisition ID requires identical facts, including compatibility with any existing successful acquisition; an existing failure or conflicting observation is rejected before object I/O. Preparation and recovery reject an enclosing repository transaction so object I/O cannot precede the preparation commit. Preparation performs no object I/O.
+
+`claim/2` uses a row lock to persist the attempt count, a unique lease token and a 120-second expiry before returning. Each RustFS request is bounded to at most 30 seconds; checking, creating and verifying require at most three requests (90 seconds). No database transaction remains open during object I/O. Completion checks both the token and expiry under a row lock, so an expired or replaced worker cannot complete. A discovered expired lease counts as a failed consumed attempt; its retry delay starts at lease expiry. Restarting never resets the budget.
+
+`recover/3` verifies the existing object first, creates from retained bytes only when absent, and atomically commits the successful acquisition together with `completed` state and deletion of the work payload. An interrupted completion transaction retains the payload; an acquisition conflict discovered at completion rolls back that transaction and records operator attention while retaining the payload. Authentication, configuration, integrity and permanent HTTP rejection failures become `attention`; transient failures become `pending` with a persisted eligibility time, then `exhausted` after attempt four. Ambiguous write results follow the same bounded recovery path. Recovery never downloads from the publisher or overwrites an object.
+
+`manual_retry/3` accepts a nonempty operator identifier (at most 200 bytes) only for `attention` or `exhausted` work. It commits one queued audit and one pending manual attempt under the same lock. A manual attempt increments a separate counter, records success, failure or lease expiry in `earnings_storage_retry_audits`, and never automatically repeats. `unfinished/2` returns pages of at most 100 metadata rows without payloads, using a limit and offset; `audit/1` exposes manual attempt history. These are trusted application/operator functions; the authenticated operator HTTP interface remains #73.
+
+The supervised `Lens.Earnings.StorageRecovery` poller is disabled by default. Set `LENS_STORAGE_RECOVERY_ENABLED=true` to discover eligible and expired work from PostgreSQL every second, processing one item per poll. `false` explicitly disables it; any other value fails startup with a generic configuration error. No in-memory queue is required after restart. Operators can use `Lens.Earnings.RustFS.new/0` and `StorageWork.recover_due/1` for a bounded batch, or schedule an audited retry with `StorageWork.manual_retry/3`. Changing the configured destination does not redirect prepared work: recovery requires its original endpoint and bucket, and a mismatch moves pending work to operator attention without consuming an attempt.
+
+Collection does not yet call preparation. Successful completion uses the existing PostgreSQL-backed acquisition path and preserves its immutable original bytes while clearing only the temporary work payload. Switching acquisition and retrieval to object references is #146; historical migration is #145. This stage does not remove PostgreSQL originals or establish the coordinated restore guarantee in #147.
+
+CI runs `test/system/earnings_storage_recovery_check.exs` against real PostgreSQL and pinned RustFS in an isolated database and a random bucket. It verifies committed preparation after worker death, saved-object reuse after completion rollback, concurrent preparation with conflicting provenance, concurrent claims and concurrent audited retry requests. Use disposable storage for this check; it retains fixtures and buckets for inspection.
 
 <details>
 <summary>日本語</summary>
@@ -21,8 +37,24 @@ Lensで独立したファイル保存サービスを使う場合、PDFを書き�
 
 メモリだけで作業を管理すると、アプリの再起動でその情報が消える。データベースに作業記録を残すことで、再起動後に未完了の作業を見つけ、PDFが保存済みか確認し、対応する取得記録を完成させられる。PDFと対応する記録が両方揃ってから保存完了と扱う。PDFが保存済みの場合は、公開元から取り直さず再利用する。
 
-自動復旧は再試行回数を制限し、運用者による手動復旧も可能にする。繰り返しても記録の重複や保存済みPDFの上書きを起こさない。自動再試行が上限に達した場合は、未完了の作業を残して運用者の対応を待つ。具体的な再試行回数と間隔は未決定。
+自動復旧は再試行回数を制限し、運用者による手動復旧も可能にする。繰り返しても記録の重複や保存済みPDFの上書きを起こさない。自動再試行が上限に達した場合は、未完了の作業を残して運用者の対応を待つ。初回に加えて自動再試行を最大3回とし、直前の失敗から1分・5分・30分後に実行可能とする。オブジェクト通信前に試行予算を永続的に消費する。認証・設定・整合性の失敗は運用者の対応を待つ。運用者は、自動試行の予算をリセットせず、監査記録付きの追加試行を1回予約できる。
 
-この方式が復旧するのは中断した書き込みであり、バックアップ復元後のファイル欠落や不整合ではない。後者は[RustFSへの保存方針](0005-store-pdfs-in-rustfs.md)に従い、PostgreSQLとRustFSを揃えて復元した後、完了済みオブジェクトの参照先と内容ハッシュを検証する。有効なファイルを復元できない場合は、運用者が復旧するまで利用不可として明示する。永続的な作業管理は増えるが、メモリに頼らず中断した保存処理を復旧できるようになる。復旧機能の実装完了を意味しない。
+この方式が復旧するのは中断した書き込みであり、バックアップ復元後のファイル欠落や不整合ではない。後者は[RustFSへの保存方針](0005-store-pdfs-in-rustfs.md)に従い、PostgreSQLとRustFSを揃えて復元した後、完了済みオブジェクトの参照先と内容ハッシュを検証する。有効なファイルを復元できない場合は、運用者が復旧するまで利用不可として明示する。永続的な作業管理は増えるが、メモリに頼らず中断した保存処理を復旧できるようになる。以下の復旧基盤で中断した書き込みの復旧を実装する。収集への接続・移行・両保存先の復元は別タスクとする。
+
+## 永続的な復旧基盤（#144）
+
+`Lens.Earnings.StorageWork.prepare/2`は、取得経緯・正規化した開示識別情報（ある場合）・endpoint・bucket・内容由来のキー・SHA-256・サイズ・受理したバイト列を`earnings_storage_work`へコミットする。取得IDを再利用する場合は、既存の取得成功記録との整合も含めて事実がすべて一致しなければならない。既存の失敗記録や競合する取得記録はオブジェクト通信前に拒否する。準備と復旧は外側のリポジトリトランザクション内では拒否し、準備のコミット前にオブジェクト通信が始まらないようにする。準備ではオブジェクト通信を行わない。
+
+`claim/2`は行ロックを使い、試行回数・一意なリーストークン・120秒後の期限を永続化してから返す。RustFSの各リクエストは最大30秒に制限され、確認・作成・検証の最大3リクエストは90秒以内となる。オブジェクト通信中はDBトランザクションを開いたままにしない。完了時に行ロックの下でトークンと期限を検査し、期限切れや交代済みのワーカーが完了できないようにする。検出した期限切れリースは消費済み試行の失敗と扱い、再試行の待機時間はリース期限から数える。再起動しても予算はリセットしない。
+
+`recover/3`は既存オブジェクトを先に検証し、存在しない場合だけ保持したバイト列から作成する。取得成功の記録・`completed`状態・作業ペイロードの削除を同じトランザクションでコミットする。完了トランザクションが中断された場合はペイロードを保持する。完了時に取得記録の競合が発覚した場合はトランザクションをロールバックし、ペイロードを保持したまま要対応状態を記録する。認証・設定・整合性・恒久的なHTTP拒否の失敗は`attention`、一時的な失敗は実行可能時刻を永続化した`pending`となり、4回目の試行後は`exhausted`となる。書き込み結果が不明な場合も同じ上限付きの復旧を行う。復旧では公開元から取得し直さず、オブジェクトを上書きしない。
+
+`manual_retry/3`は`attention`または`exhausted`の作業に対し、空でない最大200バイトの運用者識別子を受け付ける。同じ行ロックの下で、予約監査記録と1回分の手動試行をコミットする。手動試行は別カウンターを増やし、成功・失敗・リース期限切れを`earnings_storage_retry_audits`へ記録し、自動では繰り返さない。`unfinished/2`は件数上限とoffsetでページを指定し、ペイロードを除くメタデータを最大100件返し、`audit/1`は手動試行履歴を公開する。これらは信頼されたアプリケーション・運用者向け関数であり、認証付き運用者HTTPインターフェースは#73で扱う。
+
+監督下の`Lens.Earnings.StorageRecovery`ポーラーは初期状態で無効。`LENS_STORAGE_RECOVERY_ENABLED=true`で、PostgreSQLから実行可能・期限切れの作業を1秒ごとに検出し、各ポーリングで1件処理する。`false`は明示的に無効化し、その他の値は一般的な設定エラーで起動を失敗させる。再起動後にメモリ内キューは必要ない。運用者は`Lens.Earnings.RustFS.new/0`と`StorageWork.recover_due/1`で上限付きバッチを実行でき、`StorageWork.manual_retry/3`で監査付き再試行を予約できる。設定した保存先を変えても準備済み作業を別の場所には送らず、元のendpoint・bucketとの一致を復旧の条件とする。不一致の場合、待機中の作業を試行予算を消費せずに要対応状態にする。
+
+収集処理はまだ準備処理を呼び出さない。完了時は既存のPostgreSQLによる取得記録経路を使い、不変な原本バイト列を保持し、一時的な作業ペイロードだけを削除する。取得・参照をオブジェクト参照へ切り替えるのは#146、過去の原本の移行は#145で扱う。この段階ではPostgreSQLの原本を削除せず、#147の両保存先を揃えた復元保証も確立しない。
+
+CIでは`test/system/earnings_storage_recovery_check.exs`を、実PostgreSQL・固定したRustFS・隔離DB・ランダムなbucketで実行する。ワーカー終了後の準備記録の保持、完了ロールバック後の保存済みオブジェクト再利用、異なる取得経緯での同時準備、同時取得、同時監査付き再試行予約を検証する。この検証には使い捨ての保存先を使う。検査用のfixtureとbucketは残す。
 
 </details>

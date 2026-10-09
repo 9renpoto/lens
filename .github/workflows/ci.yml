@@ -95,6 +95,16 @@ jobs:
           done
           curl --fail --silent --max-time 1 http://127.0.0.1:9000/health
           mix run --no-start test/system/rustfs_storage_check.exs
+      - name: Verify durable RustFS recovery and competing workers
+        env:
+          POSTGRES_DB: lens_storage_recovery_test
+          LENS_RUSTFS_ENDPOINT: http://127.0.0.1:9000
+          LENS_RUSTFS_BUCKET: lens-test
+          LENS_RUSTFS_ACCESS_KEY_ID: lens-storage-test
+          LENS_RUSTFS_SECRET_ACCESS_KEY: lens-storage-test-secret
+        run: |
+          mix ecto.create
+          mix run --no-start test/system/earnings_storage_recovery_check.exs
       - run: elixir -pa "_build/test/lib/*/ebin" test/pdf_adapter_check.exs
       - name: Verify search migration over existing large earnings text
         env:
