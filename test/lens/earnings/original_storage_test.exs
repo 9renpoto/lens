@@ -2,9 +2,90 @@ defmodule Lens.Earnings.OriginalStorageTest do
   use Lens.DataCase
 
   alias Lens.Earnings
-  alias Lens.Earnings.{OriginalReadLocation, OriginalStorageLocation}
+
+  alias Lens.Earnings.{
+    Original,
+    OriginalReadLocation,
+    OriginalStorage,
+    OriginalStorageLocation
+  }
 
   @at ~U[2026-09-26 01:00:00.000000Z]
+
+  test "selects a verified RustFS location while retaining the PostgreSQL copy" do
+    bytes = "%PDF-storage-location"
+    original = record_original("storage-location-select-rustfs", bytes)
+    reference = reference(original)
+    original_with_bytes = Repo.get!(Original, original.id)
+
+    assert {:ok, rustfs_location} = OriginalStorage.select_rustfs(original_with_bytes, reference)
+    assert rustfs_location.backend == "rustfs"
+    assert rustfs_location.key == reference.key
+
+    assert Repo.get_by!(OriginalStorageLocation,
+             original_id: original.id,
+             backend: "postgresql"
+           ).sha256 == original.sha256
+
+    assert {:ok, selected} = OriginalStorage.read_location(original.id)
+    assert selected.id == rustfs_location.id
+    assert Repo.get!(Lens.Earnings.Original, original.id).bytes == bytes
+  end
+
+  test "rejects invalid RustFS references and PostgreSQL bytes without selecting a location" do
+    bytes = "%PDF-storage-location-integrity"
+    original = record_original("storage-location-invalid-reference", bytes)
+    reference = reference(original)
+
+    assert {:error, :invalid_reference} = OriginalStorage.select_rustfs(original, %{})
+
+    assert {:error, :integrity_error} =
+             OriginalStorage.select_rustfs(original, %{reference | key: "wrong-key.pdf"})
+
+    assert {:error, :integrity_error} =
+             OriginalStorage.select_rustfs(%{original | bytes: "corrupt"}, reference)
+
+    assert {:ok, nil} = OriginalStorage.read_location(original.id)
+  end
+
+  test "reports conflicts when a persisted backend location disagrees with the reference" do
+    bytes = "%PDF-storage-location-conflict"
+    original = record_original("storage-location-conflict", bytes)
+    reference = reference(original)
+
+    assert {:ok, _location} =
+             %OriginalStorageLocation{}
+             |> OriginalStorageLocation.changeset(%{
+               original_id: original.id,
+               backend: "rustfs",
+               key: "earnings/originals/sha256/wrong.pdf",
+               sha256: original.sha256,
+               byte_size: original.byte_size,
+               verified_at: @at
+             })
+             |> Repo.insert()
+
+    assert {:error, :location_conflict} = OriginalStorage.select_rustfs(original, reference)
+    assert {:ok, nil} = OriginalStorage.read_location(original.id)
+  end
+
+  test "returns a changeset error when the original does not exist" do
+    sha256 = String.duplicate("a", 64)
+
+    original = %Original{
+      id: Ecto.UUID.generate(),
+      bytes: nil,
+      sha256: sha256,
+      byte_size: 1
+    }
+
+    assert {:error, %Ecto.Changeset{}} =
+             OriginalStorage.select_rustfs(original, %{
+               key: "earnings/originals/sha256/#{sha256}.pdf",
+               sha256: sha256,
+               byte_size: 1
+             })
+  end
 
   test "a read selection cannot point at another original's storage location" do
     first = record_original("storage-location-first", "%PDF-first")
@@ -44,5 +125,13 @@ defmodule Lens.Earnings.OriginalStorageTest do
              })
 
     original
+  end
+
+  defp reference(original) do
+    %{
+      key: "earnings/originals/sha256/#{original.sha256}.pdf",
+      sha256: original.sha256,
+      byte_size: original.byte_size
+    }
   end
 end

@@ -2,7 +2,16 @@ defmodule Lens.Earnings.ProcessingTest do
   use Lens.DataCase
 
   alias Lens.Earnings
-  alias Lens.Earnings.{Acquisition, Extraction, Extractions, Processing}
+
+  alias Lens.Earnings.{
+    Acquisition,
+    Extraction,
+    Extractions,
+    Original,
+    OriginalStorage,
+    Processing,
+    RustFS
+  }
 
   defmodule FixtureExtractor do
     def extract("%PDF-success", _options),
@@ -129,6 +138,25 @@ defmodule Lens.Earnings.ProcessingTest do
     assert Earnings.original_bytes(original.id) == {:ok, "%PDF-success"}
   end
 
+  test "RustFS read failures are recorded with a stable extraction reason" do
+    original = retain("%PDF-rustfs-redirect").original
+    stored_original = Repo.get!(Original, original.id)
+    reference = storage_reference(stored_original)
+    assert {:ok, _} = OriginalStorage.select_rustfs(stored_original, reference)
+
+    client = rustfs_client(fn conn -> Plug.Conn.send_resp(conn, 307, "redirect") end)
+
+    assert {:ok, failure} = Processing.extract(original.id, rustfs: client)
+    assert failure.status == "failed"
+    assert failure.failure_reason == "http_307"
+    assert Repo.aggregate(Extraction, :count) == 1
+
+    assert {:ok, unavailable} = Processing.extract(original.id, rustfs: :invalid)
+    assert unavailable.status == "failed"
+    assert unavailable.failure_reason == "invalid_configuration"
+    assert Repo.aggregate(Extraction, :count) == 2
+  end
+
   test "retry targets one latest failed original and regeneration requires a finite limit" do
     success = retain("%PDF-success").original
     failed = retain("%PDF-timeout").original
@@ -226,5 +254,25 @@ defmodule Lens.Earnings.ProcessingTest do
              })
 
     result
+  end
+
+  defp storage_reference(original) do
+    %{
+      key: "earnings/originals/sha256/#{original.sha256}.pdf",
+      sha256: original.sha256,
+      byte_size: original.byte_size
+    }
+  end
+
+  defp rustfs_client(plug) do
+    {:ok, client} =
+      RustFS.new(
+        endpoint: "http://storage.test",
+        bucket: "lens-originals",
+        access_key_id: "test-access",
+        secret_access_key: "test-secret"
+      )
+
+    %{client | request: Req.merge(client.request, plug: plug)}
   end
 end

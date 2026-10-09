@@ -18,13 +18,6 @@ defmodule Lens.Earnings.OriginalStorage do
     {:ok, selection}
   end
 
-  def active_backend(original_id) do
-    case read_location(original_id) do
-      {:ok, nil} -> "postgresql"
-      {:ok, location} -> location.backend
-    end
-  end
-
   def select_rustfs(%Original{} = original, reference) do
     transact(fn ->
       with :ok <- validate_reference(original, reference),
