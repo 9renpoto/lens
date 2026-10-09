@@ -25,7 +25,7 @@ defmodule Lens.Earnings.OriginalStorage do
     end
   end
 
-  def switch_to_rustfs(%Original{} = original, reference) do
+  def switch_to_rustfs(%Original{bytes: bytes} = original, reference) when is_binary(bytes) do
     with :ok <- validate_bytes(original, original.bytes),
          true <- reference.sha256 == original.sha256,
          true <- reference.byte_size == original.byte_size do
@@ -35,6 +35,8 @@ defmodule Lens.Earnings.OriginalStorage do
       {:error, _} = error -> error
     end
   end
+
+  def switch_to_rustfs(%Original{}, _reference), do: {:error, :original_unavailable}
 
   def switch_to_postgresql(original_id, bytes) when is_binary(bytes) do
     transact(fn ->

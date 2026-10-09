@@ -4,6 +4,8 @@ defmodule Lens.Earnings.StorageMigrationTest do
   alias Lens.Earnings
 
   alias Lens.Earnings.{
+    Original,
+    OriginalStorage,
     RustFS,
     StorageFence,
     StorageMigration,
@@ -14,6 +16,25 @@ defmodule Lens.Earnings.StorageMigrationTest do
   import Plug.Conn
 
   @at ~U[2026-09-26 01:00:00.000000Z]
+
+  test "migration rejects originals without PostgreSQL bytes" do
+    sha256 = String.duplicate("a", 64)
+
+    original = %Original{
+      id: Ecto.UUID.generate(),
+      bytes: nil,
+      sha256: sha256,
+      byte_size: 1
+    }
+
+    reference = %{
+      key: "earnings/originals/sha256/#{sha256}.pdf",
+      sha256: sha256,
+      byte_size: 1
+    }
+
+    assert {:error, :original_unavailable} = OriginalStorage.switch_to_rustfs(original, reference)
+  end
 
   test "a verified RustFS copy becomes the original read source" do
     bytes = <<"%PDF-1.7\n", 0, 255, 13, 10, "migration-original">>
