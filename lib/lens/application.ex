@@ -12,6 +12,8 @@ defmodule Lens.Application do
       {Phoenix.PubSub, name: Lens.PubSub},
       {Task.Supervisor, name: Lens.Ingestion.TaskSupervisor},
       {Lens.Ingestion.Scheduler, Application.get_env(:lens, Lens.Ingestion.Scheduler, [])},
+      {Lens.Earnings.StorageRecovery,
+       Application.get_env(:lens, Lens.Earnings.StorageRecovery, [])},
       LensWeb.Endpoint
     ]
 

@@ -14,7 +14,7 @@ Consider migration to another compatible storage service only when a need arises
 
 ## Storage client foundation (#143)
 
-`Lens.Earnings.RustFS.new/0` reads runtime configuration; `new/1` accepts explicit options. `put/2` accepts nonempty raw bytes up to 20 MiB and returns a reference containing `key`, `sha256` and `byte_size`. The key is `earnings/originals/sha256/<lowercase-sha256>.pdf`. `get/2` accepts that reference and returns the exact bytes only after checking size and SHA-256. This client has no database writes, publisher access, automatic retries or redirects. Existing acquisition and extraction remain PostgreSQL-backed until #144/#146 implement durable preparation and integration.
+`Lens.Earnings.RustFS.new/0` reads runtime configuration; `new/1` accepts explicit options. `put/2` accepts nonempty raw bytes up to 20 MiB and returns a reference containing `key`, `sha256` and `byte_size`. The key is `earnings/originals/sha256/<lowercase-sha256>.pdf`. `get/2` accepts that reference and returns the exact bytes only after checking size and SHA-256. This client has no database writes, publisher access, automatic retries or redirects. Existing acquisition and extraction remain PostgreSQL-backed until #146 connects the durable preparation and recovery protocol in [ADR 0006](0006-record-file-storage-work-before-writing.md).
 
 Writes use signed S3 requests with `If-None-Match: *`, never a check followed by an unconditional write. Successful creates and existing-object responses (`412`) both require retrieval and byte verification before returning success. A concurrent conflict (`409`) remains explicit for the recovery layer. Missing objects return `:not_found`; mismatched or encoded bytes return `:integrity_error`; authentication failures return `:unauthorized`; service failures return `:unavailable`. Transport failures and total request timeouts are explicit. Error bodies and credentials are not included in results or client inspection. Actual streamed bytes are bounded by the reference size; ETags do not establish integrity.
 
@@ -46,7 +46,7 @@ PDFをPostgreSQLに残せば、別のサービスを運用せずファイルと�
 
 ## 保存クライアント基盤（#143）
 
-`Lens.Earnings.RustFS.new/0`は実行時設定を読み、`new/1`は明示的な設定を受け取る。`put/2`は空でない20 MiB以下の生バイト列を受け取り、`key`・`sha256`・`byte_size`を含む参照を返す。キーは`earnings/originals/sha256/<lowercase-sha256>.pdf`。`get/2`はこの参照を受け取り、サイズ・SHA-256を照合してから正確なバイト列を返す。このクライアントはDB書込・公開元へのアクセス・自動再試行・リダイレクトを行わない。#144・#146で永続的な準備と接続を実装するまで、既存の取得・抽出はPostgreSQLを使う。
+`Lens.Earnings.RustFS.new/0`は実行時設定を読み、`new/1`は明示的な設定を受け取る。`put/2`は空でない20 MiB以下の生バイト列を受け取り、`key`・`sha256`・`byte_size`を含む参照を返す。キーは`earnings/originals/sha256/<lowercase-sha256>.pdf`。`get/2`はこの参照を受け取り、サイズ・SHA-256を照合してから正確なバイト列を返す。このクライアントはDB書込・公開元へのアクセス・自動再試行・リダイレクトを行わない。#146で[ADR 0006](0006-record-file-storage-work-before-writing.md)の永続的な準備・復旧プロトコルへ接続するまで、既存の取得・抽出はPostgreSQLを使う。
 
 書込は署名付きS3リクエストと`If-None-Match: *`を使い、存在確認後の無条件書込にはしない。新規作成成功・既存オブジェクトの応答（`412`）のどちらも、取得・バイト検証後に成功を返す。同時書込の競合（`409`）は復旧層へ明示する。欠落は`:not_found`、バイト不一致・エンコードされた内容は`:integrity_error`、認証失敗は`:unauthorized`、サービス障害は`:unavailable`を返す。通信失敗・リクエスト全体のタイムアウトも明示する。エラー本文・認証情報は結果やクライアントの表示に含めない。実際のストリームバイト列を参照サイズで制限し、ETagを整合性の根拠にしない。
 
