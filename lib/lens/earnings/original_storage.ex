@@ -125,8 +125,6 @@ defmodule Lens.Earnings.OriginalStorage do
       else: {:error, :integrity_error}
   end
 
-  defp validate_bytes(_, _), do: {:error, :original_unavailable}
-
   defp validate_reference(original, %{sha256: sha256, byte_size: byte_size} = reference) do
     key = "earnings/originals/sha256/#{sha256}.pdf"
 
