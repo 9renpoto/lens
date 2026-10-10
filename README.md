@@ -1,5 +1,7 @@
 # Lens
 
+![coverage](docs/coverage.svg)
+
 Lens is a self-hosted, single-user Personal Web Observatory. It accumulates
 useful information over time through a simple flow:
 
