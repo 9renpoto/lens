@@ -2,14 +2,9 @@ coverage:
   paths:
     - cover/lcov.info
   badge:
-    path: docs/coverage.svg
+    path: cover/coverage.svg
 
 comment:
   if: is_pull_request
 
-summary:
-  if: true
-
-push:
-  if: env.GITHUB_EVENT_NAME == 'push' && env.GITHUB_REF == 'refs/heads/main'
-  message: "chore: update coverage badge [skip ci]"
+summary: {}

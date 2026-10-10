@@ -6,11 +6,12 @@ on:
       - "**/*.ex"
       - "**/*.exs"
       - "mix.lock"
+      - "mix.exs"
+      - "docs/api/**"
       - "**/*.c"
       - "**/*.h"
       - "Dockerfile"
       - ".octocov.yml"
-      - "docs/coverage.svg"
       - ".github/workflows/**"
   push:
     branches: [main]
@@ -133,9 +134,11 @@ jobs:
           path: cover/lcov.info
           if-no-files-found: error
 
-  coverage-report:
+  octocov:
     needs: test
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -153,27 +156,11 @@ jobs:
         with:
           version: v0.83.1
           checksum: 8e9980e02a2713d0335d9928761b2bfa111c6f9ff879252dc2b11e0bd712e332
-
-  coverage-badge:
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          persist-credentials: true
-          fetch-depth: 0
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: coverage-report
-          path: cover
-      - uses: k1LoW/octocov-action@a167dc0dee441b7ffc45e1b862ab55ec0d87f278 # v1.5.2
-        with:
-          version: v0.83.1
-          checksum: 8e9980e02a2713d0335d9928761b2bfa111c6f9ff879252dc2b11e0bd712e332
+          name: coverage-badge
+          path: cover/coverage.svg
+          if-no-files-found: error
 
   publish:
     needs: test
@@ -265,3 +252,44 @@ jobs:
               `${process.env.GITHUB_WORKSPACE}/.github/scripts/prune-package-versions.js`,
             );
             await prunePackageVersions({ github, context });
+
+  build-pages:
+    needs: octocov
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          elixir-version: "1.18.3"
+          otp-version: "27.3.4"
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+      - run: mkdir _site
+      - run: mix openapi.spec.json --spec LensWeb.ApiSpec --pretty --start-app=false --filename _site/openapi.json
+      - run: cp docs/api/index.html _site/index.html
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: coverage-badge
+          path: _site
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  publish-pages:
+    needs: build-pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: publish-api-documentation
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
