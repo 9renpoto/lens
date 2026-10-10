@@ -3,7 +3,7 @@ defmodule Lens.Earnings.StorageWork do
   use Ecto.Schema
   import Ecto.Query
   import Ecto.Changeset
-  alias Lens.Earnings.{Acquisition, Original, Release, RustFS, StorageFence, StorageRetryAudit}
+  alias Lens.Earnings.{Acquisition, Original, Release, RustFS, StorageRetryAudit}
   alias Lens.Repo
   @primary_key {:id, :binary_id, autogenerate: true}
   @provenance [:acquisition_id, :issuer_code, :url, :acquired_at]
@@ -43,7 +43,6 @@ defmodule Lens.Earnings.StorageWork do
     else
       with {:ok, facts} <- validate(attrs, client) do
         Repo.transaction(fn ->
-          StorageFence.assert_writable!()
           unless compatible_acquisition?(facts), do: Repo.rollback(:acquisition_conflict)
           changeset = change(%__MODULE__{}, facts) |> unique_constraint(:acquisition_id)
           Repo.insert!(changeset, on_conflict: :nothing, conflict_target: :acquisition_id)
@@ -96,7 +95,6 @@ defmodule Lens.Earnings.StorageWork do
   def finish(%__MODULE__{} = claim, result, now \\ DateTime.utc_now()) do
     outcome =
       Repo.transaction(fn ->
-        StorageFence.assert_writable!()
         work = locked(claim.id)
 
         unless work && work.status == "running" && work.lease_token == claim.lease_token &&
@@ -504,7 +502,6 @@ defmodule Lens.Earnings.StorageWork do
       {:error, :transaction_open}
     else
       case Repo.transaction(fn ->
-             StorageFence.assert_writable!()
              fun.()
            end) do
         {:ok, result} -> result

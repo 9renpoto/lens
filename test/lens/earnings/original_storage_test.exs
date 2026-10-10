@@ -12,7 +12,7 @@ defmodule Lens.Earnings.OriginalStorageTest do
 
   @at ~U[2026-09-26 01:00:00.000000Z]
 
-  test "the database rejects same-size corrupted restoration and accepts the original bytes" do
+  test "RustFS-only originals remain immutable even when supplied their exact bytes" do
     bytes = "%PDF-original"
     digest = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
@@ -36,8 +36,21 @@ defmodule Lens.Earnings.OriginalStorageTest do
     end
 
     assert Repo.get!(Original, original.id).bytes == nil
-    Repo.query!("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [bytes, id])
-    assert Earnings.original_bytes(original.id) == {:ok, bytes}
+
+    assert_raise Postgrex.Error, ~r/immutable/, fn ->
+      Repo.transaction(
+        fn ->
+          Repo.query!("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [bytes, id])
+        end,
+        mode: :savepoint
+      )
+    end
+
+    assert Repo.get!(Original, original.id).bytes == nil
+  end
+
+  test "the schema has no storage rollback control state" do
+    assert Repo.query!("SELECT to_regclass('earnings_storage_controls') IS NULL").rows == [[true]]
   end
 
   test "selects a verified RustFS location while retaining the PostgreSQL copy" do

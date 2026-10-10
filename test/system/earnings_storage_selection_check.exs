@@ -98,11 +98,6 @@ results = Enum.map(selectors, &Task.await(&1, 10_000))
 Repo.query!("DROP TRIGGER test_read_location_barrier ON earnings_original_read_locations")
 Repo.query!("DROP FUNCTION test_read_location_barrier()")
 
-Repo.query!("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [
-  bytes,
-  Ecto.UUID.dump!(original.id)
-])
-
 assert both_waiting, "both selectors must reach the insert before the barrier is released"
 
 for result <- results do
@@ -113,60 +108,6 @@ end
 assert {:ok, selected} = OriginalStorage.read_location(original.id)
 assert selected.id == location.id
 
-Postgrex.query!(writer, "BEGIN", [])
-Postgrex.query!(writer, "SELECT pg_advisory_xact_lock_shared(14501, 1)", [])
-
-downgrade =
-  Task.async(fn ->
-    try do
-      Ecto.Migrator.run(Repo, directory, :down, step: 1)
-    rescue
-      error -> {:error, error}
-    end
-  end)
-
-waiting = wait_for_locks.(14501, 1)
-
-id = Ecto.UUID.dump!(Ecto.UUID.generate())
-restored_bytes = "%PDF-downgrade-#{Ecto.UUID.generate()}"
-digest = Base.encode16(:crypto.hash(:sha256, restored_bytes), case: :lower)
-
-if waiting do
-  Postgrex.query!(
-    writer,
-    """
-    INSERT INTO earnings_originals(id, sha256, byte_size, bytes, inserted_at)
-    VALUES ($1, $2, $3, NULL, now())
-    """,
-    [id, digest, byte_size(restored_bytes)]
-  )
-
-  Postgrex.query!(writer, "COMMIT", [])
-else
-  Postgrex.query!(writer, "ROLLBACK", [])
-end
-
-result = Task.await(downgrade, 10_000)
-assert waiting, "downgrade must acquire the exclusive storage fence before inspecting originals"
-assert {:error, %Postgrex.Error{} = error} = result
-assert Exception.message(error) =~ "RustFS-only originals remain"
-assert Repo.query!("SELECT to_regclass('earnings_storage_controls') IS NOT NULL").rows == [[true]]
-
-Repo.query!("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [restored_bytes, id])
-
-Repo.query!(
-  "UPDATE earnings_storage_controls SET rollback_active = TRUE, rollback_started_at = now()"
-)
-
-Ecto.Migrator.run(Repo, directory, :down, step: 1)
-
-assert Repo.query!("SELECT bytes FROM earnings_originals WHERE id = $1", [id]).rows == [
-         [restored_bytes]
-       ]
-
-assert Repo.query!("SELECT to_regclass('earnings_storage_controls') IS NULL").rows == [[true]]
 GenServer.stop(writer)
 
-IO.puts(
-  "Concurrent selection is idempotent; downgrade fences writers and preserves restored bytes."
-)
+IO.puts("Concurrent storage selection is idempotent.")

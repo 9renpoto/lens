@@ -113,12 +113,12 @@ jobs:
         run: |
           mix ecto.create
           mix run --no-start test/system/earnings_search_migration_check.exs
-      - name: Verify storage selection and downgrade concurrency
+      - name: Verify concurrent storage selection
         env:
-          POSTGRES_DB: lens_storage_downgrade_test
+          POSTGRES_DB: lens_storage_selection_test
         run: |
           mix ecto.create
-          mix run --no-start test/system/earnings_storage_downgrade_check.exs
+          mix run --no-start test/system/earnings_storage_selection_check.exs
       - run: mix dialyzer
       - name: Verify source registration migration preserves existing history
         env:
