@@ -98,10 +98,17 @@ defmodule Lens.Earnings.StorageMigrationTest do
                url: "https://example.test/rustfs-only.pdf",
                acquired_at: @at,
                bytes: bytes,
-               storage_reference: reference
+               storage_reference: Map.merge(reference, Map.take(client, [:endpoint, :bucket]))
              })
 
     assert original.bytes == nil
+
+    for wrong <- [%{client | bucket: "other-bucket"}, %{client | endpoint: "http://other.test"}] do
+      assert {:ok, %{restored: 0, failures: [%{reason: "destination_mismatch"}], remaining: 1}} =
+               StorageMigration.rollback_batch(wrong, limit: 10)
+
+      assert Repo.get!(Original, original.id).bytes == nil
+    end
 
     corrupt_client = rustfs_client("different-object")
 

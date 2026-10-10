@@ -103,7 +103,11 @@ defmodule Lens.Earnings.StorageMigration do
              {:ok, reference} <- RustFS.put(client, original.bytes),
              {:ok, copied_bytes} <- RustFS.get(client, reference),
              true <- copied_bytes == original.bytes,
-             {:ok, _location} <- OriginalStorage.switch_to_rustfs(original, reference) do
+             {:ok, _location} <-
+               OriginalStorage.switch_to_rustfs(
+                 original,
+                 Map.merge(reference, Map.take(client, [:endpoint, :bucket]))
+               ) do
           :migrated
         else
           false -> {:error, :integrity_error}
@@ -120,7 +124,7 @@ defmodule Lens.Earnings.StorageMigration do
       {:ok, %{backend: "postgresql"}} ->
         :skipped
 
-      {:ok, %{backend: "rustfs"} = location} ->
+      {:ok, %{backend: "rustfs"}} ->
         original = Repo.get(Original, id)
 
         cond do
@@ -134,13 +138,7 @@ defmodule Lens.Earnings.StorageMigration do
             end
 
           true ->
-            reference = %{
-              key: location.key,
-              sha256: location.sha256,
-              byte_size: location.byte_size
-            }
-
-            with {:ok, bytes} <- RustFS.get(client, reference),
+            with {:ok, bytes} <- Lens.Earnings.original_bytes(id, rustfs: client),
                  :ok <- validate_bytes(original, bytes),
                  {:ok, _} <- OriginalStorage.switch_to_postgresql(id, bytes) do
               :restored
