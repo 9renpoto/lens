@@ -36,6 +36,16 @@ Collection does not yet call preparation. When `StorageWork.recover/3` completes
 
 CI runs `test/system/earnings_storage_recovery_check.exs` against real PostgreSQL and pinned RustFS in an isolated database and a random bucket. It verifies committed preparation after worker death, saved-object reuse after completion rollback, concurrent preparation with conflicting provenance, concurrent claims and concurrent audited retry requests. Use disposable storage for this check; it retains fixtures and buckets for inspection.
 
+## Collection and operator boundary (#146)
+
+Connect collection to durable preparation and verified storage completion. Retain downloaded bytes and acquisition provenance in committed work before object I/O; unfinished storage must not appear as a successful acquisition. A matching original version may already exist from another acquisition, so a pending work record does not imply that its content has no original ID. Expose unfinished work through its own bounded listing and detail interface rather than adding a pending response to original retrieval.
+
+When object storage cannot complete a PDF's save, stop collecting further PDFs from that acquisition source for the current run, retain the unfinished work for the bounded recovery protocol, and continue with other sources within the remaining run budget. The source is eligible again on the next collection run; this does not disable its registration or reset the unfinished work's retry budget. Failure to persist the work or acquisition history still stops the whole run: source-level isolation requires a durable recovery record. A later collection run and recovery of the retained PDF are separate operations; storage recovery never refetches the publisher.
+
+Initially expose unfinished work as a read-only operator listing and detail with only the work ID, acquisition identifier, status and update time. The acquisition identifier is the stable provenance identifier retained before completion, not a promise that a successful acquisition row already exists. Keep payloads and additional storage metadata out of this initial view. Publishing manual retry through HTTP or CLI is deferred; the existing audited recovery functions and automatic retry policy retain their contracts. Coordinate the operator interface with #73 and preserve the deployment's private-access boundary.
+
+These boundaries are agreed for #146 and require implementation and verification. They do not establish coordinated backup or restore under #147.
+
 <details>
 <summary>日本語</summary>
 
@@ -72,5 +82,15 @@ Lensで独立したファイル保存サービスを使う場合、PDFを書き�
 収集処理はまだ準備処理を呼び出さない。`StorageWork.recover/3`の完了時は、検証済みRustFS参照を取得記録の保存へ渡し、作業完了と同じトランザクションで確定する。新規のRustFS専用原本は`bytes = NULL`とし、同じ内容の既存原本があればPostgreSQLコピーを保持する。読取では原本ごとに選ばれた保存先を使い、別バックエンドへフォールバックしない。収集処理を準備へ接続する作業は#146、既存PostgreSQL原本の移行は#145で扱う。この段階ではPostgreSQLコピーを削除せず、#147の両保存先を揃えた復元保証も確立しない。
 
 CIでは`test/system/earnings_storage_recovery_check.exs`を、実PostgreSQL・固定したRustFS・隔離DB・ランダムなbucketで実行する。ワーカー終了後の準備記録の保持、完了ロールバック後の保存済みオブジェクト再利用、異なる取得経緯での同時準備、同時取得、同時監査付き再試行予約を検証する。この検証には使い捨ての保存先を使う。検査用のfixtureとbucketは残す。
+
+## 収集と運用者向け操作の境界（#146）
+
+収集を永続的な準備と検証済み保存完了へ接続する。オブジェクト通信前に、取得したバイト列と取得経緯をコミット済みの作業記録へ保持し、未完了の保存を取得成功として扱わない。同じ原本の版が別の取得によって既に存在する場合があるため、保存待ちの作業が、その内容に原本IDがないことを意味するわけではない。原本取得に保存中の応答を追加せず、未完了作業専用の上限付き一覧・詳細インターフェースで表示する。
+
+オブジェクト保存でPDFの保存を完了できない場合、その実行中は当該取得先からの後続PDFの収集を止め、未完了作業を上限付き復旧の対象として保持する。残りの実行予算内で、ほかの取得先は続ける。当該取得先は次回の収集で再び対象となり、登録を無効化したり未完了作業の再試行予算をリセットしたりしない。作業や取得履歴の永続化に失敗した場合は、引き続き実行全体を止める。取得先単位で失敗を分離するには、永続的な復旧記録が必要である。次回の収集と保持したPDFの復旧は別の操作であり、保存復旧では公開元から再取得しない。
+
+初期段階の運用者向け未完了作業一覧・詳細は参照専用とし、作業ID・取得識別子・状態・更新日時だけを表示する。取得識別子は完了前から保持する取得経緯の安定した識別子であり、取得成功の行が既に存在することを保証しない。この初期表示にはペイロードや追加の保存メタデータを含めない。HTTP・CLIを通じた手動再試行の公開は後続とし、既存の監査付き復旧関数と自動再試行方針の契約を維持する。運用者向けインターフェースは#73と調整し、デプロイの非公開アクセス境界を維持する。
+
+これらは#146の合意した境界であり、実装と検証が必要である。#147の両保存先を揃えたバックアップ・復元の完了を示さない。
 
 </details>

@@ -12,6 +12,14 @@ Keeping PDFs in PostgreSQL would allow files and their records to be backed up t
 
 Consider migration to another compatible storage service only when a need arises. Do not build support for multiple storage products in this release. This is a storage decision, not a claim that the existing PostgreSQL implementation has already been migrated.
 
+## Retrieval and extraction boundary (#146)
+
+Retrieve and verify the retained original's size and SHA-256 before creating an extraction attempt. If the original cannot be retrieved or fails verification, report its unavailability through a dedicated API error; the CLI identifies the requested original and the failure reason. A storage failure does not create an extraction attempt or become an extractor failure. Retrieve the requested original version without publisher access and preserve original identities and existing extraction history.
+
+Start verification of this integration with the existing `lens-earnings-extract --original UUID` operation, processing one explicitly selected original at a time. Completing or recovering storage does not automatically start extraction in this initial stage. This keeps the change small enough to implement and exercise promptly, at the cost of a manual extraction step after storage completion. Automation remains the goal, but neither an immediate extraction hook nor a periodic scan of unextracted originals is selected for this stage. The existing regeneration operation retains its scope.
+
+These are agreed boundaries for #146, not a claim that retrieval or extraction has switched to RustFS. Exact endpoint names, HTTP status codes and response schemas belong to the implementation contract coordinated with #73.
+
 ## Storage client foundation (#143)
 
 `Lens.Earnings.RustFS.new/0` reads runtime configuration; `new/1` accepts explicit options. `put/2` accepts nonempty raw bytes up to 20 MiB and returns a reference containing `key`, `sha256` and `byte_size`. The key is `earnings/originals/sha256/<lowercase-sha256>.pdf`. `get/2` accepts that reference and returns the exact bytes only after checking size and SHA-256. This client has no database writes, publisher access, automatic retries or redirects. Existing acquisition and extraction remain PostgreSQL-backed until #146 connects the durable preparation and recovery protocol in [ADR 0006](0006-record-file-storage-work-before-writing.md).
@@ -43,6 +51,14 @@ CI runs `mix run --no-start test/system/rustfs_storage_check.exs` against RustFS
 PDFをPostgreSQLに残せば、別のサービスを運用せずファイルと記録をまとめてバックアップできる。今回はファイル保存を任せるため、RustFSの運用と、ファイル・記録を揃えて復旧する責任を引き受ける。PostgreSQLとRustFSは一つの復旧時点としてバックアップ・復元する。復元後は、DB上の完了済み記録を一件ずつRustFSのオブジェクトキーと内容ハッシュに照合する。欠落・不一致のファイルは、可能なら同じ復旧用バックアップから修復する。有効なコピーがなければ原本を利用不可として運用者に示し、処理完了として扱ったり、別のPDFを黙って返したりしない。これは通常の中断書き込み復旧では検出できない、整合しない復元から守るためである。中断書き込みには[ADR 0006](0006-record-file-storage-work-before-writing.md)を適用し、保存前に作業記録を残し、回数を制限した自動復旧と手動復旧に対応する。
 
 他の互換ストレージへの移行は、必要になった時点で検討する。今回のリリースでは複数製品への対応を作り込まない。これは保存先の決定であり、既存のPostgreSQL実装の移行完了を意味しない。
+
+## 原本取得と抽出の境界（#146）
+
+抽出試行を作成する前に、保持した原本を取得し、サイズとSHA-256を検証する。原本を取得できない場合や検証に失敗した場合、APIは専用エラーで利用不可を示し、CLIは指定した原本と失敗理由を表示する。保存の障害では抽出試行を作らず、抽出器の失敗としても記録しない。公開元へアクセスせず指定した原本の版を取得し、原本の識別情報と既存の抽出履歴を保持する。
+
+この接続の初期検証では、既存の`lens-earnings-extract --original UUID`操作を使い、明示的に指定した原本を1件ずつ処理する。初期段階では、保存完了や保存復旧を契機に抽出を自動開始しない。早く実装して実際に試せる規模に抑えるため、保存完了後の抽出には手動操作が必要となる。自動化は引き続き目標とするが、この段階では即時抽出のフックも未抽出原本の定期スキャンも選定しない。既存の再生成操作の対象範囲を維持する。
+
+これは#146の合意した境界であり、原本取得や抽出がRustFSへ切り替わったことを示さない。具体的なエンドポイント名・HTTPステータスコード・応答スキーマは、#73と調整する実装契約で定める。
 
 ## 保存クライアント基盤（#143）
 
