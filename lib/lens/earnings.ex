@@ -3,7 +3,7 @@ defmodule Lens.Earnings do
 
   import Ecto.Query
 
-  alias Lens.Earnings.{Acquisition, Original, OriginalStorage, Release, RustFS, StorageFence}
+  alias Lens.Earnings.{Acquisition, Original, OriginalStorage, Release, RustFS}
   alias Lens.Repo
 
   @max_original_bytes 20_971_520
@@ -17,8 +17,6 @@ defmodule Lens.Earnings do
       end
     else
       Repo.transaction(fn ->
-        StorageFence.assert_writable!()
-
         with {:ok, base} <- validated_common(attrs),
              {:ok, identity} <-
                release_identity(Map.get(attrs, :release), Map.get(attrs, :issuer_code)),
@@ -39,8 +37,6 @@ defmodule Lens.Earnings do
     reason = Map.get(attrs, :reason)
 
     Repo.transaction(fn ->
-      StorageFence.assert_writable!()
-
       acquisition_attrs =
         common_attrs(attrs) |> Map.merge(%{status: "failed", failure_reason: reason})
 
@@ -66,7 +62,6 @@ defmodule Lens.Earnings do
   @doc "Explicitly attach a pending successful acquisition to a release identity using its stable acquisition_id."
   def confirm_identity(acquisition_id, identity) do
     Repo.transaction(fn ->
-      StorageFence.assert_writable!()
       acquisition = Repo.get_by(Acquisition, acquisition_id: acquisition_id)
 
       cond do
