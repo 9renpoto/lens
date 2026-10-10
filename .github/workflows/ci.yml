@@ -9,6 +9,7 @@ on:
       - "**/*.c"
       - "**/*.h"
       - "Dockerfile"
+      - ".octocov.yml"
       - ".github/workflows/**"
   push:
     branches: [main]
@@ -122,6 +123,9 @@ jobs:
           mix run --no-start test/system/earnings_source_migration_check.exs
       - run: mix coveralls.lcov
       - uses: k1LoW/octocov-action@a167dc0dee441b7ffc45e1b862ab55ec0d87f278 # v1.5.2
+        with:
+          version: v0.83.1
+          checksum: 8e9980e02a2713d0335d9928761b2bfa111c6f9ff879252dc2b11e0bd712e332
 
   publish:
     needs: test
