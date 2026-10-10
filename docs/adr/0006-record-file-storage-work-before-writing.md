@@ -16,6 +16,8 @@ This protocol recovers interrupted writes, not loss or inconsistency after resto
 
 Each verified RustFS location retains its endpoint and bucket as immutable destination facts. Reads require the configured or explicitly supplied client to match both fields; a mismatch returns `destination_mismatch` before object I/O. Restoring PostgreSQL bytes requires both the recorded size and SHA-256 to match, enforced by the database immutability trigger.
 
+A conflicting immutable location immediately places the work in `attention`, retaining the payload and releasing the lease. It does not consume further automatic attempts; an operator retry records the failed outcome in its audit.
+
 `Lens.Earnings.StorageWork.prepare/2` commits provenance, normalized release identity (if present), endpoint, bucket, content-derived key, SHA-256, byte size and accepted bytes to `earnings_storage_work`. Reusing an acquisition ID requires identical facts, including compatibility with any existing successful acquisition; an existing failure or conflicting observation is rejected before object I/O. Preparation and recovery reject an enclosing repository transaction so object I/O cannot precede the preparation commit. Preparation performs no object I/O.
 
 `claim/2` uses a row lock to persist the attempt count, a unique lease token and a 120-second expiry before returning. Each RustFS request is bounded to at most 30 seconds; checking, creating and verifying require at most three requests (90 seconds). No database transaction remains open during object I/O. Completion checks both the token and expiry under a row lock, so an expired or replaced worker cannot complete. A discovered expired lease counts as a failed consumed attempt; its retry delay starts at lease expiry. Restarting never resets the budget.
@@ -34,6 +36,8 @@ CI runs `test/system/earnings_storage_recovery_check.exs` against real PostgreSQ
 <summary>日本語</summary>
 
 検証済みのRustFS保存先にはendpointとbucketを変更不可の接続先情報として保存する。読取時は設定済みまたは明示的に渡したクライアントが両項目と一致する必要があり、不一致ならオブジェクトI/O前に`destination_mismatch`を返す。PostgreSQLバイト列の復元は、記録済みサイズとSHA-256の両方が一致する場合だけ許可し、DBの不変性トリガーで強制する。
+
+変更不可の保存先が競合する場合、payloadを保持しリースを解除して、作業を即座に`attention`へ遷移させる。その後の自動試行予算は消費せず、運用者が再試行した場合は失敗結果を監査記録に残す。
 
 # PDFを保存する前に保存作業を記録する
 

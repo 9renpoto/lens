@@ -105,6 +105,18 @@ defmodule Lens.Earnings.OriginalStorageTest do
     assert {:ok, nil} = OriginalStorage.read_location(original.id)
   end
 
+  test "partial references return an error without changing the selected backend" do
+    original = record_original("storage-partial-reference", "%PDF-partial")
+    reference = reference(original)
+
+    for key <- [:key, :sha256, :byte_size] do
+      assert {:error, :invalid_reference} =
+               OriginalStorage.select_rustfs(original, Map.delete(reference, key))
+
+      assert {:ok, nil} = OriginalStorage.read_location(original.id)
+    end
+  end
+
   test "returns a changeset error when the original does not exist" do
     sha256 = String.duplicate("a", 64)
 

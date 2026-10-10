@@ -122,8 +122,8 @@ defmodule Lens.Earnings.StorageWork do
       end)
 
     case outcome do
-      {:error, :acquisition_conflict} ->
-        case finish(claim, {:error, :acquisition_conflict}, now) do
+      {:error, reason} when reason in [:acquisition_conflict, :location_conflict] ->
+        case finish(claim, {:error, reason}, now) do
           {:ok, _} -> outcome
           error -> error
         end
@@ -439,7 +439,7 @@ defmodule Lens.Earnings.StorageWork do
     manual = not is_nil(work.active_audit_id)
 
     attention =
-      reason in ~w(unauthorized integrity_error invalid_configuration not_configured invalid_reference not_found acquisition_conflict) or
+      reason in ~w(unauthorized integrity_error invalid_configuration not_configured invalid_reference not_found acquisition_conflict location_conflict) or
         String.starts_with?(reason, "http_") or manual
 
     status =
@@ -478,6 +478,7 @@ defmodule Lens.Earnings.StorageWork do
   defp failure_name(reason)
        when reason in [
               :acquisition_conflict,
+              :location_conflict,
               :not_found,
               :unauthorized,
               :integrity_error,
