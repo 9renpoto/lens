@@ -7,8 +7,7 @@ coverage:
 comment:
   if: is_pull_request
 
-summary:
-  if: true
+summary: {}
 
 push:
   if: env.GITHUB_EVENT_NAME == 'push' && env.GITHUB_REF == 'refs/heads/main'
