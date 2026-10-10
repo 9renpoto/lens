@@ -112,6 +112,12 @@ jobs:
         run: |
           mix ecto.create
           mix run --no-start test/system/earnings_search_migration_check.exs
+      - name: Verify storage downgrade fences live writers
+        env:
+          POSTGRES_DB: lens_storage_downgrade_test
+        run: |
+          mix ecto.create
+          mix run --no-start test/system/earnings_storage_downgrade_check.exs
       - run: mix dialyzer
       - name: Verify source registration migration preserves existing history
         env:

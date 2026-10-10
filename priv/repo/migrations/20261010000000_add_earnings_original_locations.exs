@@ -112,15 +112,14 @@ defmodule Lens.Repo.Migrations.AddEarningsOriginalLocations do
   end
 
   def down do
+    # Match StorageFence's shared writer lock and hold it until the DDL commits.
+    execute("SELECT pg_advisory_xact_lock(14501, 1)")
+
     execute("""
     DO $$
     BEGIN
       IF EXISTS (SELECT 1 FROM earnings_originals WHERE bytes IS NULL) THEN
         RAISE EXCEPTION 'cannot remove original locations while RustFS-only originals remain';
-      END IF;
-
-      IF EXISTS (SELECT 1 FROM earnings_storage_controls WHERE rollback_active) THEN
-        RAISE EXCEPTION 'cannot remove original locations while rollback is active';
       END IF;
     END;
     $$;
