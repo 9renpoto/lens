@@ -40,9 +40,10 @@ reference. The HTML template uses a versioned ReDoc asset from jsDelivr.
 
 ## Publishing
 
-The `Publish API documentation` workflow generates the document for pull
-requests and for changes merged to `main`. It only deploys the generated site to
-GitHub Pages after a push to `main`; pull requests never publish documentation.
+The `Elixir CI` workflow generates the API document and Octocov coverage badge
+after tests pass for pull requests and changes merged to `main`. It deploys both
+in one GitHub Pages site only after a push to `main`; pull requests build the site
+without publishing it. The README badge uses the published `coverage.svg`.
 
 GitHub Pages stores the generated deployment artifact; no `gh-pages` branch is
 created or maintained.
@@ -93,7 +94,7 @@ mix openapi.spec.json --spec LensWeb.ApiSpec --pretty --start-app=false --filena
 
 ## 公開
 
-`Publish API documentation` ワークフローは、プルリクエストおよび `main` へのマージ時にドキュメントを生成します。`main` へのプッシュ時のみ生成されたサイトをGitHub Pagesにデプロイし、プルリクエストでは公開されません。
+`Elixir CI` ワークフローは、プルリクエストおよび `main` へのマージ時にテストが成功した後、APIドキュメントとOctocovカバレッジバッジを生成します。`main` へのプッシュ時のみ両方を1つのGitHub Pagesサイトとして公開します。プルリクエストではサイトを生成し、公開は行いません。READMEのバッジは公開された `coverage.svg` を参照します。
 
 GitHub Pagesは生成されたデプロイ成果物を保持し、`gh-pages` ブランチの作成や維持は行われません。
 
