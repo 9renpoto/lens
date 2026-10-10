@@ -1,6 +1,6 @@
 # Lens
 
-[![codecov](https://codecov.io/gh/9renpoto/lens/graph/badge.svg?token=fKDe4hKp4e)](https://codecov.io/gh/9renpoto/lens)
+![coverage](docs/coverage.svg)
 
 Lens is a self-hosted, single-user Personal Web Observatory. It accumulates
 useful information over time through a simple flow:
