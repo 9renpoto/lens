@@ -3,7 +3,7 @@ defmodule Lens.Earnings.StorageWork do
   use Ecto.Schema
   import Ecto.Query
   import Ecto.Changeset
-  alias Lens.Earnings.{Acquisition, Original, Release, RustFS, StorageRetryAudit}
+  alias Lens.Earnings.{Acquisition, Original, Release, RustFS, StorageFence, StorageRetryAudit}
   alias Lens.Repo
   @primary_key {:id, :binary_id, autogenerate: true}
   @provenance [:acquisition_id, :issuer_code, :url, :acquired_at]
@@ -43,6 +43,7 @@ defmodule Lens.Earnings.StorageWork do
     else
       with {:ok, facts} <- validate(attrs, client) do
         Repo.transaction(fn ->
+          StorageFence.assert_writable!()
           unless compatible_acquisition?(facts), do: Repo.rollback(:acquisition_conflict)
           changeset = change(%__MODULE__{}, facts) |> unique_constraint(:acquisition_id)
           Repo.insert!(changeset, on_conflict: :nothing, conflict_target: :acquisition_id)
@@ -95,6 +96,7 @@ defmodule Lens.Earnings.StorageWork do
   def finish(%__MODULE__{} = claim, result, now \\ DateTime.utc_now()) do
     outcome =
       Repo.transaction(fn ->
+        StorageFence.assert_writable!()
         work = locked(claim.id)
 
         unless work && work.status == "running" && work.lease_token == claim.lease_token &&
@@ -105,7 +107,14 @@ defmodule Lens.Earnings.StorageWork do
           {:ok, bytes} ->
             if byte_size(bytes) != work.byte_size or hash(bytes) != work.sha256,
               do: fail(work, :integrity_error, now),
-              else: complete(work, bytes, now)
+              else: complete(work, bytes, nil, now)
+
+          {:ok, bytes, reference} ->
+            if byte_size(bytes) != work.byte_size or hash(bytes) != work.sha256 or
+                 Map.take(reference, [:key, :sha256, :byte_size]) !=
+                   Map.take(work, [:key, :sha256, :byte_size]),
+               do: fail(work, :integrity_error, now),
+               else: complete(work, bytes, reference, now)
 
           {:error, reason} ->
             fail(work, reason, now)
@@ -113,8 +122,8 @@ defmodule Lens.Earnings.StorageWork do
       end)
 
     case outcome do
-      {:error, :acquisition_conflict} ->
-        case finish(claim, {:error, :acquisition_conflict}, now) do
+      {:error, reason} when reason in [:acquisition_conflict, :location_conflict] ->
+        case finish(claim, {:error, reason}, now) do
           {:ok, _} -> outcome
           error -> error
         end
@@ -141,9 +150,12 @@ defmodule Lens.Earnings.StorageWork do
             case RustFS.get(client, reference) do
               {:error, :not_found} ->
                 case RustFS.put(client, claim.bytes) do
-                  {:ok, _} -> {:ok, claim.bytes}
+                  {:ok, saved_reference} -> {:ok, claim.bytes, saved_reference}
                   error -> error
                 end
+
+              {:ok, bytes} ->
+                {:ok, bytes, reference}
 
               other ->
                 other
@@ -374,11 +386,21 @@ defmodule Lens.Earnings.StorageWork do
         (work.manual_pending or work.attempts < 4) and
         (is_nil(work.next_attempt_at) or DateTime.compare(now, work.next_attempt_at) != :lt)
 
-  defp complete(work, bytes, now) do
+  defp complete(work, bytes, reference, now) do
     attrs =
       Map.take(work, @provenance)
       |> Map.put(:bytes, bytes)
       |> Map.put(:release, release_attrs(work.release))
+
+    attrs =
+      if reference,
+        do:
+          Map.put(
+            attrs,
+            :storage_reference,
+            Map.merge(reference, Map.take(work, [:endpoint, :bucket]))
+          ),
+        else: attrs
 
     case Lens.Earnings.record_success(attrs) do
       {:ok, result} ->
@@ -417,7 +439,7 @@ defmodule Lens.Earnings.StorageWork do
     manual = not is_nil(work.active_audit_id)
 
     attention =
-      reason in ~w(unauthorized integrity_error invalid_configuration not_configured invalid_reference not_found acquisition_conflict) or
+      reason in ~w(unauthorized integrity_error invalid_configuration not_configured invalid_reference not_found acquisition_conflict location_conflict) or
         String.starts_with?(reason, "http_") or manual
 
     status =
@@ -456,6 +478,7 @@ defmodule Lens.Earnings.StorageWork do
   defp failure_name(reason)
        when reason in [
               :acquisition_conflict,
+              :location_conflict,
               :not_found,
               :unauthorized,
               :integrity_error,
@@ -480,7 +503,10 @@ defmodule Lens.Earnings.StorageWork do
     if Repo.in_transaction?() do
       {:error, :transaction_open}
     else
-      case Repo.transaction(fun) do
+      case Repo.transaction(fn ->
+             StorageFence.assert_writable!()
+             fun.()
+           end) do
         {:ok, result} -> result
         {:error, reason} -> {:error, reason}
       end

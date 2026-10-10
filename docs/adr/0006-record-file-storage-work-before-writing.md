@@ -14,6 +14,14 @@ This protocol recovers interrupted writes, not loss or inconsistency after resto
 
 ## Durable recovery foundation (#144)
 
+Each verified RustFS location retains its endpoint and bucket as immutable destination facts. Reads require the configured or explicitly supplied client to match both fields; a mismatch returns `destination_mismatch` before object I/O. Restoring PostgreSQL bytes requires both the recorded size and SHA-256 to match, enforced by the database immutability trigger.
+
+A conflicting immutable location immediately places the work in `attention`, retaining the payload and releasing the lease. It does not consume further automatic attempts; an operator retry records the failed outcome in its audit.
+
+Concurrent selectors of the same verified location succeed without creating duplicate read selections. A conflicting persisted selection returns `location_conflict`.
+
+The schema downgrade acquires the matching exclusive transaction lock before inspecting originals and retains it through the DDL commit. It refuses removal while any RustFS-only original remains.
+
 `Lens.Earnings.StorageWork.prepare/2` commits provenance, normalized release identity (if present), endpoint, bucket, content-derived key, SHA-256, byte size and accepted bytes to `earnings_storage_work`. Reusing an acquisition ID requires identical facts, including compatibility with any existing successful acquisition; an existing failure or conflicting observation is rejected before object I/O. Preparation and recovery reject an enclosing repository transaction so object I/O cannot precede the preparation commit. Preparation performs no object I/O.
 
 `claim/2` uses a row lock to persist the attempt count, a unique lease token and a 120-second expiry before returning. Each RustFS request is bounded to at most 30 seconds; checking, creating and verifying require at most three requests (90 seconds). No database transaction remains open during object I/O. Completion checks both the token and expiry under a row lock, so an expired or replaced worker cannot complete. A discovered expired lease counts as a failed consumed attempt; its retry delay starts at lease expiry. Restarting never resets the budget.
@@ -24,12 +32,20 @@ This protocol recovers interrupted writes, not loss or inconsistency after resto
 
 The supervised `Lens.Earnings.StorageRecovery` poller is disabled by default. Set `LENS_STORAGE_RECOVERY_ENABLED=true` to discover eligible and expired work from PostgreSQL every second, processing one item per poll. `false` explicitly disables it; any other value fails startup with a generic configuration error. No in-memory queue is required after restart. Operators can use `Lens.Earnings.RustFS.new/0` and `StorageWork.recover_due/1` for a bounded batch, or schedule an audited retry with `StorageWork.manual_retry/3`. Changing the configured destination does not redirect prepared work: recovery requires its original endpoint and bucket, and a mismatch moves pending work to operator attention without consuming an attempt.
 
-Collection does not yet call preparation. Successful completion uses the existing PostgreSQL-backed acquisition path and preserves its immutable original bytes while clearing only the temporary work payload. Switching acquisition and retrieval to object references is #146; historical migration is #145. This stage does not remove PostgreSQL originals or establish the coordinated restore guarantee in #147.
+Collection does not yet call preparation. When `StorageWork.recover/3` completes, it passes the verified RustFS reference to acquisition persistence in the same transaction that marks the work complete. New RustFS-only originals have `bytes = NULL`; an existing original with the same content keeps its PostgreSQL copy. Reads use the selected original location and do not fall back between backends. Connecting collection to preparation remains #146; migrating retained PostgreSQL originals is #145. This stage does not remove PostgreSQL copies or establish the coordinated restore guarantee in #147.
 
 CI runs `test/system/earnings_storage_recovery_check.exs` against real PostgreSQL and pinned RustFS in an isolated database and a random bucket. It verifies committed preparation after worker death, saved-object reuse after completion rollback, concurrent preparation with conflicting provenance, concurrent claims and concurrent audited retry requests. Use disposable storage for this check; it retains fixtures and buckets for inspection.
 
 <details>
 <summary>日本語</summary>
+
+検証済みのRustFS保存先にはendpointとbucketを変更不可の接続先情報として保存する。読取時は設定済みまたは明示的に渡したクライアントが両項目と一致する必要があり、不一致ならオブジェクトI/O前に`destination_mismatch`を返す。PostgreSQLバイト列の復元は、記録済みサイズとSHA-256の両方が一致する場合だけ許可し、DBの不変性トリガーで強制する。
+
+変更不可の保存先が競合する場合、payloadを保持しリースを解除して、作業を即座に`attention`へ遷移させる。その後の自動試行予算は消費せず、運用者が再試行した場合は失敗結果を監査記録に残す。
+
+同じ検証済み保存先を同時に選択しても、読取先記録を重複作成せずに成功する。永続化された選択先が競合する場合は`location_conflict`を返す。
+
+スキーマのダウングレードでは原本の確認前に対応する排他トランザクションロックを取得し、DDLのcommitまで保持する。RustFS専用原本が残っている場合は削除を拒否する。
 
 # PDFを保存する前に保存作業を記録する
 
@@ -53,7 +69,7 @@ Lensで独立したファイル保存サービスを使う場合、PDFを書き�
 
 監督下の`Lens.Earnings.StorageRecovery`ポーラーは初期状態で無効。`LENS_STORAGE_RECOVERY_ENABLED=true`で、PostgreSQLから実行可能・期限切れの作業を1秒ごとに検出し、各ポーリングで1件処理する。`false`は明示的に無効化し、その他の値は一般的な設定エラーで起動を失敗させる。再起動後にメモリ内キューは必要ない。運用者は`Lens.Earnings.RustFS.new/0`と`StorageWork.recover_due/1`で上限付きバッチを実行でき、`StorageWork.manual_retry/3`で監査付き再試行を予約できる。設定した保存先を変えても準備済み作業を別の場所には送らず、元のendpoint・bucketとの一致を復旧の条件とする。不一致の場合、待機中の作業を試行予算を消費せずに要対応状態にする。
 
-収集処理はまだ準備処理を呼び出さない。完了時は既存のPostgreSQLによる取得記録経路を使い、不変な原本バイト列を保持し、一時的な作業ペイロードだけを削除する。取得・参照をオブジェクト参照へ切り替えるのは#146、過去の原本の移行は#145で扱う。この段階ではPostgreSQLの原本を削除せず、#147の両保存先を揃えた復元保証も確立しない。
+収集処理はまだ準備処理を呼び出さない。`StorageWork.recover/3`の完了時は、検証済みRustFS参照を取得記録の保存へ渡し、作業完了と同じトランザクションで確定する。新規のRustFS専用原本は`bytes = NULL`とし、同じ内容の既存原本があればPostgreSQLコピーを保持する。読取では原本ごとに選ばれた保存先を使い、別バックエンドへフォールバックしない。収集処理を準備へ接続する作業は#146、既存PostgreSQL原本の移行は#145で扱う。この段階ではPostgreSQLコピーを削除せず、#147の両保存先を揃えた復元保証も確立しない。
 
 CIでは`test/system/earnings_storage_recovery_check.exs`を、実PostgreSQL・固定したRustFS・隔離DB・ランダムなbucketで実行する。ワーカー終了後の準備記録の保持、完了ロールバック後の保存済みオブジェクト再利用、異なる取得経緯での同時準備、同時取得、同時監査付き再試行予約を検証する。この検証には使い捨ての保存先を使う。検査用のfixtureとbucketは残す。
 

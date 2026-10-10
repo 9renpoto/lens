@@ -46,6 +46,14 @@ A distinct byte representation of acquired original material. Reacquiring the
 same bytes does not create another original version.
 _Avoid_: URL, extraction result
 
+**Physical storage location**:
+A verified copy of an original version in one storage backend, identified by its
+backend and immutable location key.
+
+**Active read location**:
+The physical storage location currently selected for reads of one original
+version. Its selection is stored separately from the original's identity.
+
 **Acquisition record**:
 A record of obtaining original material from a location at a particular time.
 Multiple acquisition records may refer to the same original version.
@@ -109,6 +117,12 @@ _区別する語_: 公開日時
 **Original version（原本の版）**:
 取得した原本資料の、バイト列で区別される一つの版。同じバイト列の再取得では新たな版を作らない。
 _区別する語_: URL、本文抽出の結果
+
+**Physical storage location（物理保存先）**:
+特定の保存バックエンドと不変の保存キーで識別する、原本の版の検証済みコピー。
+
+**Active read location（有効な読取先）**:
+一つの原本の版を読む際に現在選択されている物理保存先。選択状態は原本の識別情報とは分けて保存する。
 
 **Acquisition record（取得記録）**:
 ある場所から、ある日時に原本資料を取得した記録。複数の取得記録が同じ原本の版を参照することがある。

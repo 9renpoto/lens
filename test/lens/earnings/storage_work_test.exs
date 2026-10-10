@@ -1,6 +1,7 @@
 defmodule Lens.Earnings.StorageWorkTest do
   use Lens.DataCase, async: false
-  alias Lens.Earnings.{Acquisition, RustFS, StorageWork}
+  alias Lens.Earnings.{Acquisition, Original, OriginalStorage, RustFS, StorageWork}
+  alias Lens.Earnings
 
   setup do
     {:ok, client} =
@@ -129,6 +130,41 @@ defmodule Lens.Earnings.StorageWorkTest do
     assert completed.status == "completed"
     assert {:error, :not_eligible} = StorageWork.recover(work.id, client, c.now)
     assert Repo.aggregate(Acquisition, :count) == 1
+
+    acquisition = Repo.get_by!(Acquisition, acquisition_id: c.attrs.acquisition_id)
+    original = Repo.get!(Original, acquisition.original_id)
+    assert original.bytes == nil
+    assert {:ok, location} = OriginalStorage.read_location(original.id)
+
+    assert Map.take(location, [:endpoint, :bucket]) == %{
+             endpoint: client.endpoint,
+             bucket: client.bucket
+           }
+
+    assert Earnings.original_bytes(original.id, rustfs: client) == {:ok, c.attrs.bytes}
+
+    for wrong <- [%{client | bucket: "other-bucket"}, %{client | endpoint: "http://other.test"}] do
+      assert Earnings.original_bytes(original.id, rustfs: wrong) ==
+               {:error, :destination_mismatch}
+    end
+
+    previous = Application.fetch_env(:lens, RustFS)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, options} -> Application.put_env(:lens, RustFS, options)
+        :error -> Application.delete_env(:lens, RustFS)
+      end
+    end)
+
+    Application.put_env(:lens, RustFS,
+      endpoint: "http://other.test",
+      bucket: "other-bucket",
+      access_key_id: "test",
+      secret_access_key: "secret"
+    )
+
+    assert Earnings.original_bytes(original.id) == {:error, :destination_mismatch}
   end
 
   test "missing object writes retained bytes; changed destination never receives I/O", c do
@@ -166,6 +202,43 @@ defmodule Lens.Earnings.StorageWorkTest do
 
     assert {:ok, completed} = StorageWork.recover(work.id, client, c.now)
     assert completed.status == "completed"
+  end
+
+  test "a conflicting immutable location immediately requires attention and retains its payload",
+       c do
+    client = %{
+      c.client
+      | request: Req.new(plug: fn conn -> Plug.Conn.send_resp(conn, 200, c.attrs.bytes) end)
+    }
+
+    assert {:ok, first} = StorageWork.prepare(c.attrs, client)
+    assert {:ok, %{status: "completed"}} = StorageWork.recover(first.id, client, c.now)
+
+    other = %{client | bucket: "other-bucket"}
+    attrs = %{c.attrs | acquisition_id: "work-location-conflict"}
+    assert {:ok, work} = StorageWork.prepare(attrs, other)
+    assert {:error, :location_conflict} = StorageWork.recover(work.id, other, c.now)
+    failed = Repo.get!(StorageWork, work.id)
+    assert failed.status == "attention"
+    assert failed.last_failure == "location_conflict"
+    assert failed.bytes == c.attrs.bytes
+    assert failed.attempts == 1
+    assert failed.lease_token == nil
+    assert failed.lease_expires_at == nil
+
+    assert {:error, :not_eligible} =
+             StorageWork.recover(work.id, other, DateTime.add(c.now, 600, :second))
+
+    assert Repo.aggregate(Acquisition, :count) == 1
+
+    assert {:ok, _} = StorageWork.manual_retry(work.id, "operator-1", c.now)
+    assert {:error, :location_conflict} = StorageWork.recover(work.id, other, c.now)
+    assert [%{status: "failed"}] = StorageWork.audit(work.id)
+
+    assert %{status: "attention", bytes: bytes, attempts: 1, manual_attempts: 1} =
+             Repo.get!(StorageWork, work.id)
+
+    assert bytes == c.attrs.bytes
   end
 
   test "completion conflict rolls back acquisition and retains prepared bytes", c do
