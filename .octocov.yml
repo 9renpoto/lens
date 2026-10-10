@@ -1,0 +1,9 @@
+coverage:
+  paths:
+    - cover/lcov.info
+
+comment:
+  if: is_pull_request
+
+summary:
+  if: true

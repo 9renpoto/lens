@@ -23,8 +23,9 @@ jobs:
     # ubuntu-slim is unprivileged and cannot host the PostgreSQL service container.
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
-      id-token: write
+      pull-requests: write
     services:
       rustfs:
         image: rustfs/rustfs:1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
@@ -120,11 +121,7 @@ jobs:
           mix ecto.create
           mix run --no-start test/system/earnings_source_migration_check.exs
       - run: mix coveralls.lcov
-      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          files: cover/lcov.info
-          fail_ci_if_error: true
-          use_oidc: true
+      - uses: k1LoW/octocov-action@a167dc0dee441b7ffc45e1b862ab55ec0d87f278 # v1.5.2
 
   publish:
     needs: test
