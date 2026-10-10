@@ -392,7 +392,15 @@ defmodule Lens.Earnings.StorageWork do
       |> Map.put(:bytes, bytes)
       |> Map.put(:release, release_attrs(work.release))
 
-    attrs = if reference, do: Map.put(attrs, :storage_reference, reference), else: attrs
+    attrs =
+      if reference,
+        do:
+          Map.put(
+            attrs,
+            :storage_reference,
+            Map.merge(reference, Map.take(work, [:endpoint, :bucket]))
+          ),
+        else: attrs
 
     case Lens.Earnings.record_success(attrs) do
       {:ok, result} ->

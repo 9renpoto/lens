@@ -34,6 +34,8 @@ defmodule Lens.Earnings.OriginalStorage do
       original_id: original.id,
       backend: "postgresql",
       key: nil,
+      endpoint: nil,
+      bucket: nil,
       sha256: original.sha256,
       byte_size: original.byte_size,
       verified_at: DateTime.utc_now()
@@ -55,6 +57,8 @@ defmodule Lens.Earnings.OriginalStorage do
       original_id: original.id,
       backend: "rustfs",
       key: reference.key,
+      endpoint: Map.get(reference, :endpoint),
+      bucket: Map.get(reference, :bucket),
       sha256: reference.sha256,
       byte_size: reference.byte_size,
       verified_at: DateTime.utc_now()
@@ -75,8 +79,8 @@ defmodule Lens.Earnings.OriginalStorage do
             backend: attrs.backend
           )
 
-        if Map.take(location, [:key, :sha256, :byte_size]) ==
-             Map.take(attrs, [:key, :sha256, :byte_size]),
+        if Map.take(location, [:key, :endpoint, :bucket, :sha256, :byte_size]) ==
+             Map.take(attrs, [:key, :endpoint, :bucket, :sha256, :byte_size]),
            do: {:ok, location},
            else: {:error, :location_conflict}
 

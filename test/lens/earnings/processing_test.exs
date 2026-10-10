@@ -259,6 +259,8 @@ defmodule Lens.Earnings.ProcessingTest do
   defp storage_reference(original) do
     %{
       key: "earnings/originals/sha256/#{original.sha256}.pdf",
+      endpoint: "http://storage.test",
+      bucket: "lens-originals",
       sha256: original.sha256,
       byte_size: original.byte_size
     }

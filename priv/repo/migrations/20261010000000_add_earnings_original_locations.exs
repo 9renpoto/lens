@@ -25,6 +25,7 @@ defmodule Lens.Repo.Migrations.AddEarningsOriginalLocations do
              IS NOT DISTINCT FROM
              ROW(OLD.id, OLD.sha256, OLD.byte_size, OLD.inserted_at)
          AND octet_length(NEW.bytes) = NEW.byte_size
+         AND encode(sha256(NEW.bytes), 'hex') = OLD.sha256
       THEN
         RETURN NEW;
       END IF;
@@ -39,6 +40,8 @@ defmodule Lens.Repo.Migrations.AddEarningsOriginalLocations do
       add(:original_id, references(:earnings_originals, type: :binary_id), null: false)
       add(:backend, :string, null: false)
       add(:key, :text)
+      add(:endpoint, :text)
+      add(:bucket, :string)
       add(:sha256, :string, null: false)
       add(:byte_size, :integer, null: false)
       add(:verified_at, :utc_datetime_usec, null: false)
@@ -65,7 +68,8 @@ defmodule Lens.Repo.Migrations.AddEarningsOriginalLocations do
     create(
       constraint(:earnings_original_storage_locations, :earnings_original_storage_backend,
         check:
-          "(backend = 'postgresql' AND key IS NULL) OR (backend = 'rustfs' AND key IS NOT NULL)"
+          "(backend = 'postgresql' AND key IS NULL AND endpoint IS NULL AND bucket IS NULL) OR " <>
+            "(backend = 'rustfs' AND key IS NOT NULL AND endpoint IS NOT NULL AND endpoint <> '' AND bucket IS NOT NULL AND bucket <> '')"
       )
     )
 

@@ -1,6 +1,6 @@
 defmodule Lens.Earnings.StorageWorkTest do
   use Lens.DataCase, async: false
-  alias Lens.Earnings.{Acquisition, Original, RustFS, StorageWork}
+  alias Lens.Earnings.{Acquisition, Original, OriginalStorage, RustFS, StorageWork}
   alias Lens.Earnings
 
   setup do
@@ -134,7 +134,37 @@ defmodule Lens.Earnings.StorageWorkTest do
     acquisition = Repo.get_by!(Acquisition, acquisition_id: c.attrs.acquisition_id)
     original = Repo.get!(Original, acquisition.original_id)
     assert original.bytes == nil
+    assert {:ok, location} = OriginalStorage.read_location(original.id)
+
+    assert Map.take(location, [:endpoint, :bucket]) == %{
+             endpoint: client.endpoint,
+             bucket: client.bucket
+           }
+
     assert Earnings.original_bytes(original.id, rustfs: client) == {:ok, c.attrs.bytes}
+
+    for wrong <- [%{client | bucket: "other-bucket"}, %{client | endpoint: "http://other.test"}] do
+      assert Earnings.original_bytes(original.id, rustfs: wrong) ==
+               {:error, :destination_mismatch}
+    end
+
+    previous = Application.fetch_env(:lens, RustFS)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, options} -> Application.put_env(:lens, RustFS, options)
+        :error -> Application.delete_env(:lens, RustFS)
+      end
+    end)
+
+    Application.put_env(:lens, RustFS,
+      endpoint: "http://other.test",
+      bucket: "other-bucket",
+      access_key_id: "test",
+      secret_access_key: "secret"
+    )
+
+    assert Earnings.original_bytes(original.id) == {:error, :destination_mismatch}
   end
 
   test "missing object writes retained bytes; changed destination never receives I/O", c do

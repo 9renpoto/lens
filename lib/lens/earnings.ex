@@ -312,6 +312,7 @@ defmodule Lens.Earnings do
 
       true ->
         with {:ok, client} <- rustfs_client(options),
+             :ok <- validate_destination(client, location),
              {:ok, bytes} <-
                RustFS.get(client, %{
                  key: location.key,
@@ -329,6 +330,12 @@ defmodule Lens.Earnings do
       nil -> RustFS.new()
       _ -> {:error, :invalid_configuration}
     end
+  end
+
+  defp validate_destination(client, location) do
+    if client.endpoint == location.endpoint and client.bucket == location.bucket,
+      do: :ok,
+      else: {:error, :destination_mismatch}
   end
 
   defp common_attrs(attrs) do
