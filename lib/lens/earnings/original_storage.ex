@@ -94,10 +94,15 @@ defmodule Lens.Earnings.OriginalStorage do
       nil ->
         %OriginalReadLocation{}
         |> OriginalReadLocation.changeset(%{original_id: original_id, location_id: location_id})
-        |> Repo.insert()
+        |> Repo.insert(on_conflict: :nothing, conflict_target: :original_id)
         |> case do
-          {:ok, _} -> :ok
-          {:error, reason} -> {:error, reason}
+          {:ok, _} ->
+            if Repo.get!(OriginalReadLocation, original_id).location_id == location_id,
+              do: :ok,
+              else: {:error, :location_conflict}
+
+          {:error, reason} ->
+            {:error, reason}
         end
 
       %{location_id: ^location_id} ->

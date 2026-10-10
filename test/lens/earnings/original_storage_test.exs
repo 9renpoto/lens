@@ -57,6 +57,10 @@ defmodule Lens.Earnings.OriginalStorageTest do
 
     assert {:ok, selected} = OriginalStorage.read_location(original.id)
     assert selected.id == rustfs_location.id
+    assert {:ok, repeated} = OriginalStorage.select_rustfs(original_with_bytes, reference)
+    assert repeated.id == rustfs_location.id
+    assert Repo.aggregate(OriginalReadLocation, :count) == 1
+    assert Repo.aggregate(OriginalStorageLocation, :count) == 2
     assert Repo.get!(Lens.Earnings.Original, original.id).bytes == bytes
 
     assert {:error, :location_conflict} =
