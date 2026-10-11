@@ -1,5 +1,5 @@
 defmodule Lens.Earnings.Processing do
-  @moduledoc "Derive text from PostgreSQL originals without invoking acquisition."
+  @moduledoc "Derive text from retained originals without invoking acquisition."
   alias Lens.Earnings.{Extractions, Extraction, Original, PDFExtractor}
   alias Lens.Repo
   import Ecto.Query
@@ -49,16 +49,37 @@ defmodule Lens.Earnings.Processing do
   defp allocate_and_process(original_id, options, retry?) do
     with {:ok, id} <- Ecto.UUID.cast(original_id),
          true <- valid_bounds?(options),
+         :ok <- retry_eligible(id, retry?),
+         {:ok, bytes} <- retrieve_original(id, options),
          {:ok, attempt} <- allocate_attempt(id, options, retry?) do
-      case Lens.Earnings.original_bytes(id, Keyword.take(options, [:rustfs])) do
-        {:ok, bytes} -> process(bytes, attempt, options)
-        {:error, reason} -> Extractions.fail(attempt.id, failure_name(reason))
-        :error -> Extractions.fail(attempt.id, "original_unavailable")
-      end
+      process(bytes, attempt, options)
     else
       :error -> {:error, :not_found}
       false -> {:error, :invalid_options}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp retry_eligible(_id, false), do: :ok
+
+  defp retry_eligible(id, true) do
+    latest =
+      Repo.one(
+        from(e in Extraction, where: e.original_id == ^id, order_by: [desc: e.id], limit: 1)
+      )
+
+    cond do
+      latest && latest.status == "failed" -> :ok
+      Repo.exists?(from(o in Original, where: o.id == ^id)) -> {:error, :not_failed}
+      true -> {:error, :not_found}
+    end
+  end
+
+  defp retrieve_original(id, options) do
+    case Lens.Earnings.original_bytes(id, Keyword.take(options, [:rustfs])) do
+      {:ok, bytes} -> {:ok, bytes}
+      {:error, reason} -> {:error, {:original_unavailable, id, reason}}
+      :error -> {:error, :not_found}
     end
   end
 
@@ -95,10 +116,6 @@ defmodule Lens.Earnings.Processing do
       end
     end)
   end
-
-  defp failure_name(reason) when is_atom(reason), do: Atom.to_string(reason)
-  defp failure_name({:http_error, status}) when is_integer(status), do: "http_#{status}"
-  defp failure_name(_), do: "original_unavailable"
 
   defp process(bytes, attempt, options) do
     extractor = Keyword.get(options, :extractor, PDFExtractor)

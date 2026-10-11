@@ -1,6 +1,8 @@
 # Extract retained earnings originals
 
-Current storage is PostgreSQL. The accepted [RustFS direction](adr/0005-store-pdfs-in-rustfs.md) requires integration and migration before these operations read objects from RustFS.
+Processing reads each original's selected storage location: PostgreSQL for originals without a selection, or verified RustFS objects. RustFS reads require the recorded endpoint and bucket to match runtime configuration. Configure the [RustFS client](adr/0005-store-pdfs-in-rustfs.md) when processing RustFS originals. Collection integration remains separate under #146.
+
+Retrieve and verify size and SHA-256 before creating an extraction attempt. Storage failures create no attempt and leave extraction history unchanged. Single-original commands fail with `original UUID unavailable: REASON`; regeneration reports `original_id`, `error: "original_unavailable"` and `reason` for each unavailable original and continues the bounded batch. No storage failure triggers publisher access or fallback to another backend. Storage completion does not automatically start extraction.
 
 Apply database migrations before processing. Run these commands in a fresh Mix
 process with the usual PostgreSQL configuration. The task starts only Ecto and
@@ -121,7 +123,9 @@ only PostgreSQL available; do not use a production database.
 
 # 保存した決算原本からの抽出
 
-現在の保存先はPostgreSQL。[RustFSの方針](adr/0005-store-pdfs-in-rustfs.md)は合意済みだが、これらの操作がRustFSから原本を読むには接続と移行が必要である。
+処理は各原本で選択された保存先を読む。選択がない原本はPostgreSQL、RustFS原本は検証付きオブジェクト取得を使う。RustFSの読取では記録済みendpoint・bucketと実行時設定の一致が必要である。RustFS原本の処理では[RustFSクライアント](adr/0005-store-pdfs-in-rustfs.md)を設定する。収集への接続は#146の別作業として残る。
+
+抽出試行の作成前に原本を取得し、サイズとSHA-256を検証する。保存障害では試行を作らず、抽出履歴を変えない。単一原本のコマンドは`original UUID unavailable: REASON`で失敗し、再生成は利用不可の原本ごとに`original_id`・`error: "original_unavailable"`・`reason`を返して上限付きバッチを続ける。保存障害による公開元アクセスや別バックエンドへのフォールバックは行わない。保存完了で抽出を自動開始しない。
 
 処理前にDBマイグレーションを適用する。通常のPostgreSQL設定を使い、新しい
 Mixプロセスで上記の4コマンドを実行する。タスクはEctoとRepoだけを起動し、

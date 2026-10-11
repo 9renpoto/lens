@@ -11,7 +11,7 @@ defmodule Mix.Tasks.Lens.Earnings.Extract do
 
         case ReleaseCLI.execute(command) do
           {:ok, json} -> Mix.shell().info(json)
-          {:error, reason} -> Mix.raise(to_string(reason))
+          {:error, reason} -> Mix.raise(ReleaseCLI.error_message(reason))
         end
 
       {:error, reason} ->

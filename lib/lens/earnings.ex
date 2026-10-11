@@ -82,10 +82,10 @@ defmodule Lens.Earnings do
           read_rustfs(original, rustfs_location, options)
 
         nil ->
-          read_postgresql(id)
+          read_postgresql(original)
 
         %{backend: "postgresql"} ->
-          read_postgresql(id)
+          read_postgresql(original)
       end
     else
       _ -> :error
@@ -293,10 +293,18 @@ defmodule Lens.Earnings do
   defp identity_matches?(nil, _identity), do: false
   defp identity_matches?(release, identity), do: Map.take(release, Map.keys(identity)) == identity
 
-  defp read_postgresql(id) do
+  defp read_postgresql(original) do
+    id = original.id
+
     case Repo.one(from(original in Original, where: original.id == ^id, select: original.bytes)) do
-      bytes when is_binary(bytes) -> {:ok, bytes}
-      _ -> {:error, :original_unavailable}
+      bytes when is_binary(bytes) ->
+        if byte_size(bytes) == original.byte_size and
+             Base.encode16(:crypto.hash(:sha256, bytes), case: :lower) == original.sha256,
+           do: {:ok, bytes},
+           else: {:error, :integrity_error}
+
+      _ ->
+        {:error, :original_unavailable}
     end
   end
 

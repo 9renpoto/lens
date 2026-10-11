@@ -138,7 +138,7 @@ defmodule Lens.Earnings.ProcessingTest do
     assert Earnings.original_bytes(original.id) == {:ok, "%PDF-success"}
   end
 
-  test "RustFS read failures are recorded with a stable extraction reason" do
+  test "RustFS read failures create no extraction attempts or fallback reads" do
     original = retain("%PDF-rustfs-redirect").original
     stored_original = Repo.get!(Original, original.id)
     reference = storage_reference(stored_original)
@@ -146,15 +146,99 @@ defmodule Lens.Earnings.ProcessingTest do
 
     client = rustfs_client(fn conn -> Plug.Conn.send_resp(conn, 307, "redirect") end)
 
-    assert {:ok, failure} = Processing.extract(original.id, rustfs: client)
-    assert failure.status == "failed"
-    assert failure.failure_reason == "http_307"
-    assert Repo.aggregate(Extraction, :count) == 1
+    assert {:error, {:original_unavailable, id, {:http_error, 307}}} =
+             Processing.extract(original.id, rustfs: client)
 
-    assert {:ok, unavailable} = Processing.extract(original.id, rustfs: :invalid)
-    assert unavailable.status == "failed"
-    assert unavailable.failure_reason == "invalid_configuration"
+    assert id == original.id
+
+    assert {:error, {:original_unavailable, ^id, :invalid_configuration}} =
+             Processing.extract(original.id, rustfs: :invalid)
+
+    assert Repo.aggregate(Extraction, :count) == 0
+    assert Repo.aggregate(Acquisition, :count) == 1
+  end
+
+  test "verified RustFS-only bytes reach extraction before an attempt is allocated" do
+    bytes = "%PDF-success"
+    digest = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+
+    original =
+      Repo.insert!(
+        Original.rustfs_changeset(%Original{}, %{sha256: digest, byte_size: byte_size(bytes)})
+      )
+
+    assert {:ok, _} = OriginalStorage.select_rustfs(original, storage_reference(original))
+
+    client =
+      rustfs_client(fn conn ->
+        assert conn.method == "GET"
+        assert Repo.aggregate(Extraction, :count) == 0
+        Plug.Conn.send_resp(conn, 200, bytes)
+      end)
+
+    assert {:ok, attempt} =
+             Processing.extract(original.id, rustfs: client, extractor: FixtureExtractor)
+
+    assert attempt.status == "succeeded"
+    assert attempt.original_id == original.id
+    assert Repo.get!(Original, original.id).bytes == nil
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "missing, corrupt and unavailable objects leave extraction history unchanged" do
+    original = retain("%PDF-timeout").original
+    assert {:ok, failed} = Processing.extract(original.id, extractor: FixtureExtractor)
+    stored = Repo.get!(Original, original.id)
+    assert {:ok, _} = OriginalStorage.select_rustfs(stored, storage_reference(stored))
+
+    for {status, body, reason} <- [
+          {404, "missing", :not_found},
+          {200, "%PDF-corrupt", :integrity_error},
+          {503, "unavailable", :unavailable}
+        ] do
+      client = rustfs_client(fn conn -> Plug.Conn.send_resp(conn, status, body) end)
+
+      assert {:error, {:original_unavailable, id, ^reason}} =
+               Processing.retry_failed(original.id, rustfs: client)
+
+      assert id == original.id
+      assert {:ok, batch} = Processing.regenerate(limit: 1, rustfs: client)
+      assert [{^id, {:error, {:original_unavailable, ^id, ^reason}}}] = batch.results
+      assert Repo.aggregate(Extraction, :count) == 1
+      assert Repo.get!(Extraction, failed.id).failure_reason == "timeout"
+    end
+
+    client = rustfs_client(fn conn -> Plug.Conn.send_resp(conn, 200, "%PDF-timeout") end)
+
+    assert {:ok, retry} =
+             Processing.retry_failed(original.id, rustfs: client, extractor: FixtureExtractor)
+
+    assert retry.id > failed.id
     assert Repo.aggregate(Extraction, :count) == 2
+  end
+
+  test "retry eligibility is checked before storage access" do
+    original = retain("%PDF-success").original
+    stored = Repo.get!(Original, original.id)
+    assert {:ok, _} = OriginalStorage.select_rustfs(stored, storage_reference(stored))
+    client = rustfs_client(fn _conn -> flunk("ineligible retry must not access storage") end)
+    assert {:error, :not_failed} = Processing.retry_failed(original.id, rustfs: client)
+    assert Repo.aggregate(Extraction, :count) == 0
+  end
+
+  test "PostgreSQL byte integrity is verified before extraction" do
+    original =
+      Repo.insert!(%Original{
+        bytes: "%PDF-success",
+        byte_size: 12,
+        sha256: String.duplicate("0", 64)
+      })
+
+    assert {:error, {:original_unavailable, id, :integrity_error}} =
+             Processing.extract(original.id, extractor: FixtureExtractor)
+
+    assert id == original.id
+    assert Repo.aggregate(Extraction, :count) == 0
   end
 
   test "retry targets one latest failed original and regeneration requires a finite limit" do
