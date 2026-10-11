@@ -20,6 +20,14 @@ The current k3s deployment has no stored PDFs, as confirmed for this scope decis
 
 Apply schema changes through forward Ecto migrations and the existing release migration hook. Preserve applied migrations; a follow-up migration removes the rollback control table and restores strict original immutability, including rejection of `NULL`-to-bytes updates. This cleanup migration is forward-only. Stop application writers before applying it; this is not a rolling deployment procedure. Recover from deployment problems using coordinated PostgreSQL and RustFS backups, rather than copying RustFS originals into PostgreSQL. For the currently empty deployment, recreating the database is acceptable; this does not authorize discarding future stored data. Coordinated restore implementation and verification remain #147. This decision does not claim deployment or restore completion.
 
+## Retrieval and extraction boundary (#146)
+
+Retrieve and verify the retained original's size and SHA-256 before creating an extraction attempt. If the original cannot be retrieved or fails verification, report its unavailability through a dedicated API error; the CLI identifies the requested original and the failure reason. A storage failure does not create an extraction attempt or become an extractor failure. Retrieve the requested original version without publisher access and preserve original identities and existing extraction history.
+
+Start verification of this integration with the existing `lens-earnings-extract --original UUID` operation, processing one explicitly selected original at a time. Completing or recovering storage does not automatically start extraction in this initial stage. This keeps the change small enough to implement and exercise promptly, at the cost of a manual extraction step after storage completion. Automation remains the goal, but neither an immediate extraction hook nor a periodic scan of unextracted originals is selected for this stage. The existing regeneration operation retains its scope.
+
+These are agreed boundaries for #146, not a claim that retrieval or extraction has switched to RustFS. Exact endpoint names, HTTP status codes and response schemas belong to the implementation contract coordinated with #73.
+
 ## Storage client foundation (#143)
 
 `Lens.Earnings.RustFS.new/0` reads runtime configuration; `new/1` accepts explicit options. `put/2` accepts nonempty raw bytes up to 20 MiB and returns a reference containing `key`, `sha256` and `byte_size`. The key is `earnings/originals/sha256/<lowercase-sha256>.pdf`. `get/2` accepts that reference and returns the exact bytes only after checking size and SHA-256. This client has no database writes, publisher access, automatic retries or redirects. Existing acquisition and extraction remain PostgreSQL-backed until #146 connects the durable preparation and recovery protocol in [ADR 0006](0006-record-file-storage-work-before-writing.md).
@@ -59,6 +67,14 @@ PDFをPostgreSQLに残せば、別のサービスを運用せずファイルと�
 今回の範囲判断にあたり、2026-10-10時点のk3s配備には保存済みPDFがないことを確認した。PDFコピーのバッチ、移行・逆移行CLI、PostgreSQLへのコピー戻し、逆移行状態の永続管理、バックエンド逆移行の書込フェンスは追加しない。保存先移行は具体的な必要が生じた時点で再検討する。PR #151は取り下げ、#150の保存先記録基盤は維持する。
 
 スキーマ変更は前方Ecto migrationと既存のリリースmigration hookで適用する。適用済みmigrationは保持し、追加migrationで逆移行制御テーブルを削除し、`NULL`からバイト列への更新も拒否する厳密な原本不変性を復元する。この整理migrationは前方適用のみとする。適用前にアプリのwriterを停止し、ローリング配備手順としては扱わない。配備問題からの復旧はRustFS原本をPostgreSQLへコピーする方式ではなく、PostgreSQLとRustFSを揃えたバックアップ復元とする。現在の空の配備ではDB再作成を許容するが、今後保存するデータの破棄を許可するものではない。両保存先を揃えた復元の実装・検証は#147で扱う。この判断は配備・復元の完了を意味しない。
+
+## 原本取得と抽出の境界（#146）
+
+抽出試行を作成する前に、保持した原本を取得し、サイズとSHA-256を検証する。原本を取得できない場合や検証に失敗した場合、APIは専用エラーで利用不可を示し、CLIは指定した原本と失敗理由を表示する。保存の障害では抽出試行を作らず、抽出器の失敗としても記録しない。公開元へアクセスせず指定した原本の版を取得し、原本の識別情報と既存の抽出履歴を保持する。
+
+この接続の初期検証では、既存の`lens-earnings-extract --original UUID`操作を使い、明示的に指定した原本を1件ずつ処理する。初期段階では、保存完了や保存復旧を契機に抽出を自動開始しない。早く実装して実際に試せる規模に抑えるため、保存完了後の抽出には手動操作が必要となる。自動化は引き続き目標とするが、この段階では即時抽出のフックも未抽出原本の定期スキャンも選定しない。既存の再生成操作の対象範囲を維持する。
+
+これは#146の合意した境界であり、原本取得や抽出がRustFSへ切り替わったことを示さない。具体的なエンドポイント名・HTTPステータスコード・応答スキーマは、#73と調整する実装契約で定める。
 
 ## 保存クライアント基盤（#143）
 
