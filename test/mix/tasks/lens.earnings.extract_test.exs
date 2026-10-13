@@ -5,6 +5,34 @@ defmodule Mix.Tasks.Lens.Earnings.ExtractTest do
   alias Mix.Tasks.Lens.Earnings.Extract
   alias Lens.Earnings.ReleaseCLI
 
+  test "Mix and release commands report original storage failure without extraction" do
+    :ok = Supervisor.terminate_child(Lens.Supervisor, Lens.Ingestion.Scheduler)
+
+    on_exit(fn ->
+      {:ok, _pid} = Supervisor.restart_child(Lens.Supervisor, Lens.Ingestion.Scheduler)
+      :ok = :sys.suspend(Lens.Ingestion.Scheduler)
+    end)
+
+    original =
+      Repo.insert!(%Lens.Earnings.Original{
+        bytes: "%PDF-success",
+        byte_size: 12,
+        sha256: String.duplicate("0", 64)
+      })
+
+    assert_raise Mix.Error, "original #{original.id} unavailable: integrity_error", fn ->
+      Extract.run(["--original", original.id])
+    end
+
+    error =
+      capture_io(:stderr, fn ->
+        assert :halted = ReleaseCLI.main(["--original", original.id], fn 1 -> :halted end)
+      end)
+
+    assert error =~ "original #{original.id} unavailable: integrity_error"
+    assert Repo.aggregate(Lens.Earnings.Extraction, :count) == 0
+  end
+
   @tag skip: not match?({:unix, :linux}, :os.type())
   test "CLI extracts, retries and bounds regeneration using retained originals" do
     assert_raise Mix.Error, ~r/without app.start/, fn ->

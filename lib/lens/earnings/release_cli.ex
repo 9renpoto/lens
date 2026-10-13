@@ -134,6 +134,10 @@ defmodule Lens.Earnings.ReleaseCLI do
   defp encode_result({:error, reason}), do: {:error, reason}
 
   def render_result({:ok, attempt}), do: summary(attempt)
+
+  def render_result({:error, {:original_unavailable, id, reason}}),
+    do: %{original_id: id, error: "original_unavailable", reason: storage_reason(reason)}
+
   def render_result({:error, reason}), do: %{error: to_string(reason)}
 
   defp summary(attempt) do
@@ -148,6 +152,14 @@ defmodule Lens.Earnings.ReleaseCLI do
   end
 
   def error_message(:invalid_options), do: @usage
+
+  def error_message({:original_unavailable, id, reason}),
+    do: "original #{id} unavailable: #{storage_reason(reason)}"
+
   def error_message(reason) when is_atom(reason), do: to_string(reason)
   def error_message(reason) when is_binary(reason), do: reason
+
+  defp storage_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp storage_reason({:http_error, status}) when is_integer(status), do: "http_#{status}"
+  defp storage_reason(_), do: "original_unavailable"
 end

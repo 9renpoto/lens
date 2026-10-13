@@ -68,12 +68,29 @@ defmodule Lens.Earnings.ReleaseCLITest do
   end
 
   test "formats CLI errors and failed batch results" do
+    id = Ecto.UUID.generate()
+    failure = {:original_unavailable, id, {:http_error, 307}}
+
+    assert Lens.Earnings.ReleaseCLI.error_message(failure) ==
+             "original #{id} unavailable: http_307"
+
+    assert Lens.Earnings.ReleaseCLI.render_result({:error, failure}) == %{
+             original_id: id,
+             error: "original_unavailable",
+             reason: "http_307"
+           }
+
     assert Lens.Earnings.ReleaseCLI.usage() =~ "--original UUID"
 
     assert Lens.Earnings.ReleaseCLI.error_message(:invalid_options) ==
              Lens.Earnings.ReleaseCLI.usage()
 
     assert Lens.Earnings.ReleaseCLI.error_message(:not_found) == "not_found"
+    assert Lens.Earnings.ReleaseCLI.error_message(:retry_conflict) == "retry_conflict"
+
+    assert Lens.Earnings.ReleaseCLI.render_result({:error, :retry_conflict}) == %{
+             error: "retry_conflict"
+           }
 
     assert Lens.Earnings.ReleaseCLI.error_message("repository unavailable") ==
              "repository unavailable"
