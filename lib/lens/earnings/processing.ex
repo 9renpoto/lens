@@ -49,9 +49,9 @@ defmodule Lens.Earnings.Processing do
   defp allocate_and_process(original_id, options, retry?) do
     with {:ok, id} <- Ecto.UUID.cast(original_id),
          true <- valid_bounds?(options),
-         :ok <- retry_eligible(id, retry?),
+         {:ok, retry_target} <- retry_target(id, retry?),
          {:ok, bytes} <- retrieve_original(id, options),
-         {:ok, attempt} <- allocate_attempt(id, options, retry?) do
+         {:ok, attempt} <- allocate_attempt(id, options, retry_target) do
       process(bytes, attempt, options)
     else
       :error -> {:error, :not_found}
@@ -60,16 +60,16 @@ defmodule Lens.Earnings.Processing do
     end
   end
 
-  defp retry_eligible(_id, false), do: :ok
+  defp retry_target(_id, false), do: {:ok, nil}
 
-  defp retry_eligible(id, true) do
+  defp retry_target(id, true) do
     latest =
       Repo.one(
         from(e in Extraction, where: e.original_id == ^id, order_by: [desc: e.id], limit: 1)
       )
 
     cond do
-      latest && latest.status == "failed" -> :ok
+      latest && latest.status == "failed" -> {:ok, latest.id}
       Repo.exists?(from(o in Original, where: o.id == ^id)) -> {:error, :not_failed}
       true -> {:error, :not_found}
     end
@@ -83,14 +83,14 @@ defmodule Lens.Earnings.Processing do
     end
   end
 
-  defp allocate_attempt(original_id, options, retry?) do
+  defp allocate_attempt(original_id, options, retry_target) do
     Repo.transaction(fn ->
       original =
         Repo.one(from(o in Original, where: o.id == ^original_id, lock: "FOR UPDATE"))
 
       if is_nil(original), do: Repo.rollback(:not_found)
 
-      if retry? do
+      if retry_target do
         latest =
           Repo.one(
             from(e in Extraction,
@@ -100,7 +100,8 @@ defmodule Lens.Earnings.Processing do
             )
           )
 
-        unless latest && latest.status == "failed", do: Repo.rollback(:not_failed)
+        unless latest && latest.id == retry_target && latest.status == "failed",
+          do: Repo.rollback(:retry_conflict)
       end
 
       extractor = Keyword.get(options, :extractor, PDFExtractor)

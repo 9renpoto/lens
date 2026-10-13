@@ -86,6 +86,11 @@ defmodule Lens.Earnings.ReleaseCLITest do
              Lens.Earnings.ReleaseCLI.usage()
 
     assert Lens.Earnings.ReleaseCLI.error_message(:not_found) == "not_found"
+    assert Lens.Earnings.ReleaseCLI.error_message(:retry_conflict) == "retry_conflict"
+
+    assert Lens.Earnings.ReleaseCLI.render_result({:error, :retry_conflict}) == %{
+             error: "retry_conflict"
+           }
 
     assert Lens.Earnings.ReleaseCLI.error_message("repository unavailable") ==
              "repository unavailable"

@@ -296,7 +296,7 @@ defmodule Lens.Earnings.ProcessingTest do
     assert Repo.aggregate(Extraction, :count) == 2
   end
 
-  test "simultaneous retries allocate only one pending attempt" do
+  test "a slow retry cannot target a newer failed attempt after retrieval" do
     original = retain("%PDF-timeout").original
 
     assert {:ok, %{status: "failed"}} =
@@ -304,26 +304,33 @@ defmodule Lens.Earnings.ProcessingTest do
 
     owner = self()
 
-    tasks =
-      for _ <- 1..2 do
-        Task.async(fn ->
-          send(owner, {:ready, self()})
+    stored = Repo.get!(Original, original.id)
+    assert {:ok, _} = OriginalStorage.select_rustfs(stored, storage_reference(stored))
 
-          receive do
-            :retry -> Processing.retry_failed(original.id, extractor: FixtureExtractor)
-          end
-        end)
-      end
+    slow =
+      rustfs_client(fn conn ->
+        send(owner, {:retrieving, self()})
 
-    for task <- tasks do
-      assert_receive {:ready, pid}
-      assert pid == task.pid
-    end
+        receive do
+          :resume -> Plug.Conn.send_resp(conn, 200, "%PDF-timeout")
+        after
+          5_000 -> flunk("retrieval was not resumed")
+        end
+      end)
 
-    Enum.each(tasks, &send(&1.pid, :retry))
-    results = Enum.map(tasks, &Task.await(&1, 5_000))
-    assert Enum.count(results, &match?({:ok, %{status: "failed"}}, &1)) == 1
-    assert Enum.count(results, &(&1 == {:error, :not_failed})) == 1
+    task =
+      Task.async(fn ->
+        Processing.retry_failed(original.id, rustfs: slow, extractor: FixtureExtractor)
+      end)
+
+    assert_receive {:retrieving, reader}, 2_000
+    fast = rustfs_client(fn conn -> Plug.Conn.send_resp(conn, 200, "%PDF-timeout") end)
+
+    assert {:ok, %{status: "failed"}} =
+             Processing.retry_failed(original.id, rustfs: fast, extractor: FixtureExtractor)
+
+    send(reader, :resume)
+    assert Task.await(task) == {:error, :retry_conflict}
     assert Repo.aggregate(Extraction, :count) == 2
   end
 

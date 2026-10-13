@@ -34,6 +34,8 @@ UUID order. Supply a limit between 1 and 100; there is no unbounded mode. Use
 the returned `next_after` cursor for the next batch. An empty batch returns a
 null cursor. Pending originals without completed attempts are not selected.
 
+A retry targets the failed attempt observed before retrieving the original. If that attempt is no longer latest and failed when allocation takes the original row lock, the command returns `retry_conflict` without creating an attempt. Inspect the current history before retrying again. An initially ineligible target still returns `not_failed`.
+
 Each JSON result identifies its attempt, original, status, failure reason and
 extractor version, plus the effective `timeout_ms` and `max_output_bytes` saved
 when the attempt began. Historical attempts whose bounds were not recorded have
@@ -122,6 +124,8 @@ only PostgreSQL available; do not use a production database.
 <summary>日本語</summary>
 
 # 保存した決算原本からの抽出
+
+再試行は原本取得前に確認した失敗試行を対象とする。試行割り当てで原本行をロックした時点で、同じ試行が最新かつ失敗状態でなくなっていれば、試行を作らず`retry_conflict`を返す。再実行前に現在の履歴を確認する。開始時点から対象不適格なら、引き続き`not_failed`を返す。
 
 処理は各原本で選択された保存先を読む。選択がない原本はPostgreSQL、RustFS原本は検証付きオブジェクト取得を使う。RustFSの読取では記録済みendpoint・bucketと実行時設定の一致が必要である。RustFS原本の処理では[RustFSクライアント](adr/0005-store-pdfs-in-rustfs.md)を設定する。収集への接続は#146の別作業として残る。
 
