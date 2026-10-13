@@ -3,8 +3,8 @@ defmodule Lens.Earnings.RustFS do
   Create-only RustFS storage and verified retrieval of retained PDF bytes.
 
   This low-level client does not record acquisitions or run recovery. Callers must
-  durably prepare work before writing (ADR 0006). Collection remains PostgreSQL-backed
-  until that protocol is implemented.
+  durably prepare work before writing (ADR 0006). Collection uses that protocol
+  to complete acquisitions only after verified storage.
   """
 
   @limit 20_971_520

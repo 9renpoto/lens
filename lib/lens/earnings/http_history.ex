@@ -19,6 +19,39 @@ defmodule Lens.Earnings.HTTPHistory do
 
   def record(_), do: {:error, :invalid_result}
 
+  @doc "Validate and retain a collected PDF observation before any object I/O."
+  def prepare_storage(%{result: result} = attrs, client) do
+    with {:ok, %{kind: "pdf", status: "success"} = check} <- prepare(attrs, result),
+         {:ok, source_id} <- Ecto.UUID.cast(check.metadata["source_id"]) do
+      input =
+        common(check, check.final_url)
+        |> Map.merge(%{
+          bytes: result.bytes,
+          release: Map.get(attrs, :release),
+          source_id: source_id,
+          http_check: Map.take(check, HTTPCheck.facts()) |> Jason.encode!() |> Jason.decode!()
+        })
+
+      Lens.Earnings.StorageWork.prepare(input, client)
+    else
+      {:error, reason} -> {:error, reason}
+      _ -> {:error, :invalid_result}
+    end
+  end
+
+  @doc "Insert retained HTTP facts with the verified acquisition inside the completion transaction."
+  def complete_storage(nil, _), do: :ok
+
+  def complete_storage(facts, acquisition_id) do
+    changeset =
+      HTTPCheck.changeset(%HTTPCheck{}, Map.put(facts, "acquisition_id", acquisition_id))
+
+    with {:ok, check} <- Ecto.Changeset.apply_action(changeset, :insert),
+         {:ok, _} <- insert(check) do
+      :ok
+    end
+  end
+
   defp prepare(attrs, result) do
     kind = Map.get(attrs, :kind, :pdf)
     bytes = Map.get(result, :bytes)
