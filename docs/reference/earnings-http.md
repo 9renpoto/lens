@@ -1,4 +1,4 @@
-# Bounded earnings HTTP transport
+# Earnings HTTP transport and operator storage API
 
 `Lens.Earnings.HTTP.fetch/2` provides the transport foundation for
 [#71](https://github.com/9renpoto/lens/issues/71). It performs no database writes,
@@ -67,10 +67,34 @@ responses, denied/relative/looping redirects, total deadlines, caller terminatio
 content encoding, and connection failure. No publisher is contacted. The collector connects this layer to acquisition history and manual bounded runs.
 Per-source concurrent-run exclusion, daily scheduling and capped retry/backoff remain follow-up work.
 
+## Operator storage API (#160 / #73)
+
+Use these read-only routes behind the deployment's existing private operator-access boundary. This does not add authentication, ingress, public sharing or write/retry operations. No database migration or additional configuration is needed for the work views; original retrieval uses the existing selected storage location and RustFS runtime configuration. All responses from these actions have `Cache-Control: no-store`.
+
+| Route | Response | Errors |
+| --- | --- | --- |
+| `GET /api/earnings/storage-work?limit=50&offset=0` | 200 JSON `{"work":[...],"limit":50,"offset":0}` | 422 `{"error":"invalid_pagination"}` |
+| `GET /api/earnings/storage-work/:id` | 200 JSON `{"work":{...}}` | 404 `{"error":"not_found"}` for malformed, unknown or completed work |
+| `GET /api/earnings/originals/:id` | 200 `application/pdf` with exact verified retained bytes | 404 for malformed/unknown original IDs; 503 for known originals with unavailable storage |
+
+Work items contain exactly `id`, `acquisition_id`, `status` and `updated_at`. The acquisition identifier is retained provenance, not proof of a successful acquisition row. Status is `pending`, `running`, `attention` or `exhausted`. SQL selects only these four fields: payloads, discovery metadata, storage destinations, keys, digests, retry counters, leases and failure details are not loaded or returned. Listing and detail perform no object I/O or state changes. Completed work is absent from both views. Keep pending work separate from original retrieval; a work ID is not an original ID, and pending work never produces a fabricated PDF or success.
+
+`limit` defaults to 50 and accepts 1..100; `offset` defaults to 0 and accepts 0..2,147,483,647. Non-integer, malformed and out-of-range values return 422. Rows are ordered by `inserted_at`, then `id`, ascending. This is a live view rather than a snapshot: completion can remove work between requests. Pagination neither publishes retained bytes nor starts recovery.
+
+The original route accepts `Accept: application/pdf`, `application/json` or `*/*`. Success is PDF and errors are JSON; callers should inspect the status and Content-Type. Other API routes retain their existing JSON negotiation. Read any retained original version by its original ID, including older versions. Verify byte size and SHA-256 through the selected backend before sending bytes. Do not refetch the publisher, fall back to a PostgreSQL copy when selected RustFS storage fails, allocate extraction attempts or mutate acquisition/history records.
+
+Known-original failures have this strict JSON shape:
+
+```json
+{"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
+```
+
+The finite reason set is `not_found`, `integrity_error`, `original_unavailable`, `not_configured`, `invalid_configuration`, `destination_mismatch`, `unauthorized`, `timeout`, `transport_error`, `unavailable`, `invalid_reference`, `conflict` and `storage_error`. A missing RustFS object returns 503 with `not_found`; an unknown original ID returns 404 with `{"error":"not_found"}`. Corrupt bytes return 503 with `integrity_error`. Other unlisted/structured provider failures become `storage_error`, without returning provider bodies, credentials or destination URLs. Manual retry remains deferred. This API implementation does not prove k3s deployment, #68 release completion or #147 coordinated restore.
+
 <details>
 <summary>日本語</summary>
 
-# 上限付きの決算HTTP取得
+# 決算HTTP取得と運用者向け保存API
 
 `Lens.Earnings.HTTP.fetch/2`は[#71](https://github.com/9renpoto/lens/issues/71)の取得基盤。
 DB書込・識別確定・日次実行・抽出は行わない。[取得先登録](https://9renpoto.github.io/lens/)と[登録候補の収集処理](earnings-collector.md)は利用できる。収集側は取得先の有効状態を確認し、手動の1回の実行で共有の実行上限を適用する。巡回間隔と日次実行は後続作業に残る。運用者は [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md) に従い、取得先を有効にする前に取得条件を確認する。
@@ -128,5 +152,29 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 条件付きヘッダー、304、HTTP失敗、受信中断、拒否・相対・循環リダイレクト、
 全体期限、呼び出し元終了、圧縮方式、接続失敗を検証する。発行元には通信しない。
 収集側は取得履歴と上限付き手動実行へ接続している。取得先ごとの同時実行排他・日次実行・上限付き再試行と待機は後続作業。
+
+## 運用者向け保存API（#160・#73）
+
+配備の既存の非公開運用者アクセス境界内で、これらの読取専用ルートを使う。認証・Ingress・外部共有・書込・再試行操作は追加しない。作業表示にDB migrationや追加設定は不要で、原本取得には既存の選択済み保存先とRustFS実行時設定を使う。これらのactionの全応答に`Cache-Control: no-store`を付ける。
+
+| ルート | 応答 | エラー |
+| --- | --- | --- |
+| `GET /api/earnings/storage-work?limit=50&offset=0` | 200 JSON `{"work":[...],"limit":50,"offset":0}` | 422 `{"error":"invalid_pagination"}` |
+| `GET /api/earnings/storage-work/:id` | 200 JSON `{"work":{...}}` | 不正・不存在・完了済み作業は404 `{"error":"not_found"}` |
+| `GET /api/earnings/originals/:id` | 200 `application/pdf`、検証済みの正確な保持バイト列 | 不正・不存在の原本IDは404。既知だが保存先が利用不可の原本は503 |
+
+作業項目は`id`、`acquisition_id`、`status`、`updated_at`のみを含む。取得識別子は保持した取得経緯であり、成功取得行の存在を保証しない。状態は`pending`、`running`、`attention`、`exhausted`。SQLでこの4項目だけを選び、ペイロード・発見metadata・保存先・key・digest・再試行回数・リース・失敗詳細は読み出さず返さない。一覧・詳細はオブジェクト通信や状態変更を行わない。完了作業は両方の表示から除外する。保存待ち作業と原本取得を分離し、作業IDを原本IDと扱わず、待機中作業からPDFや成功を捏造しない。
+
+`limit`は既定50、範囲1..100。`offset`は既定0、範囲0..2,147,483,647。非整数・不正・範囲外は422を返す。`inserted_at`、`id`の昇順とする。スナップショットではなく現在状態の表示であり、リクエスト間の完了によって作業が消える場合がある。ページングで保持バイト列を公開したり復旧を開始したりしない。
+
+原本ルートは`Accept: application/pdf`、`application/json`、`*/*`を受理する。成功はPDF、エラーはJSONなので、呼び出し側は状態コードとContent-Typeを確認する。他のAPIルートは既存のJSON形式交渉を維持する。過去版を含む保持原本を原本IDで取得できる。送信前に選択済みbackendでサイズ・SHA-256を検証する。公開元からの再取得、選択済みRustFSの失敗時のPostgreSQLコピーへのフォールバック、抽出試行の作成、取得・履歴の変更は行わない。
+
+既知原本の失敗は次の厳密なJSON形式を使う。
+
+```json
+{"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
+```
+
+理由の有限集合は`not_found`、`integrity_error`、`original_unavailable`、`not_configured`、`invalid_configuration`、`destination_mismatch`、`unauthorized`、`timeout`、`transport_error`、`unavailable`、`invalid_reference`、`conflict`、`storage_error`。RustFSオブジェクト欠落は503と`not_found`、未知の原本IDは404と`{"error":"not_found"}`を返す。破損は503と`integrity_error`。その他の未登録・構造化されたprovider障害は`storage_error`に変換し、provider本文・認証情報・保存URLを返さない。手動再試行は後続に残す。このAPI実装はk3s配備、#68のリリース完了、#147の両保存先を揃えた復元を証明しない。
 
 </details>

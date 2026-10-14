@@ -5,6 +5,15 @@ defmodule LensWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  pipeline :earnings_original do
+    plug(:accepts, ["json", "pdf"])
+  end
+
+  scope "/api", LensWeb do
+    pipe_through(:earnings_original)
+    get("/earnings/originals/:id", EarningsController, :original)
+  end
+
   scope "/api", LensWeb do
     pipe_through(:api)
 
@@ -15,6 +24,8 @@ defmodule LensWeb.Router do
     put("/sources/:id", SourceController, :replace)
     get("/search", SearchController, :index)
     get("/earnings/releases/:id", EarningsController, :show)
+    get("/earnings/storage-work", EarningsController, :storage_work_index)
+    get("/earnings/storage-work/:id", EarningsController, :storage_work_show)
     get("/documents/:id", SearchController, :show_document)
     get("/documents/:id/provenance", SearchController, :show_provenance)
 
