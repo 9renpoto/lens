@@ -189,6 +189,70 @@ defmodule Lens.Earnings.CollectorTest do
     assert Repo.aggregate(Acquisition, :count) == 3
   end
 
+  for status <- [:completed, :running] do
+    test "a #{status} competing recovery is reported using committed completion", %{
+      client: client
+    } do
+      pdf = server("%PDF-concurrent", "/report.pdf")
+      listing = server(~s(<a href="#{pdf}">Report</a>), "/results")
+
+      {:ok, target} =
+        Analysis.create_target(%{
+          security_code: "7203",
+          market: "TSE",
+          display_name: "Example",
+          sector: "Test"
+        })
+
+      {:ok, source} = Sources.create(target, %{listing_url: listing})
+      handler = {__MODULE__, make_ref()}
+      marker = make_ref()
+      owner = self()
+
+      # Coordinate competing recovery during the first read, before this collector claims work.
+      :ok =
+        :telemetry.attach(
+          handler,
+          [:lens, :repo, :query],
+          fn _, _, metadata, _ ->
+            if self() == owner and not Process.get(marker, false) and not Repo.in_transaction?() and
+                 metadata.source == "earnings_storage_work" and
+                 String.contains?(metadata.query, ~s("bytes")) do
+              Process.put(marker, true)
+              work = Repo.get_by!(StorageWork, source_id: source.id)
+
+              if unquote(status) == :completed do
+                assert {:ok, %{status: "completed"}} = StorageWork.recover(work.id, client)
+              else
+                assert {:ok, %{status: "running"}} = StorageWork.claim(work.id)
+              end
+
+              send(owner, {:competing_recovery, work.id})
+            end
+          end,
+          nil
+        )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      assert {:ok, run} = Collector.run(rustfs: client)
+      assert_receive {:competing_recovery, work_id}
+      assert run.stopped == nil
+      assert Repo.get!(StorageWork, work_id).attempts == 1
+
+      if unquote(status) == :completed do
+        assert run.errors == []
+        assert [%{kind: "pdf"} = check] = Enum.filter(run.checks, &(&1.kind == "pdf"))
+        assert check.acquisition_id == Repo.get!(StorageWork, work_id).acquisition_record_id
+        assert Repo.aggregate(Acquisition, :count) == 1
+      else
+        assert run.errors == [%{source_id: source.id, reason: {:storage_failed, "not_eligible"}}]
+        assert Enum.all?(run.checks, &(&1.kind == "listing"))
+        assert Repo.aggregate(Acquisition, :count) == 0
+      end
+    end
+  end
+
   test "failure to persist completion stops all sources and retains the accepted payload", %{
     client: client
   } do

@@ -139,7 +139,16 @@ defmodule Lens.Earnings.Collector do
           {:ok, work} ->
             {:storage_failed, work.last_failure}
 
-          {:error, reason} when reason in [:not_eligible, :stale_claim, :destination_mismatch] ->
+          {:error, :not_eligible} ->
+            case Lens.Repo.get!(StorageWork, work.id) do
+              %{status: "completed"} ->
+                {:ok, Lens.Repo.get_by!(HTTPCheck, check_id: attrs.check_id)}
+
+              _ ->
+                {:storage_failed, "not_eligible"}
+            end
+
+          {:error, reason} when reason in [:stale_claim, :destination_mismatch] ->
             {:storage_failed, Atom.to_string(reason)}
 
           {:error, reason} ->
