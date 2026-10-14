@@ -11,6 +11,7 @@ ExUnit.start(seed: 0)
 
 defmodule Lens.StorageRecoveryCheck do
   use ExUnit.Case, async: false
+  import Ecto.Query
   alias Lens.Earnings.{Acquisition, RustFS, StorageWork}
   alias Lens.Repo
 
@@ -41,6 +42,208 @@ defmodule Lens.StorageRecoveryCheck do
     }
 
     %{attrs: attrs}
+  end
+
+  test "bounded collection stores verified originals and repeated runs preserve history", c do
+    alias Lens.Earnings.{Collector, HTTPCheck, Original, Sources}
+
+    {:ok, listener} =
+      :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, ip: {127, 0, 0, 1}])
+
+    {:ok, {_, port}} = :inet.sockname(listener)
+    worker = spawn(fn -> serve_collection(listener, c.attrs.bytes) end)
+
+    on_exit(fn ->
+      :gen_tcp.close(listener)
+      Process.exit(worker, :kill)
+    end)
+
+    {:ok, target} =
+      Lens.Analysis.create_target(%{
+        security_code: "000159-" <> Ecto.UUID.generate(),
+        market: "TSE",
+        display_name: "Real collection",
+        sector: "Test"
+      })
+
+    {:ok, source} = Sources.create(target, %{listing_url: "http://127.0.0.1:#{port}/results"})
+    # The first sorted source consumes the bounded run; no publisher.invalid fixture is fetched.
+    assert {:ok, first} = Collector.run(rustfs: c.client, max_operations: 2)
+    assert first.budget.operations == 2
+    assert [%{kind: "pdf"} = check] = Enum.filter(first.checks, &(&1.kind == "pdf"))
+    assert check.metadata["source_id"] == source.id
+    acquisition = Repo.get!(Acquisition, check.acquisition_id)
+    assert acquisition.release_id == nil
+    assert Repo.get!(Original, acquisition.original_id).bytes == nil
+
+    assert Lens.Earnings.original_bytes(acquisition.original_id, rustfs: c.client) ==
+             {:ok, c.attrs.bytes}
+
+    assert {:ok, second} = Collector.run(rustfs: c.client, max_operations: 2)
+    assert [%{kind: "pdf"} = next] = Enum.filter(second.checks, &(&1.kind == "pdf"))
+    assert next.id != check.id
+    assert next.acquisition_id != check.acquisition_id
+    assert Repo.get!(Acquisition, next.acquisition_id).original_id == acquisition.original_id
+    {:ok, _} = Sources.update(source, %{enabled: false})
+    assert Repo.get!(HTTPCheck, check.id) == check
+    assert Repo.get!(Acquisition, acquisition.id) == acquisition
+  end
+
+  defp serve_collection(listener, bytes) do
+    case :gen_tcp.accept(listener) do
+      {:ok, socket} ->
+        {:ok, request} = :gen_tcp.recv(socket, 0, 2000)
+
+        body =
+          if String.starts_with?(request, "GET /report.pdf "),
+            do: bytes,
+            else: ~s(<a href="/report.pdf">Results</a>)
+
+        :gen_tcp.send(socket, [
+          "HTTP/1.1 200 OK\r\nContent-Length: #{byte_size(body)}\r\nConnection: close\r\n\r\n",
+          body
+        ])
+
+        :gen_tcp.close(socket)
+        serve_collection(listener, bytes)
+
+      _ ->
+        :ok
+    end
+  end
+
+  test "collected HTTP provenance survives worker death and completion rollback", c do
+    alias Lens.Earnings.{HTTPCheck, HTTPHistory, Sources}
+
+    {:ok, target} =
+      Lens.Analysis.create_target(%{
+        security_code: "C159-" <> Ecto.UUID.generate(),
+        market: "TSE",
+        display_name: "Collection recovery",
+        sector: "Test"
+      })
+
+    {:ok, source} = Sources.create(target, %{listing_url: "https://publisher.invalid/results"})
+    check_id = Ecto.UUID.generate()
+
+    attrs = %{
+      check_id: check_id,
+      issuer_code: target.security_code,
+      kind: :pdf,
+      url: "https://publisher.invalid/request.pdf",
+      checked_at: DateTime.utc_now(),
+      metadata: %{source_id: source.id, anchor_text: "Results"},
+      result: %{
+        outcome: :success,
+        final_url: "https://publisher.invalid/actual.pdf",
+        bytes: c.attrs.bytes,
+        http_status: 200,
+        requests: 1,
+        retryable: false,
+        headers: %{}
+      }
+    }
+
+    owner = self()
+
+    {pid, monitor} =
+      spawn_monitor(fn ->
+        assert {:ok, work} = HTTPHistory.prepare_storage(attrs, c.client)
+        send(owner, {:collected, work.id})
+        exit(:killed)
+      end)
+
+    assert_receive {:collected, id}, 5000
+    assert_receive {:DOWN, ^monitor, :process, ^pid, :killed}, 5000
+    work = Repo.get!(StorageWork, id)
+    assert work.source_id == source.id
+    assert work.http_check["metadata"]["anchor_text"] == "Results"
+    assert StorageWork.unfinished_for_source?(source.id)
+    refute Repo.get_by(HTTPCheck, check_id: check_id)
+    refute Repo.get_by(Acquisition, acquisition_id: "http:" <> check_id)
+
+    old = DateTime.add(DateTime.utc_now(), -500, :second)
+    {:ok, claim} = StorageWork.claim(id, old)
+    assert {:ok, reference} = RustFS.put(c.client, work.bytes)
+
+    assert {:error, :interrupted} =
+             Repo.transaction(fn ->
+               assert {:ok, %{status: "completed"}} =
+                        StorageWork.finish(claim, {:ok, work.bytes, reference}, old)
+
+               assert Repo.get_by!(HTTPCheck, check_id: check_id).metadata["source_id"] ==
+                        source.id
+
+               Repo.rollback(:interrupted)
+             end)
+
+    refute Repo.get_by(HTTPCheck, check_id: check_id)
+    refute Repo.get_by(Acquisition, acquisition_id: "http:" <> check_id)
+    assert Repo.get!(StorageWork, id).bytes == work.bytes
+    assert {:error, :not_eligible} = StorageWork.recover(id, c.client)
+    assert {:ok, completed} = StorageWork.recover(id, c.client)
+    check = Repo.get_by!(HTTPCheck, check_id: check_id)
+    assert check.acquisition_id == completed.acquisition_record_id
+    assert check.checked_at == attrs.checked_at
+    assert check.final_url == attrs.result.final_url
+    assert check.metadata["anchor_text"] == "Results"
+    refute StorageWork.unfinished_for_source?(source.id)
+    assert {:error, :not_eligible} = StorageWork.recover(id, c.client)
+
+    assert Repo.aggregate(
+             from(a in Acquisition, where: a.acquisition_id == ^("http:" <> check_id)),
+             :count
+           ) == 1
+  end
+
+  test "concurrent collected preparations keep one source work and one retry budget", c do
+    alias Lens.Earnings.{HTTPHistory, Sources}
+
+    {:ok, target} =
+      Lens.Analysis.create_target(%{
+        security_code: "P159-" <> Ecto.UUID.generate(),
+        market: "TSE",
+        display_name: "Concurrent collection",
+        sector: "Test"
+      })
+
+    {:ok, source} = Sources.create(target, %{listing_url: "https://publisher.invalid/results"})
+    now = DateTime.utc_now()
+
+    results =
+      1..8
+      |> Task.async_stream(
+        fn _ ->
+          HTTPHistory.prepare_storage(
+            %{
+              check_id: Ecto.UUID.generate(),
+              issuer_code: target.security_code,
+              kind: :pdf,
+              url: "https://publisher.invalid/report.pdf",
+              checked_at: now,
+              metadata: %{source_id: source.id},
+              result: %{
+                outcome: :success,
+                final_url: "https://publisher.invalid/report.pdf",
+                bytes: c.attrs.bytes,
+                http_status: 200,
+                requests: 1,
+                retryable: false,
+                headers: %{}
+              }
+            },
+            c.client
+          )
+        end,
+        max_concurrency: 8
+      )
+      |> Enum.map(fn {:ok, result} -> result end)
+
+    assert [{:ok, work}] = Enum.filter(results, &match?({:ok, _}, &1))
+    assert Enum.count(results, &(&1 == {:error, :source_busy})) == 7
+    assert work.attempts == 0
+    assert Repo.aggregate(from(w in StorageWork, where: w.source_id == ^source.id), :count) == 1
+    assert {:ok, %{status: "completed", attempts: 1}} = StorageWork.recover(work.id, c.client)
   end
 
   test "committed preparation survives worker death before object write", c do

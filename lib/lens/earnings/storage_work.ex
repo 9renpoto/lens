@@ -3,15 +3,18 @@ defmodule Lens.Earnings.StorageWork do
   use Ecto.Schema
   import Ecto.Query
   import Ecto.Changeset
-  alias Lens.Earnings.{Acquisition, Original, Release, RustFS, StorageRetryAudit}
+  alias Lens.Earnings.{Acquisition, Original, Release, RustFS, Source, StorageRetryAudit}
   alias Lens.Repo
   @primary_key {:id, :binary_id, autogenerate: true}
   @provenance [:acquisition_id, :issuer_code, :url, :acquired_at]
-  @facts @provenance ++ [:release, :endpoint, :bucket, :key, :sha256, :byte_size]
+  @facts @provenance ++
+           [:release, :endpoint, :bucket, :key, :sha256, :byte_size, :source_id, :http_check]
   @delays %{1 => 60, 2 => 300, 3 => 1800}
   @lease_seconds 120
 
   schema "earnings_storage_work" do
+    field(:source_id, :binary_id)
+    field(:http_check, :map)
     field(:acquisition_id, :string)
     field(:issuer_code, :string)
     field(:url, :string)
@@ -43,9 +46,19 @@ defmodule Lens.Earnings.StorageWork do
     else
       with {:ok, facts} <- validate(attrs, client) do
         Repo.transaction(fn ->
+          reserve_source(facts)
           unless compatible_acquisition?(facts), do: Repo.rollback(:acquisition_conflict)
-          changeset = change(%__MODULE__{}, facts) |> unique_constraint(:acquisition_id)
-          Repo.insert!(changeset, on_conflict: :nothing, conflict_target: :acquisition_id)
+
+          changeset =
+            change(%__MODULE__{}, facts)
+            |> unique_constraint(:acquisition_id)
+            |> foreign_key_constraint(:source_id)
+
+          case Repo.insert(changeset, on_conflict: :nothing, conflict_target: :acquisition_id) do
+            {:ok, _} -> :ok
+            {:error, reason} -> Repo.rollback(reason)
+          end
+
           existing = Repo.get_by!(__MODULE__, acquisition_id: facts.acquisition_id)
 
           if Map.take(existing, @facts) == Map.take(facts, @facts),
@@ -231,6 +244,13 @@ defmodule Lens.Earnings.StorageWork do
     )
   end
 
+  @doc "Keep registered sources excluded until every retained storage work is completed."
+  def unfinished_for_source?(source_id) do
+    Repo.exists?(
+      from(w in __MODULE__, where: w.source_id == ^source_id and w.status != "completed")
+    )
+  end
+
   def audit(id),
     do:
       Repo.all(
@@ -264,6 +284,17 @@ defmodule Lens.Earnings.StorageWork do
   end
 
   defp recover_item(id, client), do: recover(id, client)
+
+  defp reserve_source(%{source_id: nil}), do: :ok
+
+  defp reserve_source(facts) do
+    # Serialize new preparations for this source, never holding the lock during I/O.
+    Repo.one(from(s in Source, where: s.id == ^facts.source_id, lock: "FOR UPDATE"))
+
+    unless Repo.get_by(__MODULE__, acquisition_id: facts.acquisition_id) do
+      if unfinished_for_source?(facts.source_id), do: Repo.rollback(:source_busy)
+    end
+  end
 
   defp compatible_acquisition?(facts) do
     case Repo.get_by(Acquisition, acquisition_id: facts.acquisition_id) do
@@ -309,6 +340,8 @@ defmodule Lens.Earnings.StorageWork do
        Map.take(provenance, @provenance)
        |> Map.merge(%{
          bytes: bytes,
+         source_id: Map.get(attrs, :source_id),
+         http_check: Map.get(attrs, :http_check),
          release: release,
          endpoint: client.endpoint,
          bucket: client.bucket,
@@ -402,6 +435,11 @@ defmodule Lens.Earnings.StorageWork do
 
     case Lens.Earnings.record_success(attrs) do
       {:ok, result} ->
+        case Lens.Earnings.HTTPHistory.complete_storage(work.http_check, result.acquisition.id) do
+          :ok -> :ok
+          {:error, reason} -> Repo.rollback(reason)
+        end
+
         audit_finish(work, "completed", nil, now)
 
         Repo.update!(

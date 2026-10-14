@@ -10,7 +10,7 @@ Memory-only work tracking disappears when the application restarts. A database w
 
 Allow automatic recovery with a finite retry count and manual recovery by the operator. Repeating recovery must not duplicate records or overwrite saved PDFs. When automatic retries reach their limit, retain the unfinished work for operator attention. Allow one initial attempt and at most three automatic retries, eligible 1 minute, 5 minutes and 30 minutes after the preceding failure. Consume the persisted attempt budget before object I/O. Authentication, configuration and integrity failures require operator attention. An operator may schedule one additional audited attempt without resetting the automatic budget.
 
-This protocol recovers interrupted writes, not loss or inconsistency after restoring backups. For the latter, restore PostgreSQL and RustFS as a coordinated pair and verify completed object references and content hashes under [the RustFS storage decision](0005-store-pdfs-in-rustfs.md). If a valid object cannot be restored, keep it explicitly unavailable for operator recovery. The recovery foundation below implements interrupted-write recovery; collection activation and coordinated restore remain separate tasks.
+This protocol recovers interrupted writes, not loss or inconsistency after restoring backups. For the latter, restore PostgreSQL and RustFS as a coordinated pair and verify completed object references and content hashes under [the RustFS storage decision](0005-store-pdfs-in-rustfs.md). If a valid object cannot be restored, keep it explicitly unavailable for operator recovery. The recovery foundation below implements interrupted-write recovery; collection integration is implemented under #159; coordinated restore remains a separate task.
 
 ## Durable recovery foundation (#144)
 
@@ -30,9 +30,9 @@ Concurrent selectors of the same verified location succeed without creating dupl
 
 The supervised `Lens.Earnings.StorageRecovery` poller is disabled by default. Set `LENS_STORAGE_RECOVERY_ENABLED=true` to discover eligible and expired work from PostgreSQL every second, processing one item per poll. `false` explicitly disables it; any other value fails startup with a generic configuration error. No in-memory queue is required after restart. Operators can use `Lens.Earnings.RustFS.new/0` and `StorageWork.recover_due/1` for a bounded batch, or schedule an audited retry with `StorageWork.manual_retry/3`. Changing the configured destination does not redirect prepared work: recovery requires its original endpoint and bucket, and a mismatch moves pending work to operator attention without consuming an attempt.
 
-Collection does not yet call preparation. When `StorageWork.recover/3` completes, it passes the verified RustFS reference to acquisition persistence in the same transaction that marks the work complete. New RustFS-only originals have `bytes = NULL`; an existing original with the same content keeps its PostgreSQL copy. Reads use the selected original location and do not fall back between backends. Connecting collection to preparation remains #146. Under #145, the empty deployed inventory requires no PDF migration or backend rollback tooling. This stage does not remove PostgreSQL copies or establish the coordinated restore guarantee in #147.
+Collection calls preparation under #159, retaining source ID and validated HTTP observation facts with accepted bytes. Source exclusion is checked before discovery and enforced by a source row lock during new preparation; concurrent new observations cannot allocate another retry budget while work remains unfinished. Completion inserts the retained immutable HTTP check in the same transaction as the successful acquisition. When `StorageWork.recover/3` completes, it passes the verified RustFS reference to acquisition persistence in the same transaction that marks the work complete. New RustFS-only originals have `bytes = NULL`; an existing original with the same content keeps its PostgreSQL copy. Reads use the selected original location and do not fall back between backends. The remaining operator interface belongs to #160 under #146. Under #145, the empty deployed inventory requires no PDF migration or backend rollback tooling. This stage does not remove PostgreSQL copies or establish the coordinated restore guarantee in #147.
 
-CI runs `test/system/earnings_storage_recovery_check.exs` against real PostgreSQL and pinned RustFS in an isolated database and a random bucket. It verifies committed preparation after worker death, saved-object reuse after completion rollback, concurrent preparation with conflicting provenance, concurrent claims and concurrent audited retry requests. Use disposable storage for this check; it retains fixtures and buckets for inspection.
+CI runs `test/system/earnings_storage_recovery_check.exs` against real PostgreSQL and pinned RustFS in an isolated database and a random bucket. It verifies committed preparation after worker death, saved-object reuse after completion rollback, concurrent preparation with conflicting provenance, concurrent claims and concurrent audited retry requests. The collection checks additionally verify retained HTTP provenance after worker death and completion rollback, atomic immutable history completion, and competing source preparations sharing one work/retry budget. Use disposable storage for this check; it retains fixtures and buckets for inspection.
 
 ## Collection and operator boundary (#146)
 
@@ -42,7 +42,7 @@ When object storage cannot complete a PDF's save, stop collecting further PDFs f
 
 Initially expose unfinished work as a read-only operator listing and detail with only the work ID, acquisition identifier, status and update time. The acquisition identifier is the stable provenance identifier retained before completion, not a promise that a successful acquisition row already exists. Keep payloads and additional storage metadata out of this initial view. Publishing manual retry through HTTP or CLI is deferred; the existing audited recovery functions and automatic retry policy retain their contracts. Coordinate the operator interface with #73 and preserve the deployment's private-access boundary.
 
-These boundaries are agreed for #146 and require implementation and verification. They do not establish coordinated backup or restore under #147.
+The collection boundaries are implemented and covered by behavior tests and the real-service recovery check under #159. The operator interface remains #160. They do not establish coordinated backup or restore under #147.
 
 <details>
 <summary>日本語</summary>
@@ -61,7 +61,7 @@ Lensで独立したファイル保存サービスを使う場合、PDFを書き�
 
 自動復旧は再試行回数を制限し、運用者による手動復旧も可能にする。繰り返しても記録の重複や保存済みPDFの上書きを起こさない。自動再試行が上限に達した場合は、未完了の作業を残して運用者の対応を待つ。初回に加えて自動再試行を最大3回とし、直前の失敗から1分・5分・30分後に実行可能とする。オブジェクト通信前に試行予算を永続的に消費する。認証・設定・整合性の失敗は運用者の対応を待つ。運用者は、自動試行の予算をリセットせず、監査記録付きの追加試行を1回予約できる。
 
-この方式が復旧するのは中断した書き込みであり、バックアップ復元後のファイル欠落や不整合ではない。後者は[RustFSへの保存方針](0005-store-pdfs-in-rustfs.md)に従い、PostgreSQLとRustFSを揃えて復元した後、完了済みオブジェクトの参照先と内容ハッシュを検証する。有効なファイルを復元できない場合は、運用者が復旧するまで利用不可として明示する。永続的な作業管理は増えるが、メモリに頼らず中断した保存処理を復旧できるようになる。以下の復旧基盤で中断した書き込みの復旧を実装する。収集への接続・両保存先の復元は別タスクとする。
+この方式が復旧するのは中断した書き込みであり、バックアップ復元後のファイル欠落や不整合ではない。後者は[RustFSへの保存方針](0005-store-pdfs-in-rustfs.md)に従い、PostgreSQLとRustFSを揃えて復元した後、完了済みオブジェクトの参照先と内容ハッシュを検証する。有効なファイルを復元できない場合は、運用者が復旧するまで利用不可として明示する。永続的な作業管理は増えるが、メモリに頼らず中断した保存処理を復旧できるようになる。以下の復旧基盤で中断した書き込みの復旧を実装する。収集への接続は#159で実装し、両保存先の復元は別タスクとする。
 
 ## 永続的な復旧基盤（#144）
 
@@ -75,9 +75,9 @@ Lensで独立したファイル保存サービスを使う場合、PDFを書き�
 
 監督下の`Lens.Earnings.StorageRecovery`ポーラーは初期状態で無効。`LENS_STORAGE_RECOVERY_ENABLED=true`で、PostgreSQLから実行可能・期限切れの作業を1秒ごとに検出し、各ポーリングで1件処理する。`false`は明示的に無効化し、その他の値は一般的な設定エラーで起動を失敗させる。再起動後にメモリ内キューは必要ない。運用者は`Lens.Earnings.RustFS.new/0`と`StorageWork.recover_due/1`で上限付きバッチを実行でき、`StorageWork.manual_retry/3`で監査付き再試行を予約できる。設定した保存先を変えても準備済み作業を別の場所には送らず、元のendpoint・bucketとの一致を復旧の条件とする。不一致の場合、待機中の作業を試行予算を消費せずに要対応状態にする。
 
-収集処理はまだ準備処理を呼び出さない。`StorageWork.recover/3`の完了時は、検証済みRustFS参照を取得記録の保存へ渡し、作業完了と同じトランザクションで確定する。新規のRustFS専用原本は`bytes = NULL`とし、同じ内容の既存原本があればPostgreSQLコピーを保持する。読取では原本ごとに選ばれた保存先を使い、別バックエンドへフォールバックしない。収集処理を準備へ接続する作業は#146で扱う。#145では配備済み原本が0件のため、PDF移行・バックエンド逆移行ツールは不要とする。この段階ではPostgreSQLコピーを削除せず、#147の両保存先を揃えた復元保証も確立しない。
+収集は#159で準備処理を呼び、受理バイト列と取得先ID・検証済みHTTP観測情報を保持する。発見前に取得先の除外を確認し、新規準備時の取得先行ロックでも除外を強制する。未完了作業がある間、同時実行の新しい観測は別の再試行予算を作れない。完了時は、保持した変更不可のHTTP確認を取得成功と同じトランザクションで挿入する。`StorageWork.recover/3`の完了時は、検証済みRustFS参照を取得記録の保存へ渡し、作業完了と同じトランザクションで確定する。新規のRustFS専用原本は`bytes = NULL`とし、同じ内容の既存原本があればPostgreSQLコピーを保持する。読取では原本ごとに選ばれた保存先を使い、別バックエンドへフォールバックしない。残りの運用者向けインターフェースは#146配下の#160で扱う。#145では配備済み原本が0件のため、PDF移行・バックエンド逆移行ツールは不要とする。この段階ではPostgreSQLコピーを削除せず、#147の両保存先を揃えた復元保証も確立しない。
 
-CIでは`test/system/earnings_storage_recovery_check.exs`を、実PostgreSQL・固定したRustFS・隔離DB・ランダムなbucketで実行する。ワーカー終了後の準備記録の保持、完了ロールバック後の保存済みオブジェクト再利用、異なる取得経緯での同時準備、同時取得、同時監査付き再試行予約を検証する。この検証には使い捨ての保存先を使う。検査用のfixtureとbucketは残す。
+CIでは`test/system/earnings_storage_recovery_check.exs`を、実PostgreSQL・固定したRustFS・隔離DB・ランダムなbucketで実行する。ワーカー終了後の準備記録の保持、完了ロールバック後の保存済みオブジェクト再利用、異なる取得経緯での同時準備、同時取得、同時監査付き再試行予約を検証する。収集の検証では、ワーカー終了と完了ロールバック後のHTTP取得経緯保持、変更不可履歴の同時確定、競合する取得先準備が1つの作業・再試行予算を共有することも確認する。この検証には使い捨ての保存先を使う。検査用のfixtureとbucketは残す。
 
 ## 収集と運用者向け操作の境界（#146）
 
@@ -87,6 +87,6 @@ CIでは`test/system/earnings_storage_recovery_check.exs`を、実PostgreSQL・�
 
 初期段階の運用者向け未完了作業一覧・詳細は参照専用とし、作業ID・取得識別子・状態・更新日時だけを表示する。取得識別子は完了前から保持する取得経緯の安定した識別子であり、取得成功の行が既に存在することを保証しない。この初期表示にはペイロードや追加の保存メタデータを含めない。HTTP・CLIを通じた手動再試行の公開は後続とし、既存の監査付き復旧関数と自動再試行方針の契約を維持する。運用者向けインターフェースは#73と調整し、デプロイの非公開アクセス境界を維持する。
 
-これらは#146の合意した境界であり、実装と検証が必要である。#147の両保存先を揃えたバックアップ・復元の完了を示さない。
+収集の境界は#159で実装し、振る舞いテストと実サービスの復旧検証で確認する。運用者向けインターフェースは#160に残る。#147の両保存先を揃えたバックアップ・復元の完了を示さない。
 
 </details>
