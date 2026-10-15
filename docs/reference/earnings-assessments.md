@@ -34,8 +34,9 @@ Call `Assessments.record(candidate_id, attrs)` with atom or string attribute key
 
 Each JSON object is bounded to 65,536 bytes in both JSON encoding and PostgreSQL
 JSONB text representation. JSON keys and values are normalized through JSON
-encoding/decoding. Candidate/target/source IDs are derived from retained
-provenance; caller attributes cannot override them.
+encoding/decoding. NUL characters in JSON keys/values or text attributes are
+rejected as invalid changesets before insertion, including nested JSON.
+Candidate/target/source IDs are derived from retained provenance; caller attributes cannot override them.
 
 Success returns `{:ok, assessment}`. An inconclusive classifier should record
 `pending`; this is a successful recording operation and does not prevent another
@@ -92,7 +93,7 @@ after source changes and identity confirmation, and database immutability.
 | `identity` | JSONオブジェクト。既定値は`{}`。不明値を`null`、矛盾する観測は配列などで明示して保持する。 |
 | `evidence` | 必須の空でないJSONオブジェクト。本文の抜粋と位置など、判定を支える観測を含む。 |
 
-各JSONオブジェクトは、JSONエンコードとPostgreSQLのJSONBテキスト表現の両方で65,536バイト以内とする。JSONのキーと値はエンコード・デコードで正規化する。候補・対象・取得先IDは保持した出典から導出し、呼び出し側の属性では上書きできない。
+各JSONオブジェクトは、JSONエンコードとPostgreSQLのJSONBテキスト表現の両方で65,536バイト以内とする。JSONのキーと値はエンコード・デコードで正規化する。JSONのキー・値や文字列属性にあるNUL文字は、ネストしたJSONも含め、挿入前に不正なchangesetとして拒否する。候補・対象・取得先IDは保持した出典から導出し、呼び出し側の属性では上書きできない。
 
 成功時は`{:ok, assessment}`を返す。判断できない判定処理は`pending`を記録する。これは記録成功であり、ほかの候補の処理を妨げない。不正な属性はEcto changeset、マップ以外は`{:error, :invalid_assessment}`を返す。存在しない確認記録は`{:error, :not_found}`、不正なIDや対象外の確認記録は`{:error, :invalid_candidate}`を返す。
 

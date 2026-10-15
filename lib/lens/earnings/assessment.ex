@@ -29,6 +29,9 @@ defmodule Lens.Earnings.Assessment do
     |> validate_length(:assessor, max: 100)
     |> validate_length(:assessor_version, max: 100)
     |> validate_length(:reason, max: 1000)
+    |> validate_text(:assessor)
+    |> validate_text(:assessor_version)
+    |> validate_text(:reason)
     |> require_accepted_kind()
     |> canonical_json(:identity)
     |> canonical_json(:evidence)
@@ -53,16 +56,40 @@ defmodule Lens.Earnings.Assessment do
   defp canonical_json(changeset, field) do
     case get_field(changeset, field) do
       value when is_map(value) ->
-        case Jason.encode(value) do
-          {:ok, json} when byte_size(json) <= 65_536 ->
-            put_change(changeset, field, Jason.decode!(json))
-
+        with {:ok, json} <- Jason.encode(value),
+             true <- byte_size(json) <= 65_536,
+             {:ok, canonical} <- Jason.decode(json),
+             true <- jsonb_safe?(canonical) do
+          put_change(changeset, field, canonical)
+        else
           _ ->
-            add_error(changeset, field, "must be a JSON object within 65536 bytes")
+            add_error(
+              changeset,
+              field,
+              "must be a JSON object without NUL characters within 65536 bytes"
+            )
         end
 
       _ ->
         changeset
     end
   end
+
+  defp validate_text(changeset, field) do
+    validate_change(changeset, field, fn field, value ->
+      if jsonb_safe?(value),
+        do: [],
+        else: [{field, "must be valid UTF-8 without NUL characters"}]
+    end)
+  end
+
+  defp jsonb_safe?(value) when is_binary(value),
+    do: String.valid?(value) and not String.contains?(value, <<0>>)
+
+  defp jsonb_safe?(values) when is_list(values), do: Enum.all?(values, &jsonb_safe?/1)
+
+  defp jsonb_safe?(values) when is_map(values),
+    do: Enum.all?(values, fn {key, value} -> jsonb_safe?(key) and jsonb_safe?(value) end)
+
+  defp jsonb_safe?(_), do: true
 end

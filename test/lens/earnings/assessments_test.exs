@@ -140,6 +140,43 @@ defmodule Lens.Earnings.AssessmentsTest do
     assert Repo.aggregate(Assessment, :count) == 2
   end
 
+  test "rejects JSONB-unsafe strings and keys without aborting subsequent candidate processing" do
+    {_, _, candidate} = candidate()
+
+    for field <- [:identity, :evidence],
+        value <- [
+          %{"text" => "excerpt\u0000suffix"},
+          %{"key\u0000" => "value"},
+          %{"nested" => [%{"text" => "excerpt\u0000"}]},
+          %{"nested" => [%{"key\u0000" => "value"}]}
+        ] do
+      assert {:error, changeset} =
+               Assessments.record(candidate.id, Map.put(attrs(), field, value))
+
+      assert %Ecto.Changeset{valid?: false} = changeset
+      assert Map.has_key?(errors_on(changeset), field)
+    end
+
+    assert Repo.aggregate(Assessment, :count) == 0
+    literal = %{"text" => "literal \\u0000", "observations" => [nil, "valid"]}
+    assert {:ok, valid} = Assessments.record(candidate.id, Map.put(attrs(), :evidence, literal))
+    assert valid.evidence == literal
+  end
+
+  test "rejects NUL characters in assessment text before database insertion" do
+    {_, _, candidate} = candidate()
+
+    for field <- [:reason, :assessor, :assessor_version] do
+      assert {:error, changeset} =
+               Assessments.record(candidate.id, Map.put(attrs(), field, "text\u0000suffix"))
+
+      assert %Ecto.Changeset{valid?: false} = changeset
+      assert Map.has_key?(errors_on(changeset), field)
+    end
+
+    assert {:ok, _} = Assessments.record(candidate.id, attrs())
+  end
+
   test "stored assessment history cannot be edited or deleted" do
     {_, _, candidate} = candidate()
     assert {:ok, assessment} = Assessments.record(candidate.id, attrs())
