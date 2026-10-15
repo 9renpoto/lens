@@ -14,7 +14,7 @@ defmodule Lens.Earnings.ReleaseAssessmentTest do
   test "records supported, ambiguous and unrelated retained documents without adopting releases" do
     {:ok, target} =
       Analysis.create_target(%{
-        security_code: "1234",
+        security_code: "130A",
         market: "TSE",
         display_name: "Example",
         sector: "Test",
@@ -32,9 +32,13 @@ defmodule Lens.Earnings.ReleaseAssessmentTest do
           {"year_conflict", "pending"},
           {"missing_issuer", "pending"},
           {"correction", "excluded"},
-          {"mixed_kind", "pending"}
+          {"mixed_kind", "pending"},
+          {"mixed_interim_kind", "pending"}
         ] do
-      text = File.read!(Path.join("test/fixtures/earnings/assessment", name <> ".txt"))
+      text =
+        Path.join("test/fixtures/earnings/assessment", name <> ".txt")
+        |> File.read!()
+        |> String.replace("1234", target.security_code)
 
       {:ok, check} =
         HTTPHistory.record(%{
@@ -75,7 +79,7 @@ defmodule Lens.Earnings.ReleaseAssessmentTest do
 
       if outcome == "accepted" do
         assert assessment.document_kind == "earnings_release"
-        assert assessment.identity["issuer_code"] == "1234"
+        assert assessment.identity["issuer_code"] == target.security_code
         assert assessment.identity["fiscal_year_end"] == "2026-12-31"
         assert assessment.identity["period"] == "q2"
         assert assessment.identity["published_on"] == nil

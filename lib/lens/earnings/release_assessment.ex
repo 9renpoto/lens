@@ -84,7 +84,7 @@ defmodule Lens.Earnings.ReleaseAssessment do
 
   defp presentation_title?(text) do
     Regex.match?(
-      ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*)?決算説明(?:資料|会資料)[ \t]*\r?$/mu,
+      ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\)\s*)?)?決算説明(?:資料|会資料)[ \t]*\r?$/mu,
       String.normalize(text, :nfkc)
     )
   end

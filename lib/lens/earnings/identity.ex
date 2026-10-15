@@ -2,12 +2,13 @@ defmodule Lens.Earnings.Identity do
   @moduledoc "Conservative identity mapping from explicit PDF text."
 
   @period_order %{"q1" => 1, "q2" => 2, "q3" => 3, "full_year" => 4}
+  @issuer_evidence ~r/コード\s*番号\s*[:：]?\s*([^\s()〔〕]{1,50})(?=[\s()〔〕]|$)/u
 
   @doc "Read explicit PDF identity fields. Missing or contradictory identity stays pending."
   def from_text(issuer, text)
       when is_binary(text) and is_binary(issuer) and byte_size(issuer) > 0 do
     text = String.normalize(text, :nfkc)
-    codes = Regex.scan(~r/コード\s*番号\s*[:：]?\s*([0-9]{4})(?![0-9])/u, text, capture: :all_but_first)
+    codes = Regex.scan(@issuer_evidence, text, capture: :all_but_first)
     code = codes |> Enum.map(&hd/1) |> unique_value()
 
     {year_ends, periods} =
@@ -144,7 +145,7 @@ defmodule Lens.Earnings.Identity do
 
   defp publication_date(text) do
     header =
-      case Regex.split(~r/コード\s*番号\s*[:：]?\s*[0-9]{4}(?![0-9])/u, text, parts: 2) do
+      case Regex.split(@issuer_evidence, text, parts: 2) do
         [header, _body] -> header
         [_text] -> ""
       end
