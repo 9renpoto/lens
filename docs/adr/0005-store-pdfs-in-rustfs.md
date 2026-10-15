@@ -26,7 +26,7 @@ Retrieve and verify the retained original's size and SHA-256 before creating an 
 
 Start verification of this integration with the existing `lens-earnings-extract --original UUID` operation, processing one explicitly selected original at a time. Completing or recovering storage does not automatically start extraction in this initial stage. This keeps the change small enough to implement and exercise promptly, at the cost of a manual extraction step after storage completion. Automation remains the goal, but neither an immediate extraction hook nor a periodic scan of unextracted originals is selected for this stage. The existing regeneration operation retains its scope.
 
-Verified retrieval before manual extraction is implemented under #158 using each original's selected storage location. Collection integration is implemented under #159; the operator HTTP interface (#160) remains follow-up work under #146. Exact endpoint names, HTTP status codes and response schemas belong to the implementation contract coordinated with #73.
+Verified retrieval before manual extraction is implemented under #158 using each original's selected storage location. Collection integration is implemented under #159; the read-only operator HTTP interface is implemented under #160 using the contract documented in [the HTTP reference](../reference/earnings-http.md). Exact endpoint names, HTTP status codes and response schemas belong to the implementation contract coordinated with #73.
 
 ## Storage client foundation (#143)
 
@@ -74,7 +74,7 @@ PDFをPostgreSQLに残せば、別のサービスを運用せずファイルと�
 
 この接続の初期検証では、既存の`lens-earnings-extract --original UUID`操作を使い、明示的に指定した原本を1件ずつ処理する。初期段階では、保存完了や保存復旧を契機に抽出を自動開始しない。早く実装して実際に試せる規模に抑えるため、保存完了後の抽出には手動操作が必要となる。自動化は引き続き目標とするが、この段階では即時抽出のフックも未抽出原本の定期スキャンも選定しない。既存の再生成操作の対象範囲を維持する。
 
-#158で各原本の選択済み保存先を使い、手動抽出前の検証付き取得を実装する。収集への接続は#159で実装し、運用者HTTPインターフェース（#160）は#146の後続作業として残る。具体的なエンドポイント名・HTTPステータスコード・応答スキーマは、#73と調整する実装契約で定める。
+#158で各原本の選択済み保存先を使い、手動抽出前の検証付き取得を実装する。収集への接続は#159で実装し、読取専用の運用者HTTPインターフェースは#160で実装し、契約は[HTTP参照資料](../reference/earnings-http.md)に記載する。具体的なエンドポイント名・HTTPステータスコード・応答スキーマは、#73と調整する実装契約で定める。
 
 ## 保存クライアント基盤（#143）
 

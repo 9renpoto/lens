@@ -244,6 +244,38 @@ defmodule Lens.Earnings.StorageWork do
     )
   end
 
+  @operator_fields [:id, :acquisition_id, :status, :updated_at]
+
+  @doc "Return only unfinished operator metadata, without loading payload or storage facts."
+  def operator_unfinished(limit \\ 50, offset \\ 0)
+      when limit in 1..100 and is_integer(offset) and offset in 0..2_147_483_647 do
+    Repo.all(
+      from(w in __MODULE__,
+        where: w.status != "completed",
+        order_by: [asc: w.inserted_at, asc: w.id],
+        limit: ^limit,
+        offset: ^offset,
+        select: map(w, @operator_fields)
+      )
+    )
+  end
+
+  @doc "Inspect one unfinished work item using the same restricted operator projection."
+  def operator_work(id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(id),
+         work when not is_nil(work) <-
+           Repo.one(
+             from(w in __MODULE__,
+               where: w.id == ^uuid and w.status != "completed",
+               select: map(w, @operator_fields)
+             )
+           ) do
+      {:ok, work}
+    else
+      _ -> :error
+    end
+  end
+
   @doc "Keep registered sources excluded until every retained storage work is completed."
   def unfinished_for_source?(source_id) do
     Repo.exists?(
