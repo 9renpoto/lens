@@ -56,7 +56,9 @@ limit returns `{:error, :invalid_limit}`.
 Recording `accepted` does not confirm missing release identity, attach an
 acquisition to a release, or override an operator decision. Existing
 `Earnings.confirm_identity/2` associations survive later assessments. Classifier
-implementations remain #127–#129; the separate operator-decision records and
+implementations for ordinary releases and presentations remain #127 and #129.
+[Correction assessment](earnings-corrections.md) records evidence-backed
+relationships through this contract; the separate operator-decision records and
 inspection/adoption/exclusion API remain #130. No public HTTP endpoint or new
 scheduler is introduced by this recording contract.
 
@@ -99,7 +101,7 @@ after source changes and identity confirmation, and database immutability.
 
 同じ属性での繰り返しも含め、成功した呼び出しごとに別の判定を追記する。呼び出しの再試行に冪等性はない。DBは更新・削除、不正な結果・資料種類、上限を超えるJSON、矛盾する候補出典を拒否する。`Assessments.history(candidate_id, limit \\ 100)`は挿入日時、UUIDの降順で新しい記録から返し、上限は1〜100件とする。不正な候補IDは空の履歴、不正な上限は`{:error, :invalid_limit}`を返す。
 
-`accepted`の記録は、不足する短信識別の確定、取得記録と短信の関連付け、運用者判断の上書きを行わない。既存の`Earnings.confirm_identity/2`による関連は再判定後も保持する。判定処理の実装は#127〜#129、独立した運用者判断の記録と参照・採用・除外APIは#130に残る。この記録契約では公開HTTPエンドポイントや新しいスケジューラーを追加しない。
+`accepted`の記録は、不足する短信識別の確定、取得記録と短信の関連付け、運用者判断の上書きを行わない。既存の`Earnings.confirm_identity/2`による関連は再判定後も保持する。通常短信と説明会資料の判定処理の実装は#127・#129に残る。[訂正判定](earnings-corrections.md)はこの契約を通じて根拠に基づく関連を記録する。独立した運用者判断の記録と参照・採用・除外APIは#130に残る。この記録契約では公開HTTPエンドポイントや新しいスケジューラーを追加しない。
 
 利用前に`mix ecto.migrate`を実行する。マイグレーション`20261015000000`は判定テーブルと制約・トリガーを追加し、既存の原本・取得記録・HTTP確認・取得先・短信を書き換えない。`test/lens/earnings/assessments_test.exs`では、全結果、出典の拒否、不明・矛盾する項目、確認待ち候補を越えた処理継続、取得先変更と識別確定後の再判定、DBの不変性を検証する。
 
