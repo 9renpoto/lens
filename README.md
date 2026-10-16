@@ -117,4 +117,23 @@ and [issue #68](https://github.com/9renpoto/lens/issues/68).
 
 ## License
 
-Lens is licensed under the [MIT License](LICENSE).
+Lens is licensed under the [MIT License](LICENSE). This license applies to
+Lens code and its accompanying documentation; it does not grant rights to
+third-party materials collected by Lens. Those materials remain subject to
+their copyright holders' terms. Keep publisher copyright notices and review
+the applicable conditions before acquisition, even for personal,
+non-commercial use without redistribution. See the
+[earnings-search value-validation procedure](docs/reference/earnings-value-validation.md).
+
+<details>
+<summary>日本語</summary>
+
+## ライセンス
+
+Lens のコードと付属文書には [MIT License](LICENSE) が適用されます。
+このライセンスは、Lens が取得する第三者の資料の利用権を付与するものではありません。
+取得資料には各著作権者の利用条件が適用されます。個人・非商用・再配布なしの
+利用でも、発行元の著作権表示を保持し、取得前に適用される条件を確認してください。
+[決算検索の価値検証手順](docs/reference/earnings-value-validation.md)を参照してください。
+
+</details>
