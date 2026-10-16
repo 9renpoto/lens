@@ -138,11 +138,11 @@ defmodule Lens.Earnings.IdentityTest do
     assert result.fields.period == nil
   end
 
-  test "issuer mismatch, conflicting periods, and unsupported fiscal month stay pending" do
+  test "issuer mismatch, conflicting periods, and invalid fiscal month stay pending" do
     for text <- [
           "2027年3月期 第1四半期決算短信\nコード番号 9983",
           "2027年3月期 第1四半期決算短信\n2027年3月期 第2四半期決算短信\nコード番号 6857",
-          "2027年8月期 第1四半期決算短信\nコード番号 6857",
+          "2027年13月期 第1四半期決算短信\nコード番号 6857",
           "2027年3月期 第1四半期決算短信"
         ] do
       assert Identity.from_text("6857", text).status == :pending_confirmation
@@ -382,7 +382,7 @@ defmodule Lens.Earnings.IdentityTest do
   end
 
   test "invalid fiscal month or interim qualifier does not clear another valid title field" do
-    invalid_month = Identity.from_text("6857", "2027年8月期 第1四半期決算短信\nコード番号 6857")
+    invalid_month = Identity.from_text("6857", "2027年13月期 第1四半期決算短信\nコード番号 6857")
     assert invalid_month.status == :pending_confirmation
     assert invalid_month.fields.fiscal_year_end == nil
     assert invalid_month.fields.period == "q1"
@@ -544,8 +544,8 @@ defmodule Lens.Earnings.IdentityTest do
     end
   end
 
-  test "unsupported issuers return an explicit error" do
-    assert Identity.from_text("1234", "2027年3月期 決算短信") == {:error, :unsupported_issuer}
+  test "missing issuer evidence remains pending for issuers outside the pilot" do
+    assert Identity.from_text("1234", "2027年3月期 決算短信").status == :pending_confirmation
   end
 
   test "initial selection orders fiscal years and periods, excludes corrections and pending" do
@@ -558,10 +558,10 @@ defmodule Lens.Earnings.IdentityTest do
     assert Identity.select_initial([correction, pending]) == :empty
   end
 
-  test "initial selection excludes candidates without a confirmed supported issuer" do
+  test "initial selection excludes candidates without an issuer" do
     regular = candidate("https://example.test/release", "2027年3月期 第1四半期決算短信")
 
-    for issuer <- [nil, "1234"] do
+    for issuer <- [nil, ""] do
       unconfirmed = put_in(regular.release.issuer_code, issuer)
       assert Identity.select_initial([unconfirmed]) == :empty
     end

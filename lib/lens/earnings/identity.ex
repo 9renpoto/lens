@@ -1,13 +1,14 @@
 defmodule Lens.Earnings.Identity do
-  @moduledoc "Conservative identity mapping from PDF text for the fixed earnings pilot."
+  @moduledoc "Conservative identity mapping from explicit PDF text."
 
-  @fiscal_months %{"6857" => 3, "9983" => 8, "8035" => 3}
   @period_order %{"q1" => 1, "q2" => 2, "q3" => 3, "full_year" => 4}
+  @issuer_evidence ~r/コード\s*番号\s*[:：]?\s*([^\s()〔〕]{1,50})(?=[\s()〔〕]|$)/u
 
   @doc "Read explicit PDF identity fields. Missing or contradictory identity stays pending."
-  def from_text(issuer, text) when is_binary(text) and is_map_key(@fiscal_months, issuer) do
+  def from_text(issuer, text)
+      when is_binary(text) and is_binary(issuer) and byte_size(issuer) > 0 do
     text = String.normalize(text, :nfkc)
-    codes = Regex.scan(~r/コード\s*番号\s*[:：]?\s*([0-9]{4})(?![0-9])/u, text, capture: :all_but_first)
+    codes = Regex.scan(@issuer_evidence, text, capture: :all_but_first)
     code = codes |> Enum.map(&hd/1) |> unique_value()
 
     {year_ends, periods} =
@@ -16,7 +17,7 @@ defmodule Lens.Earnings.Identity do
         text,
         capture: ["year", "month", "quarter", "interim"]
       )
-      |> Enum.map(&title_fields(&1, Map.fetch!(@fiscal_months, issuer)))
+      |> Enum.map(&title_fields/1)
       |> Enum.unzip()
 
     year_end = unique_value(year_ends)
@@ -51,7 +52,7 @@ defmodule Lens.Earnings.Identity do
           status: :identified,
           release: %{issuer_code: issuer, category: "earnings_release"}
         }
-        when issuer in ["6857", "9983", "8035"] ->
+        when is_binary(issuer) and byte_size(issuer) > 0 ->
           true
 
         _ ->
@@ -83,14 +84,14 @@ defmodule Lens.Earnings.Identity do
      Map.fetch!(@period_order, candidate.release.period)}
   end
 
-  defp title_fields([year, month, quarter, interim], fiscal_month) do
+  defp title_fields([year, month, quarter, interim]) do
     year = String.to_integer(year)
     month = String.to_integer(month)
 
     year_end =
-      if year > 0 and month == fiscal_month do
-        {:ok, first} = Date.new(year, month, 1)
-        Date.end_of_month(first)
+      case Date.new(year, month, 1) do
+        {:ok, first} when year > 0 -> Date.end_of_month(first)
+        _ -> nil
       end
 
     period =
@@ -144,7 +145,7 @@ defmodule Lens.Earnings.Identity do
 
   defp publication_date(text) do
     header =
-      case Regex.split(~r/コード\s*番号\s*[:：]?\s*[0-9]{4}(?![0-9])/u, text, parts: 2) do
+      case Regex.split(@issuer_evidence, text, parts: 2) do
         [header, _body] -> header
         [_text] -> ""
       end
