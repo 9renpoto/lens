@@ -1,6 +1,6 @@
 # Search API
 
-The existing choices and reasons are recorded in [ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md) and [ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). The v0.2 value check uses existing search and original-retrieval APIs in the [Tokyo Electron procedure](reference/tokyo-electron-value-validation.md). Broader operator-access work remains in [#73](https://github.com/9renpoto/lens/issues/73); detailed deployment, failure and recovery verification is deferred under [#74](https://github.com/9renpoto/lens/issues/74).
+The existing choices and reasons are recorded in [ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md) and [ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). The v0.2 value check uses existing search and original-retrieval APIs in the [earnings-search procedure](reference/earnings-value-validation.md). Broader operator-access work remains in [#73](https://github.com/9renpoto/lens/issues/73); detailed deployment, failure and recovery verification is deferred under [#74](https://github.com/9renpoto/lens/issues/74).
 
 Lens keeps canonical Documents in PostgreSQL. Its full-text vector, normalized
 search text, and GIN indexes are derived from each Document's title and
@@ -104,7 +104,7 @@ search completeness or Japanese morphological analysis. Feed matching is unchang
 <details>
 <summary>日本語</summary>
 
-既存方式と理由は[ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md)と[ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)に記載する。v0.2の価値検証では[Tokyo Electronの手順](reference/tokyo-electron-value-validation.md)に従い、既存の検索・原本取得APIを使う。広範な運用者アクセス作業は[#73](https://github.com/9renpoto/lens/issues/73)、詳細な配置・失敗・復旧検証は[#74](https://github.com/9renpoto/lens/issues/74)に後続作業として残す。
+既存方式と理由は[ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md)と[ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)に記載する。v0.2の価値検証では[決算検索の手順](reference/earnings-value-validation.md)に従い、既存の検索・原本取得APIを使う。広範な運用者アクセス作業は[#73](https://github.com/9renpoto/lens/issues/73)、詳細な配置・失敗・復旧検証は[#74](https://github.com/9renpoto/lens/issues/74)に後続作業として残す。
 
 ## 決算本文の検索
 
