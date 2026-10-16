@@ -47,9 +47,9 @@ curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURC
   -d '{"source":{"enabled":true}}'
 ```
 
-`Collector.run/1` visits every enabled registered earnings source. Before the
-manual run, inspect the target's source list and ensure only the intended source
-is enabled. Configure the RustFS runtime variables required by
+`Collector.run/1` visits every enabled registered earnings source across all
+targets. Before the manual run, inspect every target's source list and ensure
+only the intended source is enabled. Configure the RustFS runtime variables required by
 [candidate collection](earnings-collector.md), and apply migrations first.
 Verify the live listing before proceeding. Two operations cap this run at the
 listing request and its first PDF link:
@@ -61,20 +61,23 @@ mix run -e 'IO.inspect(Lens.Earnings.Collector.run(max_operations: 2))'
 Check the returned listing/PDF checks and confirm that the PDF is a successful
 acquisition for the newest ordinary earnings release shown on the official
 listing. If the first link is not that release, stop and record the workflow
-gap; do not run a broader crawl for this pilot. The returned PDF check includes
-the `acquisition_id`; use it to find the retained original ID:
+gap; do not run a broader crawl for this pilot. The returned PDF check's
+`acquisition_id` is the acquisition row's primary key. Load that row to obtain
+the provenance `acquisition_id` needed by `confirm_identity/2` and the retained
+`original_id` needed for extraction:
 
 ```sh
-mix run -e 'a = Lens.Repo.get_by!(Lens.Earnings.Acquisition, acquisition_id: "ACQUISITION_ID"); IO.puts(a.original_id)'
+mix run -e 'a = Lens.Repo.get!(Lens.Earnings.Acquisition, "ACQUISITION_ROW_ID"); IO.inspect(%{acquisition_id: a.acquisition_id, original_id: a.original_id})'
 mix lens.earnings.extract --original ORIGINAL_ID
 ```
 
 After reviewing the extracted text against the PDF's title and issuer
-identifier, confirm the identity from observed PDF content. Replace the sample
+identifier, confirm the identity from observed PDF content. Use the provenance
+`acquisition_id` printed from the loaded row. Replace the sample
 period and fiscal year end below with values printed in the latest PDF:
 
 ```sh
-mix run -e 'IO.inspect(Lens.Earnings.confirm_identity("ACQUISITION_ID", %{fiscal_year_end: Date.from_iso8601!("FISCAL_YEAR_END"), period: "PERIOD", category: "earnings_release"}))'
+mix run -e 'IO.inspect(Lens.Earnings.confirm_identity("PROVENANCE_ACQUISITION_ID", %{fiscal_year_end: Date.from_iso8601!("FISCAL_YEAR_END"), period: "PERIOD", category: "earnings_release"}))'
 ```
 
 `confirm_identity/2` is a library operation invoked through `mix run`; this
@@ -141,23 +144,23 @@ curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURC
   -d '{"source":{"enabled":true}}'
 ```
 
-`Collector.run/1`は、有効な登録済み決算取得先すべてを処理する。手動実行前に対象の取得先一覧を確認し、対象の1件だけが有効であることを確認する。[候補収集](earnings-collector.md)が必要とするRustFSランタイム変数を設定し、先にマイグレーションを適用する。実行前に公式一覧を確認する。操作数を2にすると、一覧取得と先頭PDFリンクの取得までに上限を設定できる。
+`Collector.run/1`は、全対象に登録された有効な決算取得先すべてを処理する。手動実行前に全対象の取得先一覧を確認し、対象の1件だけが有効であることを確認する。[候補収集](earnings-collector.md)が必要とするRustFSランタイム変数を設定し、先にマイグレーションを適用する。実行前に公式一覧を確認する。操作数を2にすると、一覧取得と先頭PDFリンクの取得までに上限を設定できる。
 
 ```sh
 mix run -e 'IO.inspect(Lens.Earnings.Collector.run(max_operations: 2))'
 ```
 
-戻り値の一覧・PDF確認記録を見て、最新の通常短信PDFが取得成功したことを確認する。先頭リンクが該当資料でなければ停止し、この手順上の不足を記録する。このパイロットで広いクロールを実行しない。返されたPDF確認記録には`acquisition_id`がある。これを使って保存原本IDを確認する。
+戻り値の一覧・PDF確認記録を見て、最新の通常短信PDFが取得成功したことを確認する。先頭リンクが該当資料でなければ停止し、この手順上の不足を記録する。このパイロットで広いクロールを実行しない。PDF確認記録の`acquisition_id`は取得行の主キーである。その行を読み込み、`confirm_identity/2`に必要な出典用`acquisition_id`と抽出に必要な保存原本IDを確認する。
 
 ```sh
-mix run -e 'a = Lens.Repo.get_by!(Lens.Earnings.Acquisition, acquisition_id: "ACQUISITION_ID"); IO.puts(a.original_id)'
+mix run -e 'a = Lens.Repo.get!(Lens.Earnings.Acquisition, "ACQUISITION_ROW_ID"); IO.inspect(%{acquisition_id: a.acquisition_id, original_id: a.original_id})'
 mix lens.earnings.extract --original ORIGINAL_ID
 ```
 
-抽出本文をPDFの表題・発行元識別子と見比べた後、原本上で確認した内容に基づき短信識別を確定する。期間と決算期末は、実際の最新PDFに記載された値へ置き換える。
+抽出本文をPDFの表題・発行元識別子と見比べた後、原本上で確認した内容に基づき短信識別を確定する。読み込んだ取得行から出典用`acquisition_id`を使う。期間と決算期末は、実際の最新PDFに記載された値へ置き換える。
 
 ```sh
-mix run -e 'IO.inspect(Lens.Earnings.confirm_identity("ACQUISITION_ID", %{fiscal_year_end: Date.from_iso8601!("FISCAL_YEAR_END"), period: "PERIOD", category: "earnings_release"}))'
+mix run -e 'IO.inspect(Lens.Earnings.confirm_identity("PROVENANCE_ACQUISITION_ID", %{fiscal_year_end: Date.from_iso8601!("FISCAL_YEAR_END"), period: "PERIOD", category: "earnings_release"}))'
 ```
 
 `confirm_identity/2`は`mix run`から呼び出すライブラリ関数であり、このパイロットでは確認待ちAPIや一括実行CLIを追加しない。その後、既存の日本語検索APIと原本取得APIを使う。
