@@ -1,0 +1,186 @@
+# Tokyo Electron earnings-search value validation
+
+This procedure supports one reviewable v0.2 slice: register Tokyo Electron's
+official Japanese earnings listing, make one operator-approved bounded manual
+collection, extract and search the latest ordinary earnings release available
+at collection time, then open the retained original PDF and compare it with the
+search result. Use an internal, non-commercial development or test environment
+whose data is explicitly disposable under [ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md).
+
+The official [earnings reports listing](https://www.tel.co.jp/ir/library/report/index.html)
+currently labels its newest item as FY2027 Q1, published 2026-07-30, and links
+the Japanese earnings release PDF. The [IR calendar](https://www.tel.co.jp/ir/calendar/index.html)
+lists FY2027 Q2 for 2026-10-30, so the expected latest release may change before
+the pilot runs. Select the newest ordinary earnings release shown on the listing
+when the collection is performed; do not hard-code the Q1 example below as a
+permanent latest-release guarantee.
+
+## Before enabling the source
+
+The operator must read the publisher's current [site terms](https://www.tel.com/copyright/index.html)
+and decide whether the intended acquisition is allowed. The published terms
+allow non-commercial copying for use within the organization, require the
+copyright notice to remain on copies, and do not specify an automated-fetch
+cadence. Keep this pilot internal and non-commercial, perform one manual bounded
+run, and do not schedule recurring collection or redistribute the PDF. Record
+the listing URL, the conditions reviewed, and the run time in the task's
+operational note. The application does not interpret or approve publisher terms.
+
+## Register and collect
+
+Use the existing private operator API. Reuse an existing target with security
+code `8035` if present; otherwise create one. The `market`, `display_name`, and
+`sector` values below are descriptive registry fields.
+
+```sh
+curl http://127.0.0.1:4000/api/targets
+
+curl -X POST http://127.0.0.1:4000/api/targets \
+  -H 'content-type: application/json' \
+  -d '{"target":{"security_code":"8035","market":"Tokyo Stock Exchange","display_name":"Tokyo Electron Ltd.","sector":"Semiconductor manufacturing equipment","tags":[]}}'
+```
+
+Register the official Japanese listing disabled, then enable it only after the
+operator has reviewed the terms. Substitute the selected target ID for
+`TARGET_ID`.
+
+```sh
+curl -X POST http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources \
+  -H 'content-type: application/json' \
+  -d '{"source":{"listing_url":"https://www.tel.co.jp/ir/library/report/index.html","enabled":false}}'
+
+curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURCE_ID \
+  -H 'content-type: application/json' \
+  -d '{"source":{"enabled":true}}'
+```
+
+`Collector.run/1` visits every enabled registered earnings source. Before the
+manual run, inspect the target's source list and ensure only the intended source
+is enabled. Configure the RustFS runtime variables required by
+[candidate collection](earnings-collector.md), and apply migrations first.
+The official listing places its newest ordinary release PDF first at the time
+of writing; verify the live listing before proceeding. Two operations cap this
+run at the listing request and its first PDF link:
+
+```sh
+mix run -e 'IO.inspect(Lens.Earnings.Collector.run(max_operations: 2))'
+```
+
+Check the returned listing/PDF checks and confirm that the PDF is a successful
+acquisition for the newest ordinary earnings release shown on the official
+listing. If the first link is not that release, stop and record the workflow
+gap; do not run a broader crawl for this pilot. The returned PDF check includes
+the `acquisition_id`; use it to find the retained original ID:
+
+```sh
+mix run -e 'a = Lens.Repo.get_by!(Lens.Earnings.Acquisition, acquisition_id: "ACQUISITION_ID"); IO.puts(a.original_id)'
+mix lens.earnings.extract --original ORIGINAL_ID
+```
+
+After reviewing the extracted text against the PDF's title and issuer code,
+confirm the identity from observed PDF content. Replace the example identity
+with the period and fiscal year end printed in the latest PDF. For the current
+FY2027 Q1 example:
+
+```sh
+mix run -e 'IO.inspect(Lens.Earnings.confirm_identity("ACQUISITION_ID", %{fiscal_year_end: ~D[2027-03-31], period: "q1", category: "earnings_release"}))'
+```
+
+`confirm_identity/2` is a library operation invoked through `mix run`; this
+pilot does not add a pending-review API or a dedicated one-command workflow.
+Then use the existing Japanese search endpoint and the exact-original endpoint:
+
+```sh
+curl --get http://127.0.0.1:4000/api/search \
+  --data-urlencode 'q=東京エレクトロン 2027年3月期 第1四半期 決算短信'
+
+curl -o tokyo-electron-original.pdf \
+  http://127.0.0.1:4000/api/earnings/originals/ORIGINAL_ID
+```
+
+If the latest release has changed, use its observed company, period, and fiscal
+year in the query. Open the retrieved PDF, compare its issuer, period, title,
+and relevant content with the result, and discuss usefulness and any mismatch
+or workflow gap in the review. Mismatches are observations, not automatic
+release failures; no numeric precision threshold or standardized value-review
+report is required. The acquisition URL, time and stored bytes remain part of
+the existing operational provenance.
+
+The v0.2 reviewable checkpoint is complete when the operator has run this
+single-company flow through search and original comparison and discussed the
+result. The outcome may inform v0.3 scope even when the result is mismatched or
+not useful. Search UI, multiple companies, recurring collection, presentation
+classification, pending-case/operator-decision APIs, and detailed restart,
+failure and backup/restore verification remain follow-up work.
+
+<details>
+<summary>日本語</summary>
+
+# 東京エレクトロンの決算検索価値検証
+
+この手順は、レビュー可能なv0.2の縦切り1件を実施する。東京エレクトロンの日本語公式決算一覧を登録し、運用者が許容した上限付きの手動収集を1回行い、収集時点で最新の通常決算短信を抽出・検索した後、保存した原本PDFを開いて検索結果と照合する。データを明示的に破棄可能とした開発・テスト環境で実施する。[ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md)を参照。
+
+公式の[決算短信・決算説明会資料一覧](https://www.tel.co.jp/ir/library/report/index.html)は、現在の最新資料を2027年3月期第1四半期（2026-07-30公表）と表示し、日本語決算短信PDFへのリンクを掲載している。[IRカレンダー](https://www.tel.co.jp/ir/calendar/index.html)では2026-10-30に2027年3月期第2四半期の発表を予定しているため、実行前に最新資料が更新される可能性がある。収集時点で一覧に掲載されている最新の通常決算短信を対象とする。以下のQ1例を恒久的な最新保証としてハードコードしない。
+
+## 取得先を有効にする前に
+
+運用者は最新の[サイト利用条件](https://www.tel.com/copyright/index.html)を読み、予定する取得が許容されるかを判断する。公開条件は組織内の非商用利用のコピーを認め、コピーに著作権表示を保持するよう求めているが、自動取得の頻度は定めていない。このパイロットは組織内の非商用利用に限定し、上限付き手動実行を1回だけ行う。定期実行やPDFの再配布はしない。タスクの運用メモに取得元一覧URL、確認した条件、実行日時を記録する。アプリは発行元条件を解釈・承認しない。
+
+## 登録と収集
+
+既存の非公開運用者APIを使う。証券コード`8035`の対象が既にあれば再利用し、なければ作成する。以下の`market`、`display_name`、`sector`は対象台帳に表示する情報。
+
+```sh
+curl http://127.0.0.1:4000/api/targets
+
+curl -X POST http://127.0.0.1:4000/api/targets \
+  -H 'content-type: application/json' \
+  -d '{"target":{"security_code":"8035","market":"Tokyo Stock Exchange","display_name":"Tokyo Electron Ltd.","sector":"Semiconductor manufacturing equipment","tags":[]}}'
+```
+
+公式の日本語一覧を無効状態で登録し、運用者が条件を確認した後にのみ有効化する。`TARGET_ID`は選んだ対象IDに置き換える。
+
+```sh
+curl -X POST http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources \
+  -H 'content-type: application/json' \
+  -d '{"source":{"listing_url":"https://www.tel.co.jp/ir/library/report/index.html","enabled":false}}'
+
+curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURCE_ID \
+  -H 'content-type: application/json' \
+  -d '{"source":{"enabled":true}}'
+```
+
+`Collector.run/1`は、有効な登録済み決算取得先すべてを処理する。手動実行前に対象の取得先一覧を確認し、対象の1件だけが有効であることを確認する。[候補収集](earnings-collector.md)が必要とするRustFSランタイム変数を設定し、先にマイグレーションを適用する。執筆時点では公式一覧の最初の資料PDFが最新の通常短信だが、実行前に実際の一覧を確認する。操作数を2にすると、一覧取得と先頭PDFリンクの取得までに上限を設定できる。
+
+```sh
+mix run -e 'IO.inspect(Lens.Earnings.Collector.run(max_operations: 2))'
+```
+
+戻り値の一覧・PDF確認記録を見て、最新の通常短信PDFが取得成功したことを確認する。先頭リンクが該当資料でなければ停止し、この手順上の不足を記録する。このパイロットで広いクロールを実行しない。返されたPDF確認記録には`acquisition_id`がある。これを使って保存原本IDを確認する。
+
+```sh
+mix run -e 'a = Lens.Repo.get_by!(Lens.Earnings.Acquisition, acquisition_id: "ACQUISITION_ID"); IO.puts(a.original_id)'
+mix lens.earnings.extract --original ORIGINAL_ID
+```
+
+抽出本文をPDFの表題・企業コードと見比べた後、原本上で確認した内容に基づき短信識別を確定する。以下の現在のFY2027 Q1例は、実際の最新PDFに記載された決算期末・対象期間へ置き換える。
+
+```sh
+mix run -e 'IO.inspect(Lens.Earnings.confirm_identity("ACQUISITION_ID", %{fiscal_year_end: ~D[2027-03-31], period: "q1", category: "earnings_release"}))'
+```
+
+`confirm_identity/2`は`mix run`から呼び出すライブラリ関数であり、このパイロットでは確認待ちAPIや一括実行CLIを追加しない。その後、既存の日本語検索APIと原本取得APIを使う。
+
+```sh
+curl --get http://127.0.0.1:4000/api/search \
+  --data-urlencode 'q=東京エレクトロン 2027年3月期 第1四半期 決算短信'
+
+curl -o tokyo-electron-original.pdf \
+  http://127.0.0.1:4000/api/earnings/originals/ORIGINAL_ID
+```
+
+最新資料が更新されていれば、観察した企業名・対象期間・決算期をクエリに使う。取得したPDFを開き、企業・対象期間・表題・関連内容を検索結果と照合して、有用性や不一致・作業上の不足をレビューで議論する。不一致は観測結果であり、自動的なリリース失敗とはしない。数値の精度基準や定型の価値検証報告は求めない。取得元URL・日時・保存バイト列は既存の運用履歴に保持される。
+
+検索と原本照合まで1社の一連のフローを実行し、その結果を議論できればv0.2のレビュー可能な区切りとする。一致しない場合や有用でない場合も、その結果をv0.3のスコープ判断に使う。検索UI、複数社、定期収集、説明会資料の判定、確認待ち・運用者判断API、詳細な再起動・失敗・バックアップ/復元検証は後続作業とする。
+
+</details>
