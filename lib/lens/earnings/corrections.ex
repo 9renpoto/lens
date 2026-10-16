@@ -5,7 +5,7 @@ defmodule Lens.Earnings.Corrections do
   alias Lens.Analysis.Target
   alias Lens.Repo
 
-  @title ~r/^(?:\(訂正\)\s*)?「?([0-9]{4})\s*年\s*([0-9]{1,2})\s*月期\s*(?:第\s*([123])\s*四半期\s*(\(中間期\))?\s*)?決算短信(?:〔[^〕]*〕|\([^)]*\))*」?(?:の(?:一部|決算数値の)?訂正に関するお知らせ)?$/u
+  @title ~r/^(?:\(訂正\)\s*)?「?([0-9]{4})\s*年\s*([0-9]{1,2})\s*月期\s*(?:第\s*([123])\s*四半期\s*(\(中間期\))?\s*)?決算短信(?:\s*(?:〔[^〕]*〕|\([^)]*\)))*」?(?:の(?:一部|決算数値の)?訂正に関するお知らせ)?$/u
   @correction ~r/^(?:\(訂正\)\s*「?[0-9]{4}.*決算短信.*|「[0-9]{4}.*決算短信.*」の(?:一部|決算数値の)?訂正に関するお知らせ|(?:一部|決算数値の)訂正に関するお知らせ)$/u
   @date ~r/^([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日$/u
   @reference ~r/^([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日に公表した決算短信を訂正します。?$/u
@@ -210,21 +210,29 @@ defmodule Lens.Earnings.Corrections do
   defp earlier_releases(candidate, identity) do
     year_end = Date.from_iso8601!(identity.fiscal_year_end)
 
+    eligible_extractions =
+      from(r in Release,
+        join: a in Acquisition,
+        on: a.release_id == r.id,
+        join: e in Extraction,
+        on: e.original_id == a.original_id,
+        where:
+          r.issuer_code == ^candidate.issuer and r.fiscal_year_end == ^year_end and
+            r.period == ^identity.period and r.category == "earnings_release" and
+            a.issuer_code == ^candidate.issuer and a.status == "success" and
+            a.acquired_at < ^candidate.acquired_at and e.status == "succeeded",
+        group_by: [r.id, e.id],
+        select: %{release_id: r.id, extraction_id: e.id}
+      )
+
     rows =
       Repo.all(
-        from(r in Release,
-          join: a in Acquisition,
-          on: a.release_id == r.id,
+        from(pair in subquery(eligible_extractions),
           join: e in Extraction,
-          on: e.original_id == a.original_id,
-          where:
-            r.issuer_code == ^candidate.issuer and r.fiscal_year_end == ^year_end and
-              r.period == ^identity.period and r.category == "earnings_release" and
-              a.issuer_code == ^candidate.issuer and a.status == "success" and
-              a.acquired_at < ^candidate.acquired_at and e.status == "succeeded",
-          order_by: [desc: e.id],
+          on: e.id == pair.extraction_id,
+          order_by: [desc: pair.extraction_id],
           limit: 101,
-          select: %{release_id: r.id, extraction_id: e.id, text: e.text}
+          select: %{release_id: pair.release_id, extraction_id: e.id, text: e.text}
         )
       )
 

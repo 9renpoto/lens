@@ -170,6 +170,67 @@ defmodule Lens.Earnings.CorrectionsTest do
     assert assessment.evidence["extraction_id"] == extraction.id
   end
 
+  test "repeated acquisitions of one original do not consume the relationship row limit", ctx do
+    {original, _} = candidate(ctx, @fixtures["regular"], ~U[2026-08-06 00:00:00.000000Z])
+
+    identity = %{
+      issuer_code: "7203",
+      fiscal_year_end: ~D[2027-03-31],
+      period: "q1",
+      category: "earnings_release"
+    }
+
+    {:ok, earlier} = Earnings.confirm_identity(acquisition(original).acquisition_id, identity)
+
+    for _ <- 1..101 do
+      repeated = additional_candidate(ctx, @fixtures["regular"])
+      assert acquisition(repeated).original_id == acquisition(original).original_id
+
+      assert {:ok, confirmed} =
+               Earnings.confirm_identity(acquisition(repeated).acquisition_id, identity)
+
+      assert confirmed.release_id == earlier.release_id
+    end
+
+    {check, extraction} = candidate(ctx, @fixtures["known"])
+    assert {:ok, assessment} = Corrections.assess(check.id, extraction.id)
+    assert assessment.outcome == "accepted"
+    assert assessment.identity["corrects_release_id"] == earlier.release_id
+  end
+
+  test "release relationships accept whitespace before common title qualifiers", ctx do
+    for qualifier <- [" （連結）", " 〔日本基準〕", " （連結） 〔日本基準〕"] do
+      regular =
+        String.replace(
+          @fixtures["regular"],
+          "決算短信\nコード番号",
+          "決算短信" <> qualifier <> "\nコード番号"
+        )
+
+      correction =
+        String.replace(
+          @fixtures["known"],
+          "決算短信」の一部訂正",
+          "決算短信" <> qualifier <> "」の一部訂正"
+        )
+
+      {original, _} = candidate(ctx, regular, ~U[2026-08-06 00:00:00.000000Z])
+
+      {:ok, earlier} =
+        Earnings.confirm_identity(acquisition(original).acquisition_id, %{
+          issuer_code: "7203",
+          fiscal_year_end: ~D[2027-03-31],
+          period: "q1",
+          category: "earnings_release"
+        })
+
+      {check, extraction} = candidate(ctx, correction)
+      assert {:ok, assessment} = Corrections.assess(check.id, extraction.id)
+      assert assessment.outcome == "accepted"
+      assert assessment.identity["corrects_release_id"] == earlier.release_id
+    end
+  end
+
   defp candidate(ctx, text, at \\ @at) do
     {:ok, check} =
       HTTPHistory.record(%{
@@ -192,6 +253,28 @@ defmodule Lens.Earnings.CorrectionsTest do
     {:ok, attempt} = Extractions.begin(acquisition(check).original_id, "fixture", "1")
     {:ok, extraction} = Extractions.succeed(attempt.id, text)
     {check, extraction}
+  end
+
+  defp additional_candidate(ctx, text) do
+    {:ok, check} =
+      HTTPHistory.record(%{
+        check_id: Ecto.UUID.generate(),
+        issuer_code: ctx.target.security_code,
+        url: "https://example.test/#{Ecto.UUID.generate()}.pdf",
+        kind: :pdf,
+        checked_at: ~U[2026-08-07 00:00:00.000000Z],
+        metadata: %{target_id: ctx.target.id, source_id: ctx.source.id},
+        result: %{
+          outcome: :success,
+          bytes: "%PDF-" <> text,
+          final_url: "https://example.test/doc.pdf",
+          http_status: 200,
+          requests: 1,
+          retryable: false
+        }
+      })
+
+    check
   end
 
   defp acquisition(check), do: Repo.get!(Acquisition, check.acquisition_id)
