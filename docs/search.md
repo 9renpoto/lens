@@ -90,6 +90,19 @@ also regenerates extraction search fields from plain text without publisher acce
 See [earnings extraction](earnings-extraction.md) for commands, deterministic
 ordering, result fields and `GET /api/earnings/releases/:id` inspection.
 
+Earnings result titles are generated display labels, not verified publisher
+publication titles. They combine the current registered issuer display name
+(or security code when no nonblank display name is available), fiscal year-end
+year/month, confirmed period and document kind. For example:
+`架空株式会社 2027年3月期 第1四半期 決算短信`. Periods `q1`, `q2`, `q3` and
+`full_year` display as `第1四半期`, `第2四半期`, `第3四半期` and `通期`.
+Kinds `earnings_release` and `correction` display as `決算短信` and `決算短信訂正`;
+other category values are retained verbatim rather than guessing a label.
+Inactive registered targets still supply their display name. Updating that name
+changes the display label without rewriting release identity, acquisition facts
+or extracted text. Feed-document titles, search matching/ranking and result
+identifiers and provenance links are unchanged.
+
 Successful earnings text is retained in full even when its PostgreSQL full-text
 vector exceeds the database size limit. Such text uses complete normalized
 literal substring matching and a full-text rank of zero; boolean and phrase
@@ -113,6 +126,16 @@ search completeness or Japanese morphological analysis. Feed matching is unchang
 フィード・短信全体のページングより先に行う。既存CJK正規化を使い、再構築タスクも発行元通信なしで
 抽出本文から検索フィールドを再生成する。コマンド、決定的順序、結果項目、
 `GET /api/earnings/releases/:id` による確認は[抽出説明](earnings-extraction.md)を参照。
+
+決算検索の表題は生成した表示ラベルであり、発行元が公表した表題を検証したものではない。
+現在の登録済み発行元表示名（空でない表示名がなければ証券コード）、決算期末の年月、
+確定した期間・資料種類を組み合わせる。例は `架空株式会社 2027年3月期 第1四半期 決算短信`。
+期間 `q1`、`q2`、`q3`、`full_year` は、それぞれ `第1四半期`、`第2四半期`、`第3四半期`、
+`通期` と表示する。資料種類 `earnings_release` と `correction` は `決算短信` と
+`決算短信訂正` と表示し、ほかの category はラベルを推測せず値をそのまま保持する。
+無効な登録対象も表示名の参照に使う。表示名の更新は表示ラベルを変えるが、短信識別・
+取得事実・抽出本文は書き換えない。フィード文書の表題、検索の照合・順位、結果の識別子と
+出典リンクは変更しない。
 
 PostgreSQLの全文検索ベクトルがDBサイズ制約を超えても、成功した決算本文は全文を保持する。
 その本文では全文の正規化済み文字列部分一致を使い、全文順位は0とする。全文検索の論理・句

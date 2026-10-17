@@ -1,6 +1,7 @@
 defmodule Lens.Search.Earnings do
   @moduledoc false
   import Ecto.Query
+  alias Lens.Analysis.Target
   alias Lens.Earnings.{Acquisition, Extraction, Release}
   alias Lens.Repo
   alias Lens.Search.Normalizer
@@ -46,6 +47,8 @@ defmodule Lens.Search.Earnings do
       on: r.id == s.release_id,
       join: l in subquery(latest),
       on: l.release_id == r.id,
+      left_join: target in Target,
+      on: target.security_code == r.issuer_code,
       where:
         not (^match?) or
           fragment(
@@ -57,10 +60,26 @@ defmodule Lens.Search.Earnings do
         id: r.id,
         title:
           fragment(
-            "? || ' ' || ?::text || ' ' || ? || ' ' || ?",
+            """
+            coalesce(nullif(btrim(?), ''), ?) || ' ' ||
+            to_char(?, 'YYYY年FMMM月期') || ' ' ||
+            CASE ?
+              WHEN 'q1' THEN '第1四半期'
+              WHEN 'q2' THEN '第2四半期'
+              WHEN 'q3' THEN '第3四半期'
+              WHEN 'full_year' THEN '通期'
+            END || ' ' ||
+            CASE ?
+              WHEN 'earnings_release' THEN '決算短信'
+              WHEN 'correction' THEN '決算短信訂正'
+              ELSE ?
+            END
+            """,
+            target.display_name,
             r.issuer_code,
             r.fiscal_year_end,
             r.period,
+            r.category,
             r.category
           ),
         canonical_url: s.url,
