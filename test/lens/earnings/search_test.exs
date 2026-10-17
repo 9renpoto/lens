@@ -4,6 +4,61 @@ defmodule Lens.Earnings.SearchTest do
   alias Lens.Earnings.{Extraction, Extractions}
   alias Lens.Search
 
+  @tag :readable_title
+  test "titles use the registered issuer and confirmed identity without changing provenance" do
+    {:ok, _target} =
+      Lens.Analysis.create_target(%{
+        security_code: "6857",
+        display_name: "架空株式会社",
+        market: "TSE",
+        sector: "電気機器",
+        active: false
+      })
+
+    retained = retain("readable-title", 0)
+    extraction = extract(retained.original.id, "未確認の別表題\n表題検証用語")
+    acquisition_before = Repo.get!(Lens.Earnings.Acquisition, retained.acquisition.id)
+    release_before = Repo.get!(Lens.Earnings.Release, retained.release.id)
+
+    assert {:ok, [result]} = Search.search("表題検証用語")
+    assert result.title == "架空株式会社 2027年3月期 第1四半期 決算短信"
+    assert result.id == retained.release.id
+    assert result.resource_type == "earnings_release"
+    assert result.original_id == retained.original.id
+    assert result.extraction_id == extraction.id
+    assert result.canonical_url == "https://example.test/readable-title.pdf"
+    assert result.provenance_url == "/api/earnings/releases/#{retained.release.id}"
+    assert Repo.get!(Lens.Earnings.Acquisition, retained.acquisition.id) == acquisition_before
+    assert Repo.get!(Lens.Earnings.Release, retained.release.id) == release_before
+  end
+
+  @tag :readable_title
+  test "unregistered issuers keep searchable results with readable periods and kind fallbacks" do
+    for {period, category, label} <- [
+          {"q1", "earnings_release", "第1四半期 決算短信"},
+          {"q2", "earnings_release", "第2四半期 決算短信"},
+          {"q3", "earnings_release", "第3四半期 決算短信"},
+          {"full_year", "earnings_release", "通期 決算短信"},
+          {"q1", "correction", "第1四半期 決算短信訂正"},
+          {"q1", "other_document", "第1四半期 other_document"}
+        ] do
+      key = "#{period}-#{category}"
+
+      retained =
+        retain(key, 0, %{
+          fiscal_year_end: ~D[2027-12-31],
+          period: period,
+          category: category
+        })
+
+      extract(retained.original.id, "fallbackmarker #{key}")
+      assert {:ok, results} = Search.search("fallbackmarker")
+      result = Enum.find(results, &(&1.id == retained.release.id))
+      assert result
+      assert result.title == "6857 2027年12月期 #{label}"
+    end
+  end
+
   test "valid large text remains successful and searchable at its tail" do
     retained = retain("large", 0)
 
@@ -53,6 +108,7 @@ defmodule Lens.Earnings.SearchTest do
 
     assert {:ok, results} = Search.search("paginationtoken")
     assert length(results) == 3
+    assert Enum.find(results, &(&1.id == document.id)).title == "Notes"
 
     assert Enum.sort(Enum.map(results, & &1.id)) ==
              Enum.sort([first.release.id, second.release.id, document.id])
