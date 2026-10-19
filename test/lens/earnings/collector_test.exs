@@ -100,6 +100,40 @@ defmodule Lens.Earnings.CollectorTest do
     assert Repo.aggregate(Acquisition, :count) == 2
   end
 
+  test "uses the operation budget to collect the first candidate from a long listing", %{
+    client: client
+  } do
+    first = server("%PDF-first", "/first.pdf")
+
+    archived =
+      Enum.map_join(1..200, fn index ->
+        ~s(<a href="http://localhost:1/archive-#{index}.pdf">Archived #{index}</a>)
+      end)
+
+    listing = server(~s(<a href="#{first}">Newest</a>#{archived}), "/results")
+
+    {:ok, target} =
+      Analysis.create_target(%{
+        security_code: "7203",
+        market: "TSE",
+        display_name: "Example",
+        sector: "Test"
+      })
+
+    {:ok, _} = Sources.create(target, %{listing_url: listing})
+
+    assert {:ok, run} =
+             Collector.run(rustfs: client, allowed_url?: fn _ -> true end, max_operations: 2)
+
+    assert run.errors == []
+    assert run.stopped == nil
+    assert run.budget.operations == 2
+    assert Enum.map(run.checks, & &1.kind) == ["listing", "pdf"]
+    assert [candidate] = Enum.filter(run.checks, &(&1.kind == "pdf"))
+    assert candidate.metadata["anchor_text"] == "Newest"
+    assert Repo.aggregate(Acquisition, :count) == 1
+  end
+
   test "stops before another operation when the budget is exhausted", %{client: client} do
     listing = server(~s(<a href="https://external.invalid/report.pdf">Report</a>), "/results")
 

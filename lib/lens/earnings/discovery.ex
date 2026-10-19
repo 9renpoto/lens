@@ -6,6 +6,32 @@ defmodule Lens.Earnings.Discovery do
 
   @doc "Resolve PDF anchors against the final listing response URL and retain observed provenance."
   def links(listing_url, html) when is_binary(listing_url) and is_binary(html) do
+    do_links(listing_url, html, :complete)
+  end
+
+  def links(listing_url, html) when not is_binary(listing_url) and is_binary(html),
+    do: {:error, :invalid_listing_url}
+
+  def links(_, _), do: {:error, :invalid_html}
+
+  @doc "Resolve at most the requested ordered prefix of distinct PDF anchors."
+  def links(listing_url, html, options)
+      when is_binary(listing_url) and is_binary(html) and is_list(options) do
+    max_links = Keyword.get(options, :max_links)
+
+    if is_integer(max_links) and max_links in 1..@max_links do
+      do_links(listing_url, html, {:prefix, max_links})
+    else
+      {:error, :invalid_limit}
+    end
+  end
+
+  def links(listing_url, html, _) when not is_binary(listing_url) and is_binary(html),
+    do: {:error, :invalid_listing_url}
+
+  def links(_, _, _), do: {:error, :invalid_html}
+
+  defp do_links(listing_url, html, mode) do
     cond do
       byte_size(html) > @max_listing_bytes ->
         {:error, :listing_too_large}
@@ -17,20 +43,20 @@ defmodule Lens.Earnings.Discovery do
         {:error, :invalid_listing_url}
 
       true ->
-        parse_links(listing_url, html)
+        parse_links(listing_url, html, mode)
     end
   end
 
-  def links(listing_url, html) when not is_binary(listing_url) and is_binary(html),
-    do: {:error, :invalid_listing_url}
-
-  def links(_, _), do: {:error, :invalid_html}
-
-  defp parse_links(listing_url, html) do
+  defp parse_links(listing_url, html, mode) do
     with {:ok, tree} <- Floki.parse_document(html) do
-      state = walk(tree, %{headings: %{}, links: [], seen: MapSet.new(), count: 0}, listing_url)
+      state =
+        walk(
+          tree,
+          %{headings: %{}, links: [], seen: MapSet.new(), count: 0, mode: mode},
+          listing_url
+        )
 
-      if state.count > @max_links,
+      if mode == :complete and state.count > @max_links,
         do: {:error, :too_many_links},
         else: {:ok, Enum.reverse(state.links)}
     else
@@ -40,7 +66,7 @@ defmodule Lens.Earnings.Discovery do
 
   defp walk(nodes, state, listing_url) do
     Enum.reduce_while(nodes, state, fn node, acc ->
-      if acc.count > @max_links do
+      if limit_reached?(acc) do
         {:halt, acc}
       else
         {:cont, visit(node, acc, listing_url)}
@@ -88,6 +114,9 @@ defmodule Lens.Earnings.Discovery do
   defp visit({tag, _, _}, state, _listing_url) when tag in ~w(script style), do: state
   defp visit({_, _, children}, state, listing_url), do: walk(children, state, listing_url)
   defp visit(_, state, _listing_url), do: state
+
+  defp limit_reached?(%{mode: :complete, count: count}), do: count > @max_links
+  defp limit_reached?(%{mode: {:prefix, max_links}, count: count}), do: count >= max_links
 
   defp resolve_pdf(listing_url, href) do
     with {:ok, target} <- URI.new(String.trim(href)),

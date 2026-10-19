@@ -41,7 +41,9 @@ defmodule Lens.Earnings.Collector do
             observed_listing_url: result.final_url
           })
 
-        case Discovery.links(result.final_url, result.bytes) do
+        remaining_operations = state.budget.max_operations - state.budget.operations
+
+        case discover(result, remaining_operations) do
           {:ok, links} ->
             Enum.reduce_while(links, state, fn link, state ->
               link =
@@ -57,6 +59,9 @@ defmodule Lens.Earnings.Collector do
               end
             end)
 
+          {:error, :operation_budget_exhausted} ->
+            %{state | stopped: :operation_budget_exhausted}
+
           {:error, reason} ->
             %{state | errors: [%{source_id: source.id, reason: reason} | state.errors]}
         end
@@ -68,6 +73,12 @@ defmodule Lens.Earnings.Collector do
         state
     end
   end
+
+  defp discover(_, remaining_operations) when remaining_operations <= 0,
+    do: {:error, :operation_budget_exhausted}
+
+  defp discover(result, remaining_operations),
+    do: Discovery.links(result.final_url, result.bytes, max_links: remaining_operations)
 
   defp fetch(source, url, kind, metadata, state, policy, client) do
     case RunBudget.fetch(state.budget, url, kind: kind, allowed_url?: policy) do

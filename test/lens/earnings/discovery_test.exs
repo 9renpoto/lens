@@ -154,6 +154,21 @@ defmodule Lens.Earnings.DiscoveryTest do
 
     html = Enum.map_join(1..201, fn n -> "<a href='#{n}.pdf'>決算短信</a>" end)
     assert Discovery.links("https://example.test/", html) == {:error, :too_many_links}
+
+    assert {:ok, links} = Discovery.links("https://example.test/", html, max_links: 2)
+
+    assert Enum.map(links, & &1.url) == [
+             "https://example.test/1.pdf",
+             "https://example.test/2.pdf"
+           ]
+  end
+
+  test "rejects invalid ordered-prefix limits" do
+    for max_links <- [nil, 0, 201, "1"] do
+      assert Discovery.links("https://example.test/", "<a href='1.pdf'>決算短信</a>",
+               max_links: max_links
+             ) == {:error, :invalid_limit}
+    end
   end
 
   test "invalid listing URLs and invalid UTF-8 produce explicit errors" do
@@ -170,7 +185,13 @@ defmodule Lens.Earnings.DiscoveryTest do
     for listing_url <- [nil, :missing, 42] do
       assert Discovery.links(listing_url, "<a href='release.pdf'>決算短信</a>") ==
                {:error, :invalid_listing_url}
+
+      assert Discovery.links(listing_url, "<a href='release.pdf'>決算短信</a>", max_links: 1) ==
+               {:error, :invalid_listing_url}
     end
+
+    assert Discovery.links("https://example.test/", :not_html, max_links: 1) ==
+             {:error, :invalid_html}
   end
 
   test "identical regular identities in source fixtures remain pending as a selection conflict" do
