@@ -24,7 +24,11 @@ defmodule Lens.Earnings.HTTPHistory do
     if Repo.in_transaction?() do
       {:error, :uncommitted_transaction}
     else
-      with {:ok, %{kind: "pdf", status: "success"}} <- prepare(attrs, result) do
+      with {:ok, %{kind: "pdf", status: "success"} = check} <- prepare(attrs, result),
+           {:ok, _, _} <-
+             Earnings.validate_success(
+               Map.put(common(check, check.final_url), :release, Map.get(attrs, :release))
+             ) do
         case Lens.Earnings.RustFS.put(client, result.bytes) do
           {:ok, reference} ->
             reference = Map.merge(reference, %{endpoint: client.endpoint, bucket: client.bucket})

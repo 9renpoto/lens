@@ -183,4 +183,37 @@ defmodule Lens.Earnings.CollectionStorageTest do
     assert Repo.aggregate(HTTPCheck, :count) == 0
     assert Repo.aggregate(Lens.Earnings.Original, :count) == 0
   end
+
+  test "invalid release identity is rejected before any object I/O", c do
+    owner = self()
+
+    client = %{
+      c.client
+      | request:
+          Req.new(
+            plug: fn conn ->
+              send(owner, :identity_storage_request)
+
+              Plug.Conn.send_resp(
+                conn,
+                200,
+                if(conn.method == "GET", do: c.attrs.result.bytes, else: "")
+              )
+            end
+          )
+    }
+
+    for release <- [
+          %{fiscal_year_end: "invalid", period: "q1", category: "earnings_release"},
+          %{fiscal_year_end: ~D[2026-03-31], period: "unknown", category: "earnings_release"},
+          "invalid"
+        ] do
+      attrs = Map.put(c.attrs, :release, release)
+      assert {:error, _} = HTTPHistory.store(attrs, client)
+      refute_received :identity_storage_request
+      assert Repo.aggregate(Acquisition, :count) == 0
+      assert Repo.aggregate(Lens.Earnings.Original, :count) == 0
+      assert Repo.aggregate(HTTPCheck, :count) == 0
+    end
+  end
 end
