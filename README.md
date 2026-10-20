@@ -61,6 +61,27 @@ Install dependencies and create the development database:
 mix setup
 ```
 
+Local Git hooks are optional; CI runs `actionlint`,
+`mix format --check-formatted`, and retention tests independently of hk.
+To enable local hooks, install hk 2.7.1 and run
+`hk install --mise` (or `hk install` without mise). Run them manually with
+`hk run pre-commit --all`. The project configuration adds `actionlint`,
+`mix-format`, and `retention-tests`, requiring `actionlint`, Elixir/Erlang,
+and Node.js on `PATH`.
+
+<details>
+<summary>日本語</summary>
+
+ローカルの Git フックは任意です。CI は hk に依存せず `actionlint`、
+`mix format --check-formatted`、retention tests を実行します。
+ローカルで有効にする場合は hk 2.7.1 をインストールし、
+`hk install --mise`（mise を使わない場合は `hk install`）を実行してください。
+`hk run pre-commit --all` で手動実行できます。プロジェクト設定には
+`actionlint`、`mix-format`、`retention-tests` を定義し、`PATH` 上に
+`actionlint`、Elixir/Erlang、Node.js が必要です。
+
+</details>
+
 Start the API:
 
 ```sh
