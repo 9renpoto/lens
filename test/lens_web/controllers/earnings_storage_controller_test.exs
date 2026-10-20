@@ -4,7 +4,7 @@ defmodule LensWeb.EarningsStorageControllerTest do
   import Plug.Conn
   import OpenApiSpex.TestAssertions
   alias Lens.Earnings
-  alias Lens.Earnings.{Acquisition, Extraction, Original, RustFS, StorageWork}
+  alias Lens.Earnings.{Extraction, Original, RustFS}
   @endpoint LensWeb.Endpoint
 
   setup do
@@ -28,95 +28,13 @@ defmodule LensWeb.EarningsStorageControllerTest do
     %{client: client}
   end
 
-  test "unfinished work views project only four fields and never mutate or contact storage", c do
-    first = work(c.client, "first")
-    second = work(c.client, "second")
-    completed = work(c.client, "completed")
-    {:ok, claim} = StorageWork.claim(completed.id)
-    {:ok, _} = StorageWork.finish(claim, {:ok, "%PDF-completed"})
-    conn = get(build_conn(), "/api/earnings/storage-work")
-    response = json_response(conn, 200)
-    assert response["limit"] == 50
-    assert response["offset"] == 0
-    assert Enum.map(response["work"], & &1["id"]) == [first.id, second.id]
-    assert get_resp_header(conn, "cache-control") == ["no-store"]
-    assert_response_schema(response, "EarningsStorageWorkListResponse", LensWeb.ApiSpec.spec())
-
-    for item <- response["work"] do
-      assert Enum.sort(Map.keys(item)) == ~w(acquisition_id id status updated_at)
-    end
-
-    detail = get(build_conn(), "/api/earnings/storage-work/#{first.id}") |> json_response(200)
-    assert detail["work"] == hd(response["work"])
-    assert_response_schema(detail, "EarningsStorageWorkResponse", LensWeb.ApiSpec.spec())
-
-    page =
-      get(build_conn(), "/api/earnings/storage-work", %{limit: "1", offset: "1"})
-      |> json_response(200)
-
-    assert Enum.map(page["work"], & &1["id"]) == [second.id]
-
-    assert get(build_conn(), "/api/earnings/originals/#{first.id}") |> json_response(404) == %{
-             "error" => "not_found"
-           }
-
-    refute Repo.get_by(Acquisition, acquisition_id: first.acquisition_id)
-    assert Repo.get!(StorageWork, first.id) == first
-    assert Repo.get!(StorageWork, second.id) == second
-
-    for id <- ["invalid", Ecto.UUID.generate(), completed.id] do
-      conn = get(build_conn(), "/api/earnings/storage-work/#{id}")
-      assert json_response(conn, 404) == %{"error" => "not_found"}
-      assert get_resp_header(conn, "cache-control") == ["no-store"]
-    end
-  end
-
-  test "work pagination rejects malformed and out-of-bound values" do
-    for params <- [
-          %{limit: "0"},
-          %{limit: "101"},
-          %{limit: "1.0"},
-          %{limit: "x"},
-          %{limit: ["1"]},
-          %{offset: "-1"},
-          %{offset: "2147483648"},
-          %{offset: "1x"}
+  test "retired storage-work routes are unavailable" do
+    for path <- [
+          "/api/earnings/storage-work",
+          "/api/earnings/storage-work/#{Ecto.UUID.generate()}"
         ] do
-      conn = get(build_conn(), "/api/earnings/storage-work", params)
-      assert json_response(conn, 422) == %{"error" => "invalid_pagination"}
-      assert get_resp_header(conn, "cache-control") == ["no-store"]
+      assert response(get(build_conn(), path), 404)
     end
-
-    assert get(build_conn(), "/api/earnings/storage-work", %{limit: "100", offset: "2147483647"})
-           |> json_response(200) ==
-             %{"work" => [], "limit" => 100, "offset" => 2_147_483_647}
-  end
-
-  test "all unfinished states remain visible and list is capped at 100", c do
-    pending = work(c.client, "pending")
-    running = work(c.client, "running")
-    {:ok, _} = StorageWork.claim(running.id)
-    attention = work(c.client, "attention")
-    {:ok, claim} = StorageWork.claim(attention.id)
-    {:ok, _} = StorageWork.finish(claim, {:error, :unauthorized})
-    exhausted = work(c.client, "exhausted")
-
-    Enum.reduce([60, 300, 1800, 0], DateTime.utc_now(), fn seconds, now ->
-      {:ok, claim} = StorageWork.claim(exhausted.id, now)
-      {:ok, _} = StorageWork.finish(claim, {:error, :unavailable}, now)
-      DateTime.add(now, seconds, :second)
-    end)
-
-    response = get(build_conn(), "/api/earnings/storage-work") |> json_response(200)
-    assert Enum.map(response["work"], & &1["status"]) == ~w(pending running attention exhausted)
-    assert hd(response["work"])["acquisition_id"] == pending.acquisition_id
-    refute Repo.get_by(Acquisition, acquisition_id: pending.acquisition_id)
-    for index <- 1..100, do: work(c.client, "extra-#{index}")
-
-    response =
-      get(build_conn(), "/api/earnings/storage-work", %{limit: "100"}) |> json_response(200)
-
-    assert length(response["work"]) == 100
   end
 
   test "original endpoint retrieves exact older bytes and negotiates PDF without affecting JSON routes" do
@@ -251,23 +169,6 @@ defmodule LensWeb.EarningsStorageControllerTest do
 
     assert Repo.get!(Original, original.id) == original
     assert Repo.aggregate(Extraction, :count) == 0
-    assert Repo.aggregate(StorageWork, :count) == 0
-  end
-
-  defp work(client, id) do
-    {:ok, work} =
-      StorageWork.prepare(
-        %{
-          bytes: "%PDF-" <> id,
-          acquisition_id: id,
-          issuer_code: "7203",
-          url: "https://publisher.test/#{id}.pdf",
-          acquired_at: DateTime.utc_now()
-        },
-        client
-      )
-
-    work
   end
 
   defp retained(id, bytes \\ nil) do

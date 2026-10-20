@@ -14,22 +14,15 @@ defmodule Lens.Earnings.StorageRecoveryConfigTest do
     :ok
   end
 
-  test "poller activation is explicit and independent of RustFS configuration" do
-    config = Config.Reader.read!("config/runtime.exs", env: :test)
-    refute get_in(config, [:lens, Lens.Earnings.StorageRecovery])
-    System.put_env("LENS_STORAGE_RECOVERY_ENABLED", "true")
-    config = Config.Reader.read!("config/runtime.exs", env: :test)
-    assert get_in(config, [:lens, Lens.Earnings.StorageRecovery]) == [enabled: true]
-    System.put_env("LENS_STORAGE_RECOVERY_ENABLED", "false")
-    config = Config.Reader.read!("config/runtime.exs", env: :test)
-    assert get_in(config, [:lens, Lens.Earnings.StorageRecovery]) == [enabled: false]
-  end
-
-  test "invalid activation value fails without echoing environment contents" do
-    System.put_env("LENS_STORAGE_RECOVERY_ENABLED", "invalid-private-value")
-
-    assert_raise ArgumentError, "invalid storage recovery configuration", fn ->
-      Config.Reader.read!("config/runtime.exs", env: :test)
+  test "retired recovery configuration has no effect and no poller is supervised" do
+    for value <- ["true", "false", "obsolete-value"] do
+      System.put_env("LENS_STORAGE_RECOVERY_ENABLED", value)
+      config = Config.Reader.read!("config/runtime.exs", env: :test)
+      refute get_in(config, [:lens, Lens.Earnings.StorageRecovery])
     end
+
+    refute Enum.any?(Supervisor.which_children(Lens.Supervisor), fn {id, _, _, _} ->
+             id == Lens.Earnings.StorageRecovery
+           end)
   end
 end

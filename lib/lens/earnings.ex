@@ -17,9 +17,7 @@ defmodule Lens.Earnings do
       end
     else
       Repo.transaction(fn ->
-        with {:ok, base} <- validated_common(attrs),
-             {:ok, identity} <-
-               release_identity(Map.get(attrs, :release), Map.get(attrs, :issuer_code)),
+        with {:ok, base, identity} <- validate_success(attrs),
              {:ok, result} <-
                do_record_success(base, bytes, identity, Map.get(attrs, :storage_reference)) do
           result
@@ -31,6 +29,15 @@ defmodule Lens.Earnings do
   end
 
   def record_success(_), do: {:error, :invalid_bytes}
+
+  @doc "Validate acquisition provenance and optional release identity without persistence."
+  def validate_success(attrs) do
+    with {:ok, base} <- validated_common(attrs),
+         {:ok, identity} <-
+           release_identity(Map.get(attrs, :release), Map.get(attrs, :issuer_code)) do
+      {:ok, base, identity}
+    end
+  end
 
   @doc "Record a failed download or rejected original without creating a successful observation."
   def record_failure(attrs) when is_map(attrs) do

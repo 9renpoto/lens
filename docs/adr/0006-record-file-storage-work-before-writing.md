@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: superseded by ADR-0013
 ---
 
 # Record file storage work before saving the PDF
+
+Historical decision, superseded by [ADR 0013](0013-retire-interrupted-storage-recovery.md). The text below records the retired design, not supported validation guidance. Do not enable or manually retry recovery as part of the current validation workflow.
 
 If Lens uses a separate file storage service, save a work record in the database before writing the PDF. Record its acquisition source, intended storage location and the information needed to identify the acquired PDF. Do not start the storage write if the work record cannot be saved.
 
@@ -54,6 +56,8 @@ The collection boundaries are implemented and covered by behavior tests and the 
 同じ検証済み保存先を同時に選択しても、読取先記録を重複作成せずに成功する。永続化された選択先が競合する場合は`location_conflict`を返す。
 
 # PDFを保存する前に保存作業を記録する
+
+過去の判断であり、[ADR 0013](0013-retire-interrupted-storage-recovery.md)へ引き継いだ。以下は廃止する設計の記録であり、現在の検証手順ではない。現在の検証フローで復旧を有効化したり手動再試行したりしない。
 
 Lensで独立したファイル保存サービスを使う場合、PDFを書き込む前にデータベースへ作業記録を残す。取得元・予定する保存先・取得したPDFを識別するための情報を記録する。作業記録を保存できない場合は、ストレージへの書き込みを始めない。
 

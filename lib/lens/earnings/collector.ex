@@ -6,8 +6,7 @@ defmodule Lens.Earnings.Collector do
     HTTPHistory,
     RunBudget,
     RustFS,
-    SourceCatalog,
-    StorageWork
+    SourceCatalog
   }
 
   def run(options \\ []) do
@@ -18,10 +17,7 @@ defmodule Lens.Earnings.Collector do
 
       state =
         Enum.reduce_while(SourceCatalog.all(enabled_only: true), state, fn source, state ->
-          state =
-            if StorageWork.unfinished_for_source?(source.id),
-              do: state,
-              else: collect(source, state, policy, client)
+          state = collect(source, state, policy, client)
 
           if state.stopped, do: {:halt, state}, else: {:cont, state}
         end)
@@ -102,6 +98,7 @@ defmodule Lens.Earnings.Collector do
              %{
                state
                | budget: budget,
+                 stopped: :storage_failed,
                  errors: [
                    %{source_id: source.id, reason: {:storage_failed, reason}} | state.errors
                  ]
@@ -134,41 +131,17 @@ defmodule Lens.Earnings.Collector do
   end
 
   defp persist(%{kind: :pdf, result: %{outcome: :success}} = attrs, client, budget) do
-    with {:ok, work} <- HTTPHistory.prepare_storage(attrs, client) do
-      remaining = budget.deadline - System.monotonic_time(:millisecond)
+    remaining = budget.deadline - System.monotonic_time(:millisecond)
 
-      if remaining < 3 do
-        {:deferred, :run_deadline_exceeded}
-      else
-        # Recovery makes at most three requests; retain the shared run deadline.
-        client = %{client | timeout_ms: min(client.timeout_ms, div(remaining, 3))}
-
-        case StorageWork.recover(work.id, client) do
-          {:ok, %{status: "completed"}} ->
-            {:ok, Lens.Repo.get_by!(HTTPCheck, check_id: attrs.check_id)}
-
-          {:ok, work} ->
-            {:storage_failed, work.last_failure}
-
-          {:error, :not_eligible} ->
-            case Lens.Repo.get!(StorageWork, work.id) do
-              %{status: "completed"} ->
-                {:ok, Lens.Repo.get_by!(HTTPCheck, check_id: attrs.check_id)}
-
-              _ ->
-                {:storage_failed, "not_eligible"}
-            end
-
-          {:error, reason} when reason in [:stale_claim, :destination_mismatch] ->
-            {:storage_failed, Atom.to_string(reason)}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
+    if remaining < 2 do
+      case HTTPHistory.fail_storage(attrs, :run_deadline_exceeded) do
+        {:storage_failed, _} -> {:deferred, :run_deadline_exceeded}
+        {:error, _} = error -> error
       end
     else
-      {:error, :source_busy} -> {:storage_failed, "source_busy"}
-      {:error, reason} -> {:error, reason}
+      # Conditional creation and byte verification share the remaining run deadline.
+      client = %{client | timeout_ms: min(client.timeout_ms, div(remaining, 2))}
+      HTTPHistory.store(attrs, client)
     end
   end
 
