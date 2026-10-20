@@ -19,38 +19,62 @@ defmodule Lens.Earnings.HTTPHistory do
 
   def record(_), do: {:error, :invalid_result}
 
-  @doc "Validate and retain a collected PDF observation before any object I/O."
-  def prepare_storage(%{result: result} = attrs, client) do
-    with {:ok, %{kind: "pdf", status: "success"} = check} <- prepare(attrs, result),
-         {:ok, source_id} <- Ecto.UUID.cast(check.metadata["source_id"]) do
-      input =
-        common(check, check.final_url)
-        |> Map.merge(%{
-          bytes: result.bytes,
-          release: Map.get(attrs, :release),
-          source_id: source_id,
-          http_check: Map.take(check, HTTPCheck.facts()) |> Jason.encode!() |> Jason.decode!()
-        })
-
-      Lens.Earnings.StorageWork.prepare(input, client)
+  @doc "Synchronously save and verify an accepted PDF before committing acquisition history."
+  def store(%{result: result} = attrs, %Lens.Earnings.RustFS{} = client) do
+    if Repo.in_transaction?() do
+      {:error, :uncommitted_transaction}
     else
-      {:error, reason} -> {:error, reason}
+      with {:ok, %{kind: "pdf", status: "success"}} <- prepare(attrs, result) do
+        case Lens.Earnings.RustFS.put(client, result.bytes) do
+          {:ok, reference} ->
+            reference = Map.merge(reference, %{endpoint: client.endpoint, bucket: client.bucket})
+            record(Map.put(attrs, :storage_reference, reference))
+
+          {:error, reason} ->
+            fail_storage(attrs, reason)
+        end
+      else
+        {:error, _} = error -> error
+        _ -> {:error, :invalid_result}
+      end
+    end
+  end
+
+  @doc "Record a save failure separately from HTTP success without fabricating a successful check."
+  def fail_storage(%{result: result} = attrs, reason) do
+    with {:ok, %{kind: "pdf", status: "success"} = check} <- prepare(attrs, result),
+         name <- storage_failure_name(reason),
+         {:ok, _} <-
+           Earnings.record_failure(
+             Map.put(common(check, check.final_url), :reason, "storage_" <> name)
+           ) do
+      {:storage_failed, name}
+    else
+      {:error, _} = error -> error
       _ -> {:error, :invalid_result}
     end
   end
 
-  @doc "Insert retained HTTP facts with the verified acquisition inside the completion transaction."
-  def complete_storage(nil, _), do: :ok
+  defp storage_failure_name(reason)
+       when reason in [
+              :not_found,
+              :unauthorized,
+              :integrity_error,
+              :invalid_configuration,
+              :not_configured,
+              :invalid_reference,
+              :timeout,
+              :transport_error,
+              :unavailable,
+              :conflict,
+              :run_deadline_exceeded
+            ],
+       do: Atom.to_string(reason)
 
-  def complete_storage(facts, acquisition_id) do
-    changeset =
-      HTTPCheck.changeset(%HTTPCheck{}, Map.put(facts, "acquisition_id", acquisition_id))
+  defp storage_failure_name({:http_error, status}) when status in 100..599,
+    do: "http_" <> Integer.to_string(status)
 
-    with {:ok, check} <- Ecto.Changeset.apply_action(changeset, :insert),
-         {:ok, _} <- insert(check) do
-      :ok
-    end
-  end
+  defp storage_failure_name(_), do: "storage_error"
 
   defp prepare(attrs, result) do
     kind = Map.get(attrs, :kind, :pdf)
@@ -106,6 +130,7 @@ defmodule Lens.Earnings.HTTPHistory do
       common(check, check.final_url)
       |> Map.put(:bytes, result.bytes)
       |> Map.put(:release, Map.get(attrs, :release))
+      |> Map.put(:storage_reference, Map.get(attrs, :storage_reference))
 
     case Earnings.record_success(input) do
       {:ok, %{acquisition: acquisition}} -> {:ok, acquisition}

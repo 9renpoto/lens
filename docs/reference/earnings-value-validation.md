@@ -82,10 +82,9 @@ curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURC
 
 Verify that the source is disabled. If the run reports a storage error or no
 successful PDF check, stop this validation and record the returned errors; do
-not use recovery or another collection as a repair step. Recovery retirement is
-decided in [ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md), with
-runtime removal tracked in #195. Until removal lands, legacy unfinished work
-can still exclude a source from collection. The successful PDF check's
+not use recovery or another collection as a repair step. Recovery is removed under
+[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md). Storage failures
+are failed acquisitions; the run stops without an original or successful PDF check. The successful PDF check's
 `acquisition_id` is the acquisition row's primary key. Load that row to obtain
 the provenance `acquisition_id` needed by `confirm_identity/2` and the retained
 `original_id` needed for extraction:
@@ -193,7 +192,7 @@ curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURC
   -d '{"source":{"enabled":false}}'
 ```
 
-取得先が無効であることを確認する。実行に保存エラーがあるか成功PDF確認がない場合は、この検証を止めて返されたエラーを記録し、復旧や別の収集を修復手順として使わない。復旧廃止は[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md)で決定済みで、実行時機能の削除は#195で追跡する。削除までは旧未完了作業によって取得先が収集から除外される場合がある。成功PDF確認記録の`acquisition_id`は取得行の主キーである。その行を読み込み、`confirm_identity/2`に必要な出典用`acquisition_id`と抽出に必要な保存原本IDを確認する。
+取得先が無効であることを確認する。実行に保存エラーがあるか成功PDF確認がない場合は、この検証を止めて返されたエラーを記録し、復旧や別の収集を修復手順として使わない。[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md)に従い復旧は削除した。保存失敗は失敗取得とし、原本や成功PDF確認を作らず実行を停止する。成功PDF確認記録の`acquisition_id`は取得行の主キーである。その行を読み込み、`confirm_identity/2`に必要な出典用`acquisition_id`と抽出に必要な保存原本IDを確認する。
 
 ```sh
 mix run -e 'a = Lens.Repo.get!(Lens.Earnings.Acquisition, "ACQUISITION_ROW_ID"); IO.inspect(%{acquisition_id: a.acquisition_id, original_id: a.original_id})'

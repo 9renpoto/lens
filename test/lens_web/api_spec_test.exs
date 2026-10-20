@@ -14,27 +14,23 @@ defmodule LensWeb.ApiSpecTest do
     end
   end
 
-  test "operator storage operations describe bounds, strict work fields and binary originals" do
+  test "original retrieval remains documented without retired work operations or schemas" do
     document = LensWeb.ApiSpec.spec() |> Jason.encode!() |> Jason.decode!()
     paths = document["paths"]
-    list = paths["/api/earnings/storage-work"]["get"]
-    assert list["responses"]["200"]["content"]["application/json"]
-    assert list["responses"]["422"]
-    assert Enum.find(list["parameters"], &(&1["name"] == "limit"))["schema"]["maximum"] == 100
+    refute Map.has_key?(paths, "/api/earnings/storage-work")
+    refute Map.has_key?(paths, "/api/earnings/storage-work/{id}")
 
-    assert Enum.find(list["parameters"], &(&1["name"] == "offset"))["schema"]["maximum"] ==
-             2_147_483_647
+    refute Enum.any?(
+             Map.keys(document["components"]["schemas"]),
+             &String.contains?(&1, "StorageWork")
+           )
 
-    assert paths["/api/earnings/storage-work/{id}"]["get"]["responses"]["404"]
     original = paths["/api/earnings/originals/{id}"]["get"]
 
     assert original["responses"]["200"]["content"]["application/pdf"]["schema"]["format"] ==
              "binary"
 
     assert original["responses"]["503"]["content"]["application/json"]
-    schema = document["components"]["schemas"]["EarningsStorageWork"]
-    assert schema["additionalProperties"] == false
-    assert Enum.sort(Map.keys(schema["properties"])) == ~w(acquisition_id id status updated_at)
   end
 
   test "describes every public JSON API operation" do

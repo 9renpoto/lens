@@ -2,14 +2,12 @@ defmodule LensWeb.EarningsController do
   use LensWeb, :controller
   use OpenApiSpex.ControllerSpecs
   alias Lens.Earnings
-  alias Lens.Earnings.{Extractions, Release, StorageWork}
+  alias Lens.Earnings.{Extractions, Release}
   alias Lens.Repo
 
   alias LensWeb.ApiSchemas.{
     EarningsReleaseResponse,
     ErrorResponse,
-    EarningsStorageWorkListResponse,
-    EarningsStorageWorkResponse,
     EarningsOriginalUnavailableResponse
   }
 
@@ -25,32 +23,6 @@ defmodule LensWeb.EarningsController do
       not_found: {"Release not found", "application/json", ErrorResponse}
     ]
 
-  operation :storage_work_index,
-    summary: "List bounded unfinished storage work metadata",
-    description:
-      "Read-only live view behind the existing private operator boundary. Returns only id, acquisition_id, status and updated_at, ordered by insertion time and ID. Completion can remove an item between requests. No storage I/O or retry is performed.",
-    parameters: [
-      limit: [in: :query, schema: %Schema{type: :integer, minimum: 1, maximum: 100, default: 50}],
-      offset: [
-        in: :query,
-        schema: %Schema{type: :integer, minimum: 0, maximum: 2_147_483_647, default: 0}
-      ]
-    ],
-    responses: [
-      ok: {"Unfinished work", "application/json", EarningsStorageWorkListResponse},
-      unprocessable_entity: {"Invalid pagination", "application/json", ErrorResponse}
-    ]
-
-  operation :storage_work_show,
-    summary: "Inspect restricted unfinished storage work metadata",
-    description:
-      "Malformed, unknown and completed work IDs return 404. No payload or additional storage facts are returned.",
-    parameters: [id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]],
-    responses: [
-      ok: {"Unfinished work", "application/json", EarningsStorageWorkResponse},
-      not_found: {"Unfinished work not found", "application/json", ErrorResponse}
-    ]
-
   operation :original,
     summary: "Retrieve exact verified retained PDF bytes",
     description:
@@ -62,30 +34,6 @@ defmodule LensWeb.EarningsController do
       service_unavailable:
         {"Original storage unavailable", "application/json", EarningsOriginalUnavailableResponse}
     ]
-
-  def storage_work_index(conn, params) do
-    conn = put_resp_header(conn, "cache-control", "no-store")
-
-    with {:ok, limit} <- integer_parameter(params, "limit", 50, 1, 100),
-         {:ok, offset} <- integer_parameter(params, "offset", 0, 0, 2_147_483_647) do
-      json(conn, %{
-        work: StorageWork.operator_unfinished(limit, offset),
-        limit: limit,
-        offset: offset
-      })
-    else
-      _ -> conn |> put_status(:unprocessable_entity) |> json(%{error: "invalid_pagination"})
-    end
-  end
-
-  def storage_work_show(conn, %{"id" => id}) do
-    conn = put_resp_header(conn, "cache-control", "no-store")
-
-    case StorageWork.operator_work(id) do
-      {:ok, work} -> json(conn, %{work: work})
-      :error -> conn |> put_status(:not_found) |> json(%{error: "not_found"})
-    end
-  end
 
   def original(conn, %{"id" => id}) do
     conn = put_resp_header(conn, "cache-control", "no-store")
@@ -107,22 +55,6 @@ defmodule LensWeb.EarningsController do
         conn
         |> put_status(:service_unavailable)
         |> json(%{error: "original_unavailable", original_id: id, reason: reason})
-    end
-  end
-
-  defp integer_parameter(params, name, default, low, high) do
-    case Map.fetch(params, name) do
-      :error ->
-        {:ok, default}
-
-      {:ok, value} when is_binary(value) ->
-        case Integer.parse(value) do
-          {value, ""} when value >= low and value <= high -> {:ok, value}
-          _ -> :error
-        end
-
-      _ ->
-        :error
     end
   end
 

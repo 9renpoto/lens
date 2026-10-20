@@ -44,7 +44,7 @@ runtime secrets rather than committing their values.
 
 ## Earnings PDF storage
 
-[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md) retires interrupted-write recovery for bounded disposable-data validation. Runtime removal is pending #195; existing storage-work records are transitional. This decision does not change the original-preservation boundary or establish production restore guarantees.
+[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md) retires interrupted-write recovery for bounded disposable-data validation. The recovery runtime and unfinished-work endpoints are removed. This decision does not change the original-preservation boundary or establish production restore guarantees.
 
 Registered-source earnings collection requires a provisioned RustFS bucket and
 the following settings:
@@ -64,7 +64,7 @@ rejects other invalid configuration before collection. With no RustFS
 configuration, the collector returns `{:error, :not_configured}` before
 publisher requests.
 
-PostgreSQL retains identity, acquisition history, storage-work records, and
+PostgreSQL retains identity, acquisition history, and
 extraction/search data. RustFS retains new PDF bytes. Reads verify size and
 SHA-256 and do not silently fall back to another backend or refetch the
 publisher. A database dump does not contain RustFS-backed PDF bytes;
@@ -73,6 +73,19 @@ preservation requirements are defined in [ADR 0005](adr/0005-store-pdfs-in-rustf
 
 Earnings collection is invoked manually; the feed scheduler does not schedule
 it. Follow the [bounded validation procedure](reference/earnings-value-validation.md).
+
+<a id="recovery-retirement-schema-transition"></a>
+
+### Recovery retirement schema transition
+
+Stop application writers before applying the forward-only recovery-retirement migration. Inspect the existing database first without reading PDF payloads:
+
+```sql
+SELECT status, count(*), sum(octet_length(bytes)) AS retained_payload_bytes
+FROM earnings_storage_work GROUP BY status;
+```
+
+The migration takes exclusive locks and refuses to drop either recovery table if any work is unfinished or any payload remains. If it refuses, keep writers stopped and arrange a separately authorized, bounded reconciliation of those records. Do not delete or mark unfinished work completed to bypass the guard. Completed acquisitions, HTTP checks, original bytes/locations and extraction/search data remain; no RustFS object is deleted. No schema rollback recreates the retired protocol. Remove the obsolete `LENS_STORAGE_RECOVERY_ENABLED` environment setting; it is no longer read. The `storage-work` HTTP endpoints return 404; use collector errors and acquisition outcomes instead.
 
 ## Application commands and health
 
@@ -144,7 +157,7 @@ CI成功後にイメージを公開する。バージョン準備とタグ作成
 
 ## 決算PDFの保存
 
-[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)に従い、上限付き・破棄可能データの検証では中断書き込みの復旧を廃止する。実行時機能の削除は#195待ちで、既存の保存作業記録は移行中のものとする。この判断で原本保持の境界は変わらず、本番復元の保証も確立しない。
+[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)に従い、上限付き・破棄可能データの検証では中断書き込みの復旧を廃止する。復旧の実行時機能と未完了作業endpointは削除する。この判断で原本保持の境界は変わらず、本番復元の保証も確立しない。
 
 登録済み取得先の決算収集には、用意済みのRustFSバケットと次の設定が必要。
 
@@ -161,13 +174,24 @@ RustFS変数を一つでも渡す場合、必須の4変数すべてに空でな�
 不足設定・不正なtimeoutでは起動に失敗し、それ以外の不正設定は収集前に保存クライアントが拒否する。
 RustFS設定がなければ、Collectorは公開元への通信前に`{:error, :not_configured}`を返す。
 
-PostgreSQLは識別・取得履歴・保存作業記録・抽出／検索データを保持し、RustFSは新しいPDFバイト列を保持する。
+PostgreSQLは識別・取得履歴・抽出／検索データを保持し、RustFSは新しいPDFバイト列を保持する。
 読取時にはサイズ・SHA-256を検証し、別backendへの暗黙のfallbackや公開元からの再取得は行わない。
 DB dumpはRustFS保存のPDFバイト列を含まない。
 保持要件は[ADR 0005](adr/0005-store-pdfs-in-rustfs.md)に定める。
 
 決算収集は手動で呼び出し、フィードのschedulerは定期実行しない。
 [上限付き検証手順](reference/earnings-value-validation.md)を参照する。
+
+### 復旧廃止のスキーマ移行
+
+前方適用のみの復旧廃止migrationの前にアプリのwriterを停止する。まずPDFペイロードを読み出さずに既存DBを確認する。
+
+```sql
+SELECT status, count(*), sum(octet_length(bytes)) AS retained_payload_bytes
+FROM earnings_storage_work GROUP BY status;
+```
+
+migrationは排他ロックを取得し、未完了作業またはペイロードが一つでも残る場合は復旧テーブルの削除を拒否する。拒否された場合はwriterを停止したまま、対象記録の範囲を絞った照合を別途承認して進める。保護を回避するために未完了作業を削除したり完了扱いにしたりしない。完了済み取得・HTTP確認・原本バイト列／保存先・抽出／検索データは保持し、RustFSオブジェクトを削除しない。スキーマの逆移行で廃止したプロトコルを再作成しない。参照しなくなった`LENS_STORAGE_RECOVERY_ENABLED`環境設定を削除する。`storage-work` HTTP endpointは404を返し、代わりにCollectorのエラーと取得結果を確認する。
 
 ## アプリのコマンドと稼働確認
 

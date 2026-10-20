@@ -1,6 +1,6 @@
 defmodule Lens.Earnings.CollectionStorageTest do
   use Lens.DataCase
-  alias Lens.Earnings.{Acquisition, HTTPCheck, HTTPHistory, RustFS, Sources, StorageWork}
+  alias Lens.Earnings.{Acquisition, HTTPCheck, HTTPHistory, RustFS, Sources}
 
   setup do
     {:ok, target} =
@@ -42,90 +42,145 @@ defmodule Lens.Earnings.CollectionStorageTest do
     %{source: source, client: client, attrs: attrs}
   end
 
-  test "preparation retains HTTP provenance without success and completion inserts immutable history once",
+  test "synchronous save verifies bytes before atomically recording the original and HTTP facts",
        c do
-    assert {:ok, work} = HTTPHistory.prepare_storage(c.attrs, c.client)
-    assert work.source_id == c.source.id
-    assert work.http_check["metadata"]["anchor_text"] == "Results"
-    assert work.bytes == c.attrs.result.bytes
+    client = %{
+      c.client
+      | request:
+          Req.new(
+            retry: false,
+            plug: fn conn ->
+              assert Repo.aggregate(Acquisition, :count) == 0
+              assert Repo.aggregate(HTTPCheck, :count) == 0
+
+              case conn.method do
+                "PUT" ->
+                  assert Plug.Conn.get_req_header(conn, "if-none-match") == ["*"]
+                  Plug.Conn.send_resp(conn, 200, "")
+
+                "GET" ->
+                  Plug.Conn.send_resp(conn, 200, c.attrs.result.bytes)
+              end
+            end
+          )
+    }
+
+    assert {:ok, check} = HTTPHistory.store(c.attrs, client)
+    assert check.metadata["source_id"] == c.source.id
+    assert check.metadata["anchor_text"] == "Results"
+    assert check.final_url == c.attrs.result.final_url
+    assert check.checked_at == c.attrs.checked_at
+    acquisition = Repo.get!(Acquisition, check.acquisition_id)
+    assert acquisition.status == "success"
+    assert Repo.get!(Lens.Earnings.Original, acquisition.original_id).bytes == nil
+
+    read_client = %{
+      client
+      | request:
+          Req.new(plug: fn conn -> Plug.Conn.send_resp(conn, 200, c.attrs.result.bytes) end)
+    }
+
+    assert Lens.Earnings.original_bytes(acquisition.original_id, rustfs: read_client) ==
+             {:ok, c.attrs.result.bytes}
+  end
+
+  test "failed save records a failed acquisition without a PDF success or original", c do
+    client = %{
+      c.client
+      | request:
+          Req.new(
+            retry: false,
+            plug: fn conn ->
+              assert conn.method == "PUT"
+              Plug.Conn.send_resp(conn, 503, "private-provider-body")
+            end
+          )
+    }
+
+    assert {:storage_failed, "unavailable"} = HTTPHistory.store(c.attrs, client)
+    assert [acquisition] = Repo.all(Acquisition)
+    assert acquisition.status == "failed"
+    assert acquisition.failure_reason == "storage_unavailable"
+    assert acquisition.acquisition_id == "http:" <> c.attrs.check_id
+    assert acquisition.url == c.attrs.result.final_url
+    assert acquisition.acquired_at == c.attrs.checked_at
     assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Lens.Earnings.Original, :count) == 0
+  end
+
+  test "invalid HTTP provenance is rejected before object I/O", c do
+    attrs = put_in(c.attrs, [:metadata, :anchor_text], String.duplicate("x", 33_000))
+    client = %{c.client | request: Req.new(plug: fn _ -> flunk("unexpected object I/O") end)}
+    assert {:error, %Ecto.Changeset{}} = HTTPHistory.store(attrs, client)
     assert Repo.aggregate(Acquisition, :count) == 0
-    assert StorageWork.unfinished_for_source?(c.source.id)
-    assert {:ok, same} = HTTPHistory.prepare_storage(c.attrs, c.client)
-    assert same.id == work.id
+  end
+
+  test "failed verification never records successful storage", c do
+    client = %{
+      c.client
+      | request:
+          Req.new(
+            retry: false,
+            plug: fn conn ->
+              Plug.Conn.send_resp(
+                conn,
+                200,
+                if(conn.method == "GET", do: "%PDF-corrupt", else: "")
+              )
+            end
+          )
+    }
+
+    assert {:storage_failed, "integrity_error"} = HTTPHistory.store(c.attrs, client)
+
+    assert [%{status: "failed", failure_reason: "storage_integrity_error"}] =
+             Repo.all(Acquisition)
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Lens.Earnings.Original, :count) == 0
+  end
+
+  test "object I/O is refused inside a caller transaction", c do
+    assert {:ok, {:error, :uncommitted_transaction}} =
+             Repo.transaction(fn -> HTTPHistory.store(c.attrs, c.client) end)
+  end
+
+  test "deadline before saving leaves an explicit failed acquisition", c do
+    assert {:storage_failed, "run_deadline_exceeded"} =
+             HTTPHistory.fail_storage(c.attrs, :run_deadline_exceeded)
+
+    assert [%{status: "failed", failure_reason: "storage_run_deadline_exceeded"}] =
+             Repo.all(Acquisition)
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Lens.Earnings.Original, :count) == 0
+  end
+
+  test "failure-history conflict is returned without claiming the save failure was persisted",
+       c do
+    assert {:ok, existing} =
+             Lens.Earnings.record_failure(%{
+               acquisition_id: "http:" <> c.attrs.check_id,
+               issuer_code: c.attrs.issuer_code,
+               url: c.attrs.result.final_url,
+               acquired_at: c.attrs.checked_at,
+               reason: "existing_failure"
+             })
 
     client = %{
       c.client
       | request:
           Req.new(
+            retry: false,
             plug: fn conn ->
-              assert conn.method == "GET"
-              Plug.Conn.send_resp(conn, 200, c.attrs.result.bytes)
+              Plug.Conn.send_resp(conn, 503, "private-provider-body")
             end
           )
     }
 
-    assert {:ok, completed} = StorageWork.recover(work.id, client)
-    assert completed.status == "completed"
-    refute StorageWork.unfinished_for_source?(c.source.id)
-    assert [check] = Repo.all(HTTPCheck)
-    assert check.metadata["source_id"] == c.source.id
-    assert check.final_url == c.attrs.result.final_url
-    assert check.checked_at == c.attrs.checked_at
-    assert check.acquisition_id == completed.acquisition_record_id
-    assert Repo.aggregate(Acquisition, :count) == 1
-    assert {:error, :not_eligible} = StorageWork.recover(work.id, client)
-    assert Repo.aggregate(HTTPCheck, :count) == 1
-  end
-
-  test "invalid HTTP provenance rejects preparation before durable work or object I/O", c do
-    attrs = put_in(c.attrs, [:metadata, :anchor_text], String.duplicate("x", 33_000))
-    assert {:error, %Ecto.Changeset{}} = HTTPHistory.prepare_storage(attrs, c.client)
-    assert Repo.aggregate(StorageWork, :count) == 0
-    assert Repo.aggregate(Acquisition, :count) == 0
-  end
-
-  test "an unfinished source rejects a new collection acquisition without resetting its budget",
-       c do
-    {:ok, work} = HTTPHistory.prepare_storage(c.attrs, c.client)
-    {:ok, claim} = StorageWork.claim(work.id)
-    {:ok, _} = StorageWork.finish(claim, {:error, :unavailable})
-
-    assert {:error, :source_busy} =
-             HTTPHistory.prepare_storage(%{c.attrs | check_id: Ecto.UUID.generate()}, c.client)
-
-    assert Repo.aggregate(StorageWork, :count) == 1
-    assert Repo.get!(StorageWork, work.id).attempts == 1
-    assert {:ok, same} = HTTPHistory.prepare_storage(c.attrs, c.client)
-    assert same.id == work.id
-  end
-
-  test "all unfinished states keep a source excluded until every work completes", c do
-    {:ok, first} = HTTPHistory.prepare_storage(c.attrs, c.client)
-    other = %{c.attrs | check_id: Ecto.UUID.generate()}
-    # Existing/imported work can contain multiple unfinished records for one source.
-    {:ok, second} =
-      StorageWork.prepare(
-        %{
-          acquisition_id: "http:" <> other.check_id,
-          issuer_code: other.issuer_code,
-          url: other.result.final_url,
-          acquired_at: other.checked_at,
-          bytes: other.result.bytes
-        },
-        c.client
-      )
-
-    second = Repo.update!(Ecto.Changeset.change(second, source_id: c.source.id))
-    {:ok, claim} = StorageWork.claim(first.id)
-    {:ok, _} = StorageWork.finish(claim, {:error, :unauthorized})
-    assert StorageWork.unfinished_for_source?(c.source.id)
-    {:ok, claim} = StorageWork.claim(second.id)
-    {:ok, _} = StorageWork.finish(claim, {:ok, c.attrs.result.bytes})
-    assert StorageWork.unfinished_for_source?(c.source.id)
-    assert {:ok, _} = StorageWork.manual_retry(first.id, "operator")
-    {:ok, claim} = StorageWork.claim(first.id)
-    {:ok, _} = StorageWork.finish(claim, {:ok, c.attrs.result.bytes})
-    refute StorageWork.unfinished_for_source?(c.source.id)
+    assert {:error, :acquisition_conflict} = HTTPHistory.store(c.attrs, client)
+    assert Repo.all(Acquisition) == [existing]
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+    assert Repo.aggregate(Lens.Earnings.Original, :count) == 0
   end
 end

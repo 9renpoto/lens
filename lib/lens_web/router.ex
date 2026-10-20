@@ -24,8 +24,6 @@ defmodule LensWeb.Router do
     put("/sources/:id", SourceController, :replace)
     get("/search", SearchController, :index)
     get("/earnings/releases/:id", EarningsController, :show)
-    get("/earnings/storage-work", EarningsController, :storage_work_index)
-    get("/earnings/storage-work/:id", EarningsController, :storage_work_show)
     get("/documents/:id", SearchController, :show_document)
     get("/documents/:id/provenance", SearchController, :show_provenance)
 

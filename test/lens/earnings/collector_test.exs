@@ -1,7 +1,7 @@
 defmodule Lens.Earnings.CollectorTest do
   use Lens.DataCase
   alias Lens.Analysis
-  alias Lens.Earnings.{Acquisition, Collector, HTTPCheck, Original, RustFS, Sources, StorageWork}
+  alias Lens.Earnings.{Acquisition, Collector, HTTPCheck, Original, RustFS, Sources}
 
   setup do
     objects = start_supervised!({Agent, fn -> %{} end})
@@ -155,9 +155,10 @@ defmodule Lens.Earnings.CollectorTest do
     assert Repo.aggregate(Acquisition, :count) == 0
   end
 
-  test "storage failure retains work, stops that source and excludes it across runs", %{
-    client: client
-  } do
+  test "storage failure records the download failure and stops all sources without excluding later runs",
+       %{
+         client: client
+       } do
     pdf = server("%PDF-pending", "/pending.pdf")
     later = server("%PDF-later", "/later.pdf")
     listing = server(~s(<a href="#{pdf}">First</a><a href="#{later}">Later</a>), "/results")
@@ -173,6 +174,7 @@ defmodule Lens.Earnings.CollectorTest do
 
     {:ok, source} = Sources.create(target, %{listing_url: listing})
     {:ok, other} = Sources.create(target, %{listing_url: good})
+    owner = self()
 
     failing = %{
       client
@@ -180,116 +182,38 @@ defmodule Lens.Earnings.CollectorTest do
           Req.new(
             retry: false,
             plug: fn conn ->
-              assert Repo.aggregate(StorageWork, :count) == 1
-              assert Repo.aggregate(Acquisition, :count) == 0
+              send(owner, :storage_request)
               Plug.Conn.send_resp(conn, 503, "")
             end
           )
     }
 
     assert {:ok, run} = Collector.run(rustfs: failing)
-    assert run.stopped == nil
-    assert run.budget.operations == 3
-    assert [%{source_id: source_id, reason: {:storage_failed, "unavailable"}}] = run.errors
-    assert source_id == source.id
-    assert Enum.any?(run.checks, &(&1.metadata["source_id"] == other.id))
+    assert run.stopped == :storage_failed
+    assert run.budget.operations == 2
+    assert run.errors == [%{source_id: source.id, reason: {:storage_failed, "unavailable"}}]
     assert Enum.all?(run.checks, &(&1.kind == "listing"))
-    assert [work] = Repo.all(StorageWork)
-    assert work.source_id == source.id
-    assert work.bytes == "%PDF-pending"
-    assert work.attempts == 1
-    assert Repo.aggregate(Acquisition, :count) == 0
+    refute Enum.any?(run.checks, &(&1.metadata["source_id"] == other.id))
+    assert_receive :storage_request
+    refute_receive :storage_request
 
-    # Changing the URL must not bypass the exclusion or reset the retry budget.
-    {:ok, changed_source} = Sources.update(source, %{listing_url: "http://localhost:1/changed"})
-    assert {:ok, second} = Collector.run(rustfs: failing)
-    assert second.budget.operations == 1
-    assert Repo.get!(StorageWork, work.id).attempts == 1
-    assert Repo.aggregate(StorageWork, :count) == 1
+    assert [%{status: "failed", original_id: nil, failure_reason: "storage_unavailable"}] =
+             Repo.all(Acquisition)
 
-    assert {:ok, completed} = StorageWork.recover(work.id, client, work.next_attempt_at)
-    assert completed.status == "completed"
-    assert completed.bytes == nil
-    assert Repo.aggregate(Acquisition, :count) == 1
-    assert [%{kind: "pdf"} = check] = Repo.all(from(c in HTTPCheck, where: c.kind == "pdf"))
-    assert check.metadata["anchor_text"] == "First"
+    assert Repo.aggregate(Original, :count) == 0
 
-    assert Repo.get!(Original, Repo.get!(Acquisition, check.acquisition_id).original_id).bytes ==
-             nil
-
-    {:ok, _} = Sources.update(changed_source, %{listing_url: listing})
-    assert {:ok, third} = Collector.run(rustfs: client)
-    assert third.budget.operations == 4
+    assert {:ok, next} = Collector.run(rustfs: client)
+    assert next.stopped == nil
+    assert next.errors == []
+    assert next.budget.operations == 4
+    assert Enum.count(Repo.all(Acquisition), &(&1.status == "success")) == 2
     assert Repo.aggregate(Acquisition, :count) == 3
   end
 
-  for status <- [:completed, :running] do
-    test "a #{status} competing recovery is reported using committed completion", %{
-      client: client
-    } do
-      pdf = server("%PDF-concurrent", "/report.pdf")
-      listing = server(~s(<a href="#{pdf}">Report</a>), "/results")
-
-      {:ok, target} =
-        Analysis.create_target(%{
-          security_code: "7203",
-          market: "TSE",
-          display_name: "Example",
-          sector: "Test"
-        })
-
-      {:ok, source} = Sources.create(target, %{listing_url: listing})
-      handler = {__MODULE__, make_ref()}
-      marker = make_ref()
-      owner = self()
-
-      # Coordinate competing recovery during the first read, before this collector claims work.
-      :ok =
-        :telemetry.attach(
-          handler,
-          [:lens, :repo, :query],
-          fn _, _, metadata, _ ->
-            if self() == owner and not Process.get(marker, false) and not Repo.in_transaction?() and
-                 metadata.source == "earnings_storage_work" and
-                 String.contains?(metadata.query, ~s("bytes")) do
-              Process.put(marker, true)
-              work = Repo.get_by!(StorageWork, source_id: source.id)
-
-              if unquote(status) == :completed do
-                assert {:ok, %{status: "completed"}} = StorageWork.recover(work.id, client)
-              else
-                assert {:ok, %{status: "running"}} = StorageWork.claim(work.id)
-              end
-
-              send(owner, {:competing_recovery, work.id})
-            end
-          end,
-          nil
-        )
-
-      on_exit(fn -> :telemetry.detach(handler) end)
-
-      assert {:ok, run} = Collector.run(rustfs: client)
-      assert_receive {:competing_recovery, work_id}
-      assert run.stopped == nil
-      assert Repo.get!(StorageWork, work_id).attempts == 1
-
-      if unquote(status) == :completed do
-        assert run.errors == []
-        assert [%{kind: "pdf"} = check] = Enum.filter(run.checks, &(&1.kind == "pdf"))
-        assert check.acquisition_id == Repo.get!(StorageWork, work_id).acquisition_record_id
-        assert Repo.aggregate(Acquisition, :count) == 1
-      else
-        assert run.errors == [%{source_id: source.id, reason: {:storage_failed, "not_eligible"}}]
-        assert Enum.all?(run.checks, &(&1.kind == "listing"))
-        assert Repo.aggregate(Acquisition, :count) == 0
-      end
-    end
-  end
-
-  test "failure to persist completion stops all sources and retains the accepted payload", %{
-    client: client
-  } do
+  test "failure to persist completion rolls back the successful acquisition and stops all sources",
+       %{
+         client: client
+       } do
     pdf = server("%PDF-completion", "/report.pdf")
     listing = server(~s(<a href="#{pdf}">Report</a>), "/results")
 
@@ -304,28 +228,27 @@ defmodule Lens.Earnings.CollectorTest do
     {:ok, source} = Sources.create(target, %{listing_url: listing})
     {:ok, _} = Sources.create(target, %{listing_url: "http://localhost:1/later"})
 
-    failing = %{
-      client
-      | request:
-          Req.new(
-            retry: false,
-            plug: fn conn ->
-              [work] = Repo.all(StorageWork)
+    Repo.query!("""
+    CREATE FUNCTION pg_temp.reject_pdf_check() RETURNS trigger AS $$
+    BEGIN
+      IF NEW.kind = 'pdf' THEN
+        RAISE EXCEPTION 'test completion rejected'
+          USING ERRCODE = '23514', CONSTRAINT = 'earnings_http_check_acquisition_facts';
+      END IF;
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql
+    """)
 
-              # An invalid retained fact simulates rejected HTTP-history persistence at completion.
-              facts = Map.put(work.http_check, "requests", 5)
-              Repo.update!(Ecto.Changeset.change(work, http_check: facts))
-              Plug.Conn.send_resp(conn, 200, "%PDF-completion")
-            end
-          )
-    }
+    Repo.query!(
+      "CREATE TRIGGER reject_pdf_check BEFORE INSERT ON earnings_http_checks FOR EACH ROW EXECUTE FUNCTION pg_temp.reject_pdf_check()"
+    )
 
-    assert {:ok, run} = Collector.run(rustfs: failing)
+    assert {:ok, run} = Collector.run(rustfs: client)
     assert run.stopped == :persistence_failed
     assert run.budget.operations == 2
     assert [%{source_id: source_id, reason: %Ecto.Changeset{}}] = run.errors
     assert source_id == source.id
-    assert [%{bytes: "%PDF-completion", status: "running", attempts: 1}] = Repo.all(StorageWork)
     assert Repo.aggregate(Acquisition, :count) == 0
     assert Repo.aggregate(Original, :count) == 0
     assert [%{kind: "listing"}] = Repo.all(HTTPCheck)

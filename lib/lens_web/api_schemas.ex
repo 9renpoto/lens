@@ -3,54 +3,6 @@ defmodule LensWeb.ApiSchemas do
 
   alias OpenApiSpex.Schema
 
-  defmodule EarningsStorageWork do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "EarningsStorageWork",
-      type: :object,
-      additionalProperties: false,
-      properties: %{
-        id: %Schema{type: :string, format: :uuid},
-        acquisition_id: %Schema{
-          type: :string,
-          description: "Retained provenance identifier; successful acquisition may not exist."
-        },
-        status: %Schema{type: :string, enum: ~w(pending running attention exhausted)},
-        updated_at: %Schema{type: :string, format: :"date-time"}
-      },
-      required: [:id, :acquisition_id, :status, :updated_at]
-    })
-  end
-
-  defmodule EarningsStorageWorkListResponse do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "EarningsStorageWorkListResponse",
-      type: :object,
-      additionalProperties: false,
-      properties: %{
-        work: %Schema{type: :array, items: EarningsStorageWork, maxItems: 100},
-        limit: %Schema{type: :integer, minimum: 1, maximum: 100},
-        offset: %Schema{type: :integer, minimum: 0, maximum: 2_147_483_647}
-      },
-      required: [:work, :limit, :offset]
-    })
-  end
-
-  defmodule EarningsStorageWorkResponse do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "EarningsStorageWorkResponse",
-      type: :object,
-      additionalProperties: false,
-      properties: %{work: EarningsStorageWork},
-      required: [:work]
-    })
-  end
-
   defmodule EarningsOriginalUnavailableResponse do
     require OpenApiSpex
 

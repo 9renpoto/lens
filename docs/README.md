@@ -9,9 +9,9 @@ Use GitHub issues to define planned work and ADRs to record and agree on current
 - Product direction for review: [value and discovery](explanation/product-value.md), a maintained Why/What explanation distinct from the current release scope and implemented behavior.
 - Reference: [API](api.md), [pipeline](reference/earnings-pipeline.md), [candidate collection](reference/earnings-collector.md), [earnings-search value-validation procedure](reference/earnings-value-validation.md), [HTTP transport](reference/earnings-http.md), [HTTP history](reference/earnings-http-history.md), [assessment records](reference/earnings-assessments.md), [run budgets](reference/earnings-run-budget.md), [glossary](../CONTEXT.md).
 
-The registered-source collector stores new PDF bytes in RustFS and retains identity, acquisition history, storage-work records, and extraction/search data in PostgreSQL. Existing PostgreSQL-backed originals remain readable through their recorded storage location. Source registration, bounded collection, extraction, and exact-original retrieval are implemented; use the references above for their contracts. The v0.2 pilot uses disposable development/test data under [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md); it does not establish production backup/restore guarantees.
+The registered-source collector stores new PDF bytes in RustFS and retains identity, acquisition history, and extraction/search data in PostgreSQL. Existing PostgreSQL-backed originals remain readable through their recorded storage location. Source registration, bounded collection, extraction, and exact-original retrieval are implemented; use the references above for their contracts. The v0.2 pilot uses disposable development/test data under [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md); it does not establish production backup/restore guarantees.
 
-Storage recovery retirement is decided in [ADR 0013](adr/0013-retire-interrupted-storage-recovery.md); runtime removal is pending [#195](https://github.com/9renpoto/lens/issues/195). The current collector and HTTP references explicitly identify the transitional behavior.
+Storage uses synchronous verified saves under [ADR 0013](adr/0013-retire-interrupted-storage-recovery.md). Recovery and unfinished-work endpoints are removed; the collector and HTTP references describe the resulting contract.
 
 <details>
 <summary>日本語</summary>
@@ -27,8 +27,8 @@ Storage recovery retirement is decided in [ADR 0013](adr/0013-retire-interrupted
 - レビュー対象のプロダクト方向性：[価値と発見](explanation/product-value.md)。現行リリースの範囲や実装済みの挙動と区別し、Why/Whatを継続して説明する。
 - 参照：[API](api.md)、[処理基盤](reference/earnings-pipeline.md)、[候補収集](reference/earnings-collector.md)、[決算検索の価値検証手順](reference/earnings-value-validation.md)、[HTTP取得](reference/earnings-http.md)、[HTTP履歴](reference/earnings-http-history.md)、[判定記録](reference/earnings-assessments.md)、[実行予算](reference/earnings-run-budget.md)、[用語集](../CONTEXT.md)。
 
-登録済み取得先のCollectorは新しいPDFバイト列をRustFSへ保存し、識別・取得履歴・保存作業記録・抽出／検索データをPostgreSQLへ保持する。既存のPostgreSQL保存原本も、記録された保存場所を通じて読み取れる。取得先登録・上限付き収集・抽出・正確な原本取得は実装済みであり、契約は上記の参照資料に記載する。v0.2のパイロットは[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)に従う破棄可能な開発・テストデータを使い、本番バックアップ／復元の保証を確立するものではない。
+登録済み取得先のCollectorは新しいPDFバイト列をRustFSへ保存し、識別・取得履歴・抽出／検索データをPostgreSQLへ保持する。既存のPostgreSQL保存原本も、記録された保存場所を通じて読み取れる。取得先登録・上限付き収集・抽出・正確な原本取得は実装済みであり、契約は上記の参照資料に記載する。v0.2のパイロットは[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)に従う破棄可能な開発・テストデータを使い、本番バックアップ／復元の保証を確立するものではない。
 
-保存復旧の廃止は[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)で決定済み。実行時機能の削除は[#195](https://github.com/9renpoto/lens/issues/195)待ちとする。現行Collector・HTTP参照資料では移行中の挙動を明示する。
+保存は[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)に従う同期的な検証済み保存を使う。復旧と未完了作業endpointは削除し、Collector・HTTP参照資料に変更後の契約を記載する。
 
 </details>
