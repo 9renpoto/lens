@@ -30,6 +30,21 @@ Elixir/OTP・Phoenix・PostgreSQLを使用し、新たに収集する決算PDF�
 - [Contributing](#contributing)
 - [License](#license)
 
+<details>
+<summary>日本語</summary>
+
+目次：
+
+- [導入](#install)
+- [利用方法](#usage)
+- [文書](#documentation)
+- [API](#api)
+- [メンテナー](#maintainers)
+- [貢献](#contributing)
+- [ライセンス](#license)
+
+</details>
+
 ## Install
 
 ### Dependencies
@@ -41,7 +56,7 @@ mix setup
 ```
 
 See [development setup](docs/development.md) for prerequisites and local
-configuration, or [deployment](docs/deployment.md) for container operation.
+configuration, or [runtime contract](docs/deployment.md) for container configuration and commands.
 
 <details>
 <summary>日本語</summary>
@@ -49,7 +64,7 @@ configuration, or [deployment](docs/deployment.md) for container operation.
 Elixir 1.18 / Erlang-OTP 27とPostgreSQL 18が必要。
 チェックアウトしたリポジトリで`mix setup`を実行する。
 前提ソフトウェアとローカル設定は[開発手順](docs/development.md)、
-コンテナ運用は[配置手順](docs/deployment.md)を参照する。
+コンテナの設定とコマンドは[実行契約](docs/deployment.md)を参照する。
 
 </details>
 

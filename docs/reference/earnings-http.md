@@ -89,7 +89,7 @@ Known-original failures have this strict JSON shape:
 {"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
 ```
 
-The finite reason set is `not_found`, `integrity_error`, `original_unavailable`, `not_configured`, `invalid_configuration`, `destination_mismatch`, `unauthorized`, `timeout`, `transport_error`, `unavailable`, `invalid_reference`, `conflict` and `storage_error`. A missing RustFS object returns 503 with `not_found`; an unknown original ID returns 404 with `{"error":"not_found"}`. Corrupt bytes return 503 with `integrity_error`. Other unlisted/structured provider failures become `storage_error`, without returning provider bodies, credentials or destination URLs. Manual retry remains deferred. This API implementation does not prove k3s deployment, #68 release completion or #147 coordinated restore.
+The finite reason set is `not_found`, `integrity_error`, `original_unavailable`, `not_configured`, `invalid_configuration`, `destination_mismatch`, `unauthorized`, `timeout`, `transport_error`, `unavailable`, `invalid_reference`, `conflict` and `storage_error`. A missing RustFS object returns 503 with `not_found`; an unknown original ID returns 404 with `{"error":"not_found"}`. Corrupt bytes return 503 with `integrity_error`. Other unlisted/structured provider failures become `storage_error`, without returning provider bodies, credentials or destination URLs. Manual retry remains deferred. API behavior is independent of the deployment environment; release validation is tracked separately in #68.
 
 <details>
 <summary>日本語</summary>
@@ -175,6 +175,6 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 {"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
 ```
 
-理由の有限集合は`not_found`、`integrity_error`、`original_unavailable`、`not_configured`、`invalid_configuration`、`destination_mismatch`、`unauthorized`、`timeout`、`transport_error`、`unavailable`、`invalid_reference`、`conflict`、`storage_error`。RustFSオブジェクト欠落は503と`not_found`、未知の原本IDは404と`{"error":"not_found"}`を返す。破損は503と`integrity_error`。その他の未登録・構造化されたprovider障害は`storage_error`に変換し、provider本文・認証情報・保存URLを返さない。手動再試行は後続に残す。このAPI実装はk3s配備、#68のリリース完了、#147の両保存先を揃えた復元を証明しない。
+理由の有限集合は`not_found`、`integrity_error`、`original_unavailable`、`not_configured`、`invalid_configuration`、`destination_mismatch`、`unauthorized`、`timeout`、`transport_error`、`unavailable`、`invalid_reference`、`conflict`、`storage_error`。RustFSオブジェクト欠落は503と`not_found`、未知の原本IDは404と`{"error":"not_found"}`を返す。破損は503と`integrity_error`。その他の未登録・構造化されたprovider障害は`storage_error`に変換し、provider本文・認証情報・保存URLを返さない。手動再試行は後続に残す。APIの挙動は配備環境から独立し、リリース検証は#68で別途追跡する。
 
 </details>

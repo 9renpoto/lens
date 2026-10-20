@@ -1,4 +1,4 @@
-# Single-node operation
+# Local application operation
 
 Lens runs as one application container and one PostgreSQL container. PostgreSQL
 is the canonical store. Its named volume remains intact when application
@@ -11,9 +11,16 @@ PostgreSQL 18's official image stores data under
 `/var/lib/postgresql/18/docker`; the named volume therefore mounts
 `/var/lib/postgresql`.
 
-For a production deployment in a Kustomize environment, see [production
-deployment](deployment.md). This document covers the local Compose-based
-single-node operation only.
+This document covers application usage with the repository's local Compose
+stack. The [runtime contract](deployment.md) defines the application interface.
+
+<details>
+<summary>日本語</summary>
+
+この文書はリポジトリ付属のローカルCompose構成でのアプリ操作を扱う。
+アプリのinterfaceは[実行契約](deployment.md)を参照する。
+
+</details>
 
 ## Deploy
 
@@ -112,52 +119,24 @@ Record the command output, Lens version, host resources, and any failure in the
 deployment change record. It is an operator check, not a CI gate or a scale
 guarantee.
 
-## Restart, backup, and restore
+## Retained data
 
-The database-only commands below cover the local Compose feed stack. That stack
-does not provision RustFS or configure earnings collection. If the database
-references RustFS-backed earnings originals, its dump does not contain those
-PDF bytes: retain the corresponding object data and coordinate both stores
-before treating a restore as complete. See [earnings storage configuration](deployment.md#earnings-pdf-storage)
-and [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) for the
-separate disposable development/test scope.
+The local Compose feed stack stores canonical data in PostgreSQL. If the
+application also references RustFS-backed originals, those PDF bytes reside in
+RustFS and are not included in a database dump. See the
+[runtime contract](deployment.md#earnings-pdf-storage) for the storage boundary
+and [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) for
+disposable development/test data.
 
 <details>
 <summary>日本語</summary>
 
-以下のDB単独コマンドは、ローカルComposeのフィード用構成を対象とする。
-この構成はRustFSを用意せず、決算収集も設定しない。DBがRustFS保存の決算原本を
-参照する場合、dumpにはそのPDFバイト列を含まない。対応するオブジェクトデータも
-保持し、両保存先を揃えてから復元完了と判断する。
-[決算保存設定](deployment.md#earnings-pdf-storage)と
-[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)に、
-別の範囲である破棄可能な開発・テストデータについて記載する。
+## 保持するデータ
+
+ローカルComposeのフィード用構成は、正となるデータをPostgreSQLへ保存する。
+アプリがRustFS保存原本も参照する場合、そのPDFバイト列はRustFSにありDB dumpには含まれない。
+保存の境界は[実行契約](deployment.md#earnings-pdf-storage)、
+破棄可能な開発・テストデータは[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)
+を参照する。
 
 </details>
-
-Restart the application without losing content:
-
-```sh
-docker compose restart app
-```
-
-Back up the canonical database while the stack is running:
-
-```sh
-docker compose exec -T postgres pg_dump -U lens -d lens > lens-backup.sql
-```
-
-To restore into a fresh Lens database, stop the stack, remove only the named
-database volume, start PostgreSQL, then restore the dump:
-
-```sh
-docker compose down
-docker volume rm lens_postgres_data
-docker compose up -d postgres
-cat lens-backup.sql | docker compose exec -T postgres psql -U lens -d lens
-docker compose up -d app
-```
-
-If an explicit migration fails, keep the volume, inspect the error with
-`docker compose logs app`, correct the deployment, and rerun the migration
-command. Never delete the volume as a migration recovery step.

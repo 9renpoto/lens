@@ -13,8 +13,15 @@ mix phx.server
 `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `PORT`,
 and `POOL_SIZE` override local defaults. PostgreSQL minor images are pinned
 in Compose and CI; a PostgreSQL major upgrade requires a compatibility review.
-See [deployment](deployment.md#earnings-pdf-storage) for RustFS configuration
+See the [runtime contract](deployment.md#earnings-pdf-storage) for RustFS configuration
 when collecting earnings PDFs.
+
+## Before implementation
+
+Create a scoped GitHub issue, record and agree on the relevant design decisions
+in ADRs, and then begin implementation. Reference existing accepted ADRs when
+they already cover the work. Standalone planning documents and roadmaps are
+discouraged; see [ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md).
 
 ## Checks
 
@@ -64,7 +71,13 @@ mix phx.server
 `POSTGRES_HOST`・`POSTGRES_USER`・`POSTGRES_PASSWORD`・`POSTGRES_DB`・`PORT`・
 `POOL_SIZE`でローカルの既定値を変更できる。ComposeとCIのPostgreSQL minor imageは
 固定し、major更新には互換性レビューが必要。
-決算PDFを収集する場合のRustFS設定は[配置手順](deployment.md#earnings-pdf-storage)を参照する。
+決算PDFを収集する場合のRustFS設定は[実行契約](deployment.md#earnings-pdf-storage)を参照する。
+
+## 実装前
+
+範囲を定めたGitHub Issueを作成し、必要な設計判断をADRに記録・合意してから実装を始める。
+既存の承認済みADRが作業を扱っている場合は参照する。独立した計画文書やロードマップの
+作成は非推奨とし、[ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md)に従う。
 
 ## 検証
 

@@ -39,7 +39,7 @@ MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix ecto.create
 MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix run --no-start test/system/earnings_source_migration_check.exs
 ```
 
-The check seeds old-schema successes and a failure, compares prior original/acquisition/check/target rows after migration, verifies no automatic source import, changes source settings without changing history, exercises existing persistence callers and new issuers, and verifies history immutability. API tests cover a synthetic non-pilot `7203` target with no membership and `active: false`, multiple sources, defaults, explicit false, partial updates, duplicates, isolation and URL validation. Existing feed/target tests cover client compatibility, and HTTP history tests cover non-pilot listing/PDF checks and retained bounds. These deterministic checks do not establish live publisher access or local k3s verification; the broader workflow remains #131 work.
+The check seeds old-schema successes and a failure, compares prior original/acquisition/check/target rows after migration, verifies no automatic source import, changes source settings without changing history, exercises existing persistence callers and new issuers, and verifies history immutability. API tests cover a synthetic non-pilot `7203` target with no membership and `active: false`, multiple sources, defaults, explicit false, partial updates, duplicates, isolation and URL validation. Existing feed/target tests cover client compatibility, and HTTP history tests cover non-pilot listing/PDF checks and retained bounds. These deterministic checks do not establish live publisher access or end-to-end application verification; the broader workflow remains #131 work.
 
 ## Assessment and recording boundary
 
@@ -78,9 +78,9 @@ Requiring manual host/path configuration would move that work to operators inste
 
 Preserve existing acquisition and assessment history when configuration changes. Replace fixed issuer restrictions through forward migrations rather than rewriting applied migrations. Precise registration fields, update semantics, evidence schemas, API endpoints and classifier behavior are decided in the implementation tasks under these boundaries. This ADR does not promise HTML/XBRL acquisition, financial analysis or RustFS delivery.
 
-Use the operator's local k3s Lens instance for deployment-level pilot verification. Focused automated tests and TDD remain necessary for production changes; neither an accepted ADR nor created issues establish completed implementation or verification.
+Focused automated tests and TDD remain necessary for production changes; neither an accepted ADR nor created issues establish completed implementation or verification.
 
-Implementation is tracked by direct sub-issues of the release tracker [#68](https://github.com/9renpoto/lens/issues/68):
+Implementation is tracked by sub-issues of the milestone-independent capability tracker [#184](https://github.com/9renpoto/lens/issues/184):
 
 - [#124: source registration API and persistence](https://github.com/9renpoto/lens/issues/124).
 - [#125: crawling registered listings](https://github.com/9renpoto/lens/issues/125).
@@ -133,7 +133,7 @@ MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix ecto.create
 MIX_ENV=test POSTGRES_DB=lens_source_migration_check mix run --no-start test/system/earnings_source_migration_check.exs
 ```
 
-旧スキーマに成功と失敗の記録を作り、移行後に既存の原本／取得／確認／対象の行を比較する。自動取得先取り込みがないこと、設定変更で履歴が変わらないこと、既存の保存呼び出しと新しい企業、履歴の変更禁止を確認する。APIテストでは固定3社外の合成対象`7203`を使い、所属なし・`active: false`、複数取得先、既定値、明示的なfalse、部分更新、重複、対象の分離、URL検証を確認する。既存のフィード／対象テストでクライアント互換性を確認し、HTTP履歴テストで固定3社外の一覧／PDF確認と維持した上限を検証する。この再現可能な検証は実サイトへのアクセスやローカルk3sでの検証を証明しない。広いフローは#131の作業として残る。
+旧スキーマに成功と失敗の記録を作り、移行後に既存の原本／取得／確認／対象の行を比較する。自動取得先取り込みがないこと、設定変更で履歴が変わらないこと、既存の保存呼び出しと新しい企業、履歴の変更禁止を確認する。APIテストでは固定3社外の合成対象`7203`を使い、所属なし・`active: false`、複数取得先、既定値、明示的なfalse、部分更新、重複、対象の分離、URL検証を確認する。既存のフィード／対象テストでクライアント互換性を確認し、HTTP履歴テストで固定3社外の一覧／PDF確認と維持した上限を検証する。この再現可能な検証は実サイトへのアクセスやアプリ全体の検証を証明しない。広いフローは#131の作業として残る。
 
 ## 判定と記録の境界
 
@@ -172,9 +172,9 @@ flowchart TD
 
 設定変更時も既存の取得・判定履歴を保持する。適用済みマイグレーションを書き換えず、追加マイグレーションで固定企業の制限を置き換える。詳細な登録項目・更新の意味・根拠のスキーマ・APIエンドポイント・判定処理は、この境界のもとで実装タスク内で決める。このADRではHTML・XBRL取得、財務分析、RustFSの実装を約束しない。
 
-実環境でのパイロット検証は、運用者のローカルk3s上のLensを使う。本番変更には引き続き対象を絞った自動テストとTDDが必要。ADRの承認やIssue作成は、実装・検証の完了を意味しない。
+本番変更には引き続き対象を絞った自動テストとTDDが必要。ADRの承認やIssue作成は、実装・検証の完了を意味しない。
 
-実装は、リリース管理[#68](https://github.com/9renpoto/lens/issues/68)の直接のサブIssueで追跡する。
+実装は、マイルストーンと独立した機能管理[#184](https://github.com/9renpoto/lens/issues/184)のサブIssueで追跡する。
 
 - [#124：取得先の登録APIと永続化](https://github.com/9renpoto/lens/issues/124)。
 - [#125：登録した一覧のクローリング](https://github.com/9renpoto/lens/issues/125)。

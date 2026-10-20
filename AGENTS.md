@@ -12,6 +12,26 @@ For bugs, begin with a regression test. Keep tests focused on behavior and avoid
 tests that only mirror implementation details. Run the relevant test suite before
 submitting work for review.
 
+## Planning before implementation
+
+Standalone planning documents, roadmaps, and execution plans are discouraged.
+Define scoped work in GitHub issues and record and agree on relevant design
+decisions and their rationale in ADRs before starting implementation. Reference an
+existing accepted ADR when it already covers the decision. Keep task state and
+dependencies in issues, current decisions in ADRs, and implemented procedures in
+maintained guides. Follow [ADR 0011](docs/adr/0011-plan-work-through-issues-and-adrs.md).
+
+<details>
+<summary>日本語</summary>
+
+独立した計画文書・ロードマップ・実行計画の作成は非推奨とする。
+具体的な実装を始める前に、範囲を定めたGitHub Issueを作成し、必要な設計判断と理由を
+ADRへ記録して合意する。既存の承認済みADRが判断を扱っていれば参照する。
+タスク状態・依存関係はIssue、現在の決定はADR、実装済みの手順は維持するガイドに置く。
+[ADR 0011](docs/adr/0011-plan-work-through-issues-and-adrs.md)に従う。
+
+</details>
+
 ## Documentation and GitHub language
 
 Write repository documentation and GitHub pull-request and issue content in

@@ -68,8 +68,8 @@ the fall or prescribing a trade is not the initial responsibility.
 ## Relationship to existing Lens
 
 Lens follows Collect → Preserve → Search → Discover. The [README](../../README.md)
-introduces the application and its usage; the [roadmap](../roadmap.md) describes
-release boundaries and future discovery experiments. This direction makes the
+introduces the application and its usage; [GitHub issues](https://github.com/9renpoto/lens/issues)
+track release boundaries and future discovery experiments. This direction makes the
 intended discovery value explicit rather than claiming that discovery is a
 newly invented project goal.
 
@@ -185,8 +185,8 @@ Lensは情報を収集・集約し、何を検索するかを先に決めなく�
 ## 既存Lensとの関係
 
 LensはCollect → Preserve → Search → Discoverを掲げる。
-[README](../../README.md)はアプリと使い方の入口とし、[ロードマップ](../roadmap.md)に
-リリース境界と将来の発見の実験を記載する。今回の方向性は、発見を新しい目標として
+[README](../../README.md)はアプリと使い方の入口とし、[GitHub Issue](https://github.com/9renpoto/lens/issues)で
+リリース境界と将来の発見の実験を追跡する。今回の方向性は、発見を新しい目標として
 発明したものではなく、そこで届けたい価値を具体化するものである。
 
 | 観点 | 既存の定義・区切り | 今回重視する価値 |
