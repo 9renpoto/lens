@@ -1,0 +1,14 @@
+amends "package://github.com/jdx/hk/releases/download/v2.7.1/hk@2.7.1#/Config.pkl"
+
+hooks {
+  ["pre-commit"] {
+    steps {
+      ["mix-format"] {
+        check = "mix format --check-formatted"
+      }
+      ["retention-tests"] {
+        check = "node --test .github/scripts/prune-package-versions.test.js"
+      }
+    }
+  }
+}
