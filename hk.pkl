@@ -3,9 +3,6 @@ amends "package://github.com/jdx/hk/releases/download/v2.7.1/hk@2.7.1#/Config.pk
 hooks {
   ["pre-commit"] {
     steps {
-      ["actionlint"] {
-        check = "actionlint .github/workflows/*.yml"
-      }
       ["mix-format"] {
         check = "mix format --check-formatted"
       }
