@@ -71,7 +71,18 @@ mix run -e 'IO.inspect(Lens.Earnings.Collector.run(max_operations: 2))'
 Check the returned listing/PDF checks and confirm that the PDF is a successful
 acquisition for the newest ordinary earnings release shown on the official
 listing. If the first link is not that release, stop and record the workflow
-gap; do not run a broader crawl for this pilot. The returned PDF check's
+gap; do not run a broader crawl for this pilot. Return the source to disabled
+immediately after the bounded run, including when it fails:
+
+```sh
+curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURCE_ID \
+  -H 'content-type: application/json' \
+  -d '{"source":{"enabled":false}}'
+```
+
+Verify that the source is disabled and inspect unfinished storage work through
+`GET /api/earnings/storage-work`. Do not start another collection to repair
+unfinished storage. The returned PDF check's
 `acquisition_id` is the acquisition row's primary key. Load that row to obtain
 the provenance `acquisition_id` needed by `confirm_identity/2` and the retained
 `original_id` needed for extraction:
@@ -96,13 +107,16 @@ Then use the existing Japanese search endpoint and the exact-original endpoint:
 
 ```sh
 curl --get http://127.0.0.1:4000/api/search \
-  --data-urlencode 'q=ISSUER_NAME FISCAL_YEAR PERIOD earnings release'
+  --data-urlencode 'q=営業利益'
 
 curl -o original.pdf \
   http://127.0.0.1:4000/api/earnings/originals/ORIGINAL_ID
 ```
 
-Use the observed issuer, period, and fiscal year in the query. Open the
+Choose a representative Japanese term observed in the extracted text, such as
+`営業利益`. Compare the returned issuer, period, and fiscal year with the PDF;
+do not assume combining all title fields into one query will return a match.
+See [search behavior](../search.md) for query semantics. Open the
 retrieved PDF, compare its issuer, period, title,
 and relevant content with the result, and discuss usefulness and any mismatch
 or workflow gap in the review. Mismatches are observations, not automatic
@@ -168,7 +182,15 @@ curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURC
 mix run -e 'IO.inspect(Lens.Earnings.Collector.run(max_operations: 2))'
 ```
 
-戻り値の一覧・PDF確認記録を見て、最新の通常短信PDFが取得成功したことを確認する。先頭リンクが該当資料でなければ停止し、この手順上の不足を記録する。このパイロットで広いクロールを実行しない。PDF確認記録の`acquisition_id`は取得行の主キーである。その行を読み込み、`confirm_identity/2`に必要な出典用`acquisition_id`と抽出に必要な保存原本IDを確認する。
+戻り値の一覧・PDF確認記録を見て、最新の通常短信PDFが取得成功したことを確認する。先頭リンクが該当資料でなければ停止し、この手順上の不足を記録する。このパイロットで広いクロールを実行しない。失敗した場合も含め、上限付き実行の直後に取得先を無効へ戻す。
+
+```sh
+curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURCE_ID \
+  -H 'content-type: application/json' \
+  -d '{"source":{"enabled":false}}'
+```
+
+取得先が無効であることを確認し、`GET /api/earnings/storage-work`で未完了保存作業を調べる。未完了保存を修復するために再収集しない。PDF確認記録の`acquisition_id`は取得行の主キーである。その行を読み込み、`confirm_identity/2`に必要な出典用`acquisition_id`と抽出に必要な保存原本IDを確認する。
 
 ```sh
 mix run -e 'a = Lens.Repo.get!(Lens.Earnings.Acquisition, "ACQUISITION_ROW_ID"); IO.inspect(%{acquisition_id: a.acquisition_id, original_id: a.original_id})'
@@ -185,13 +207,13 @@ mix run -e 'IO.inspect(Lens.Earnings.confirm_identity("PROVENANCE_ACQUISITION_ID
 
 ```sh
 curl --get http://127.0.0.1:4000/api/search \
-  --data-urlencode 'q=ISSUER_NAME FISCAL_YEAR PERIOD 決算短信'
+  --data-urlencode 'q=営業利益'
 
 curl -o original.pdf \
   http://127.0.0.1:4000/api/earnings/originals/ORIGINAL_ID
 ```
 
-観察した発行元名・対象期間・決算期をクエリに使う。取得したPDFを開き、発行元・対象期間・表題・関連内容を検索結果と照合して、有用性や不一致・作業上の不足をレビューで議論する。不一致は観測結果であり、自動的なリリース失敗とはしない。数値の精度基準や定型の価値検証報告は求めない。取得元URL・日時・保存バイト列は既存の運用履歴に保持される。
+抽出本文で確認した`営業利益`など、代表的な日本語の語句を選ぶ。結果の発行元・対象期間・決算期をPDFと比較する。表題の全項目を組み合わせたクエリが一致するとは仮定しない。クエリの意味は[検索の挙動](../search.md)を参照する。取得したPDFを開き、発行元・対象期間・表題・関連内容を検索結果と照合して、有用性や不一致・作業上の不足をレビューで議論する。不一致は観測結果であり、自動的なリリース失敗とはしない。数値の精度基準や定型の価値検証報告は求めない。取得元URL・日時・保存バイト列は既存の運用履歴に保持される。
 
 検索と原本照合まで1社の一連のフローを実行し、その結果を議論できればv0.2のレビュー可能な区切りとする。一致しない場合や有用でない場合も、その結果をv0.3のスコープ判断に使う。検索UI、複数社、定期収集、説明会資料の判定、確認待ち・運用者判断API、詳細な再起動・失敗・バックアップ/復元検証は後続作業とする。
 

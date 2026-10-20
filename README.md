@@ -20,8 +20,30 @@ application model.
 
 ## Status
 
-The project is under active initial development. The v0.1 plan is tracked in
-[GitHub milestone v0.1](https://github.com/9renpoto/lens/milestone/1).
+The current v0.2 checkpoint is one issuer's earnings-search pilot: bounded
+manual acquisition, extraction, identity confirmation, representative Japanese
+search, exact-original comparison, and oral review. Follow
+[release tracker #68](https://github.com/9renpoto/lens/issues/68) and the
+[validation procedure](docs/reference/earnings-value-validation.md).
+
+The feed capabilities described above remain available. The v0.2 checkpoint
+excludes recurring earnings collection, multiple-company operation, search UI,
+and production backup/restore guarantees. Passive-discovery RSS delivery is
+tracked separately in [v0.3 tracker #185](https://github.com/9renpoto/lens/issues/185).
+
+<details>
+<summary>日本語</summary>
+
+現在のv0.2の区切りは、1社の決算検索パイロットです。上限付き手動取得・抽出・
+識別確定・代表的な日本語検索・正確な原本照合・口頭レビューを行います。
+[リリース管理#68](https://github.com/9renpoto/lens/issues/68)と
+[検証手順](docs/reference/earnings-value-validation.md)を参照してください。
+
+上記のフィード機能も利用できます。v0.2の区切りには、決算資料の定期収集・
+複数社運用・検索UI・本番バックアップ／復元保証を含めません。
+受動的発見のRSS配信は[v0.3管理#185](https://github.com/9renpoto/lens/issues/185)で別途追跡します。
+
+</details>
 
 It intentionally excludes LLMs, embeddings, vector databases, external search
 engines, browser automation, custom web crawling, multi-tenancy, and

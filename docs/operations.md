@@ -114,6 +114,27 @@ guarantee.
 
 ## Restart, backup, and restore
 
+The database-only commands below cover the local Compose feed stack. That stack
+does not provision RustFS or configure earnings collection. If the database
+references RustFS-backed earnings originals, its dump does not contain those
+PDF bytes: retain the corresponding object data and coordinate both stores
+before treating a restore as complete. See [earnings storage configuration](deployment.md#earnings-pdf-storage)
+and [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) for the
+separate disposable development/test scope.
+
+<details>
+<summary>日本語</summary>
+
+以下のDB単独コマンドは、ローカルComposeのフィード用構成を対象とする。
+この構成はRustFSを用意せず、決算収集も設定しない。DBがRustFS保存の決算原本を
+参照する場合、dumpにはそのPDFバイト列を含まない。対応するオブジェクトデータも
+保持し、両保存先を揃えてから復元完了と判断する。
+[決算保存設定](deployment.md#earnings-pdf-storage)と
+[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)に、
+別の範囲である破棄可能な開発・テストデータについて記載する。
+
+</details>
+
 Restart the application without losing content:
 
 ```sh

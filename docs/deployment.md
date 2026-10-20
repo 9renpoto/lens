@@ -91,11 +91,84 @@ environment's secret mechanism rather than in a Kustomize repository.
 | `POOL_SIZE` | No | PostgreSQL connection-pool size. Defaults to `10`. Size it within the database connection budget. |
 
 The container listens on `0.0.0.0:$PORT` and runs as the unprivileged `lens`
-user. It needs no writable application filesystem volume. Only PostgreSQL data
-requires persistent storage.
+user. It needs no writable application filesystem volume. PostgreSQL data and
+any RustFS objects holding retained originals require persistent storage.
 
 Generate `SECRET_KEY_BASE` with a cryptographically secure random generator.
 Do not reuse the database password or a value from another service.
+
+## Earnings PDF storage
+
+Registered-source earnings collection requires RustFS in addition to PostgreSQL.
+Provision the bucket and supply these variables through the deployment's secret
+and configuration mechanisms:
+
+| Variable | Requirement | Description |
+| --- | --- | --- |
+| `LENS_RUSTFS_ENDPOINT` | Required for collection and RustFS-backed reads | RustFS HTTP(S) endpoint. |
+| `LENS_RUSTFS_BUCKET` | Required with endpoint | Bucket for retained originals. |
+| `LENS_RUSTFS_ACCESS_KEY_ID` | Required with endpoint | Access key delivered as a secret. |
+| `LENS_RUSTFS_SECRET_ACCESS_KEY` | Required with endpoint | Secret key delivered as a secret. |
+| `LENS_RUSTFS_REGION` | Optional | Defaults to `us-east-1`. |
+| `LENS_RUSTFS_TIMEOUT_MS` | Optional | Integer from 1 to 30000; defaults to 30000. |
+
+If any RustFS variable is supplied, all four required values must be nonempty.
+Partial configuration or an invalid timeout fails startup; the storage client
+rejects other invalid configuration before collection. With no RustFS configuration,
+the collector returns `{:error, :not_configured}` before publisher requests.
+Existing PostgreSQL-backed originals remain readable through their recorded
+storage location; unavailable RustFS objects are not silently read from another
+backend or fetched again from the publisher.
+
+PostgreSQL retains identity, acquisition history, storage-work records, and
+extraction/search data. RustFS retains new PDF bytes. A PostgreSQL dump alone
+cannot restore RustFS-backed originals. Before retaining non-disposable records
+or operating in production, provide coordinated PostgreSQL/RustFS backup and
+recovery as required by [ADR 0005](adr/0005-store-pdfs-in-rustfs.md).
+
+The local k3s v0.2 pilot uses explicitly disposable development/test data under
+[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md). Its
+[bounded manual procedure](reference/earnings-value-validation.md) does not
+establish production recovery guarantees. Earnings collection is invoked
+manually; the feed scheduler does not schedule it.
+
+<details>
+<summary>日本語</summary>
+
+## 決算PDFの保存
+
+コンテナは非特権の`lens`ユーザーで動作し、書込可能なアプリ用volumeを必要としない。
+PostgreSQLデータと、保持原本を格納するRustFSオブジェクトには永続保存が必要。
+
+登録済み取得先の決算収集にはPostgreSQLに加えてRustFSが必要。バケットを用意し、
+配備先のsecret・設定管理を通じて次の変数を渡す。
+
+| 変数 | 要件 | 説明 |
+| --- | --- | --- |
+| `LENS_RUSTFS_ENDPOINT` | 収集・RustFS保存原本の読取に必要 | RustFSのHTTP(S) endpoint。 |
+| `LENS_RUSTFS_BUCKET` | endpointとともに必要 | 原本を保持するバケット。 |
+| `LENS_RUSTFS_ACCESS_KEY_ID` | endpointとともに必要 | secretで渡すアクセスキー。 |
+| `LENS_RUSTFS_SECRET_ACCESS_KEY` | endpointとともに必要 | secretで渡す秘密キー。 |
+| `LENS_RUSTFS_REGION` | 任意 | 既定は`us-east-1`。 |
+| `LENS_RUSTFS_TIMEOUT_MS` | 任意 | 1〜30000の整数。既定は30000。 |
+
+RustFS変数を一つでも渡す場合、必須の4変数すべてに空でない値が必要。
+不足設定・不正なtimeoutでは起動に失敗し、それ以外の不正設定は収集前に保存クライアントが拒否する。RustFS設定がなければ、Collectorは公開元へ
+通信する前に`{:error, :not_configured}`を返す。既存のPostgreSQL保存原本は
+記録された保存場所を通じて読み取れる。RustFSオブジェクトが利用できない場合に、
+別バックエンドから暗黙に読み取ったり、公開元から再取得したりしない。
+
+PostgreSQLは識別・取得履歴・保存作業記録・抽出／検索データを保持し、RustFSは
+新しいPDFバイト列を保持する。PostgreSQLのdumpだけではRustFS保存原本を復元できない。
+破棄できない記録の保持開始前または本番運用前には、
+[ADR 0005](adr/0005-store-pdfs-in-rustfs.md)に従うPostgreSQL/RustFSの協調バックアップ・復旧を用意する。
+
+ローカルk3s上のv0.2パイロットは[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)
+に従い、明示的に破棄可能な開発・テストデータを使う。
+[上限付き手動手順](reference/earnings-value-validation.md)は本番復旧の保証を確立しない。
+決算収集は手動で呼び出し、フィードのschedulerは決算収集を定期実行しない。
+
+</details>
 
 ## Deploy a release
 
