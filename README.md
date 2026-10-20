@@ -77,8 +77,8 @@ and Node.js on `PATH`.
 ローカルで有効にする場合は hk 2.7.1 をインストールし、
 `hk install --mise`（mise を使わない場合は `hk install`）を実行してください。
 `hk run pre-commit --all` で手動実行できます。プロジェクト設定には
-`actionlint`、`mix-format`、`retention-tests` を定義し、`PATH` 上に
-`actionlint`、Elixir/Erlang、Node.js が必要です。
+`mix-format`、`retention-tests` を定義し、`PATH` 上に
+Elixir/Erlang、Node.js が必要です。
 
 </details>
 
