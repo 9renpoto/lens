@@ -1,5 +1,9 @@
 # Registered earnings candidate collection
 
+## Recovery retirement transition
+
+[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md) retires storage recovery. This document describes the existing code while removal is pending [#195](https://github.com/9renpoto/lens/issues/195), not the replacement contract. The durable work, source exclusion and read-only `storage-work` endpoints described below are transitional and will be removed. Do not enable recovery or schedule manual retries for bounded validation. A source with unfinished work is currently skipped; this documentation change does not unblock it or remove stored payloads. The dependent implementation PR must reconcile this reference with the synchronous save/failure contract before release.
+
 `Lens.Earnings.Collector.run/1` performs one sequential, bounded run over enabled database-backed earnings sources. Target `active` does not control source enablement. Configure `LENS_RUSTFS_ENDPOINT`, `LENS_RUSTFS_BUCKET`, `LENS_RUSTFS_ACCESS_KEY_ID` and `LENS_RUSTFS_SECRET_ACCESS_KEY` before running collection; missing or invalid configuration returns `{:error, :not_configured}` or `{:error, :invalid_configuration}` before publisher requests. Existing acquisitions remain readable through their selected storage location. Apply the new provenance migration before starting the updated collector. Run it manually with:
 
 ```sh
@@ -20,6 +24,10 @@ This extends the candidate acquisition boundary from #125 with durable RustFS co
 <summary>日本語</summary>
 
 # 登録済み決算資料候補の収集
+
+## 復旧廃止への移行
+
+[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md)に従い保存復旧を廃止する。この文書は[#195](https://github.com/9renpoto/lens/issues/195)による削除待ちの既存コードを記述しており、置き換え後の契約ではない。以下の永続作業・取得先除外・読取専用`storage-work` endpointは移行中の機能であり、削除する。上限付き検証のために復旧を有効化したり手動再試行を予約したりしない。未完了作業のある取得先は現在も対象外であり、この文書変更で解除したり保存ペイロードを削除したりしない。依存する実装PRで、リリース前にこの参照資料を同期保存・失敗の契約へ揃える。
 
 `Lens.Earnings.Collector.run/1` は、有効なDB管理の決算取得先を逐次処理する、上限付きの1回の実行を提供する。対象の `active` は取得先の有効状態を制御しない。`LENS_RUSTFS_ENDPOINT`、`LENS_RUSTFS_BUCKET`、`LENS_RUSTFS_ACCESS_KEY_ID`、`LENS_RUSTFS_SECRET_ACCESS_KEY`を設定してから収集を実行する。設定不足・不正設定は公開元通信前に`{:error, :not_configured}`または`{:error, :invalid_configuration}`を返す。既存取得は選択済み保存先から引き続き読める。更新後の収集処理を開始する前に取得経緯の新規migrationを適用する。手動実行は次のとおり。
 

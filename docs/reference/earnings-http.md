@@ -1,5 +1,9 @@
 # Earnings HTTP transport and operator storage API
 
+## Recovery retirement transition
+
+[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md) retires storage recovery. This document describes the existing code while removal is pending [#195](https://github.com/9renpoto/lens/issues/195), not the replacement contract. The durable work, source exclusion and read-only `storage-work` endpoints described below are transitional and will be removed. Do not enable recovery or schedule manual retries for bounded validation. A source with unfinished work is currently skipped; this documentation change does not unblock it or remove stored payloads. The dependent implementation PR must reconcile this reference with the synchronous save/failure contract before release.
+
 `Lens.Earnings.HTTP.fetch/2` provides the transport foundation for
 [#71](https://github.com/9renpoto/lens/issues/71). It performs no database writes,
 identity confirmation, scheduling, or extraction. [Source registration](https://9renpoto.github.io/lens/) and the [registered candidate collector](earnings-collector.md) are available. The collector checks source enablement and uses one shared run budget for a manual run; request cadence and daily scheduling remain follow-up work. Operators review acquisition conditions before enabling sources under [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md).
@@ -69,7 +73,7 @@ Per-source concurrent-run exclusion, daily scheduling and capped retry/backoff r
 
 ## Operator storage API (#160 / #73)
 
-Use these read-only routes behind the deployment's existing private operator-access boundary. This does not add authentication, ingress, public sharing or write/retry operations. No database migration or additional configuration is needed for the work views; original retrieval uses the existing selected storage location and RustFS runtime configuration. All responses from these actions have `Cache-Control: no-store`.
+The transitional read-only routes below remain behind the deployment's existing private operator-access boundary. This does not add authentication, ingress, public sharing or write/retry operations. No database migration or additional configuration is needed for the work views; original retrieval uses the existing selected storage location and RustFS runtime configuration. All responses from these actions have `Cache-Control: no-store`.
 
 | Route | Response | Errors |
 | --- | --- | --- |
@@ -89,12 +93,16 @@ Known-original failures have this strict JSON shape:
 {"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
 ```
 
-The finite reason set is `not_found`, `integrity_error`, `original_unavailable`, `not_configured`, `invalid_configuration`, `destination_mismatch`, `unauthorized`, `timeout`, `transport_error`, `unavailable`, `invalid_reference`, `conflict` and `storage_error`. A missing RustFS object returns 503 with `not_found`; an unknown original ID returns 404 with `{"error":"not_found"}`. Corrupt bytes return 503 with `integrity_error`. Other unlisted/structured provider failures become `storage_error`, without returning provider bodies, credentials or destination URLs. Manual retry remains deferred. API behavior is independent of the deployment environment; release validation is tracked separately in #68.
+The finite reason set is `not_found`, `integrity_error`, `original_unavailable`, `not_configured`, `invalid_configuration`, `destination_mismatch`, `unauthorized`, `timeout`, `transport_error`, `unavailable`, `invalid_reference`, `conflict` and `storage_error`. A missing RustFS object returns 503 with `not_found`; an unknown original ID returns 404 with `{"error":"not_found"}`. Corrupt bytes return 503 with `integrity_error`. Other unlisted/structured provider failures become `storage_error`, without returning provider bodies, credentials or destination URLs. Manual retry will not be exposed; recovery is retired by ADR 0013. API behavior is independent of the deployment environment; release validation is tracked separately in #68.
 
 <details>
 <summary>日本語</summary>
 
 # 決算HTTP取得と運用者向け保存API
+
+## 復旧廃止への移行
+
+[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md)に従い保存復旧を廃止する。この文書は[#195](https://github.com/9renpoto/lens/issues/195)による削除待ちの既存コードを記述しており、置き換え後の契約ではない。以下の永続作業・取得先除外・読取専用`storage-work` endpointは移行中の機能であり、削除する。上限付き検証のために復旧を有効化したり手動再試行を予約したりしない。未完了作業のある取得先は現在も対象外であり、この文書変更で解除したり保存ペイロードを削除したりしない。依存する実装PRで、リリース前にこの参照資料を同期保存・失敗の契約へ揃える。
 
 `Lens.Earnings.HTTP.fetch/2`は[#71](https://github.com/9renpoto/lens/issues/71)の取得基盤。
 DB書込・識別確定・日次実行・抽出は行わない。[取得先登録](https://9renpoto.github.io/lens/)と[登録候補の収集処理](earnings-collector.md)は利用できる。収集側は取得先の有効状態を確認し、手動の1回の実行で共有の実行上限を適用する。巡回間隔と日次実行は後続作業に残る。運用者は [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md) に従い、取得先を有効にする前に取得条件を確認する。
@@ -155,7 +163,7 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 
 ## 運用者向け保存API（#160・#73）
 
-配備の既存の非公開運用者アクセス境界内で、これらの読取専用ルートを使う。認証・Ingress・外部共有・書込・再試行操作は追加しない。作業表示にDB migrationや追加設定は不要で、原本取得には既存の選択済み保存先とRustFS実行時設定を使う。これらのactionの全応答に`Cache-Control: no-store`を付ける。
+以下の移行中の読取専用ルートは、配備の既存の非公開運用者アクセス境界内に残る。認証・Ingress・外部共有・書込・再試行操作は追加しない。作業表示にDB migrationや追加設定は不要で、原本取得には既存の選択済み保存先とRustFS実行時設定を使う。これらのactionの全応答に`Cache-Control: no-store`を付ける。
 
 | ルート | 応答 | エラー |
 | --- | --- | --- |
@@ -175,6 +183,6 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 {"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
 ```
 
-理由の有限集合は`not_found`、`integrity_error`、`original_unavailable`、`not_configured`、`invalid_configuration`、`destination_mismatch`、`unauthorized`、`timeout`、`transport_error`、`unavailable`、`invalid_reference`、`conflict`、`storage_error`。RustFSオブジェクト欠落は503と`not_found`、未知の原本IDは404と`{"error":"not_found"}`を返す。破損は503と`integrity_error`。その他の未登録・構造化されたprovider障害は`storage_error`に変換し、provider本文・認証情報・保存URLを返さない。手動再試行は後続に残す。APIの挙動は配備環境から独立し、リリース検証は#68で別途追跡する。
+理由の有限集合は`not_found`、`integrity_error`、`original_unavailable`、`not_configured`、`invalid_configuration`、`destination_mismatch`、`unauthorized`、`timeout`、`transport_error`、`unavailable`、`invalid_reference`、`conflict`、`storage_error`。RustFSオブジェクト欠落は503と`not_found`、未知の原本IDは404と`{"error":"not_found"}`を返す。破損は503と`integrity_error`。その他の未登録・構造化されたprovider障害は`storage_error`に変換し、provider本文・認証情報・保存URLを返さない。手動再試行は公開せず、ADR 0013に従い復旧を廃止する。APIの挙動は配備環境から独立し、リリース検証は#68で別途追跡する。
 
 </details>

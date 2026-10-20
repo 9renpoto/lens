@@ -44,6 +44,8 @@ runtime secrets rather than committing their values.
 
 ## Earnings PDF storage
 
+[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md) retires interrupted-write recovery for bounded disposable-data validation. Runtime removal is pending #195; existing storage-work records are transitional. This decision does not change the original-preservation boundary or establish production restore guarantees.
+
 Registered-source earnings collection requires a provisioned RustFS bucket and
 the following settings:
 
@@ -141,6 +143,8 @@ CI成功後にイメージを公開する。バージョン準備とタグ作成
 | `POOL_SIZE` | 任意 | DB pool size。既定は`10`。 |
 
 ## 決算PDFの保存
+
+[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)に従い、上限付き・破棄可能データの検証では中断書き込みの復旧を廃止する。実行時機能の削除は#195待ちで、既存の保存作業記録は移行中のものとする。この判断で原本保持の境界は変わらず、本番復元の保証も確立しない。
 
 登録済み取得先の決算収集には、用意済みのRustFSバケットと次の設定が必要。
 
