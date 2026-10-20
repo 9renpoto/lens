@@ -1,6 +1,6 @@
 # Search API
 
-The existing choices and reasons are recorded in [ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md) and [ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). The v0.2 value check uses existing search and original-retrieval APIs in the [earnings-search procedure](reference/earnings-value-validation.md). Broader operator-access work remains in [#73](https://github.com/9renpoto/lens/issues/73); detailed deployment, failure and recovery verification is deferred under [#74](https://github.com/9renpoto/lens/issues/74).
+The existing choices and reasons are recorded in [ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md) and [ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). The v0.2 value check uses existing search and original-retrieval APIs in the [earnings-search procedure](reference/earnings-value-validation.md). Release boundaries are tracked in [#68](https://github.com/9renpoto/lens/issues/68), and broader assessment work is tracked separately in [#184](https://github.com/9renpoto/lens/issues/184). [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) defines the disposable-data boundary and when preservation requirements must be revisited; broader verification requires separately scoped work.
 
 Lens keeps canonical Documents in PostgreSQL. Its full-text vector, normalized
 search text, and GIN indexes are derived from each Document's title and
@@ -117,7 +117,7 @@ search completeness or Japanese morphological analysis. Feed matching is unchang
 <details>
 <summary>日本語</summary>
 
-既存方式と理由は[ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md)と[ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)に記載する。v0.2の価値検証では[決算検索の手順](reference/earnings-value-validation.md)に従い、既存の検索・原本取得APIを使う。広範な運用者アクセス作業は[#73](https://github.com/9renpoto/lens/issues/73)、詳細な配置・失敗・復旧検証は[#74](https://github.com/9renpoto/lens/issues/74)に後続作業として残す。
+既存方式と理由は[ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md)と[ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)に記載する。v0.2の価値検証では[決算検索の手順](reference/earnings-value-validation.md)に従い、既存の検索・原本取得APIを使う。リリース境界は[#68](https://github.com/9renpoto/lens/issues/68)、より広い判定フローは[#184](https://github.com/9renpoto/lens/issues/184)で別々に管理する。[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)は、破棄可能データの境界と保持要件を再検討する時点を定める。広範な検証は別途範囲を絞った作業として定義する。
 
 ## 決算本文の検索
 

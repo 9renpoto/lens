@@ -1,155 +1,190 @@
-# Production deployment
+# Container runtime contract
 
-This document defines the application contract for deploying Lens from a
-published container image. It is intended for an operator who manages a
-Kustomize environment. It does not prescribe a Kubernetes distribution,
-database service, ingress controller, TLS provider, secret manager, or image
-pull mechanism.
+Lens provides a Linux container image and an application runtime contract.
+This document describes the application interface without selecting an
+environment or orchestration tool. See
+[ADR 0012](adr/0012-document-only-the-application-runtime-contract.md).
 
-## Image version policy
+## Container image
 
-Production workloads must reference a released image tag in the form
-`vMAJOR.MINOR.PATCH`, such as `v0.1.0`. Release tags with pre-release or build
-metadata are not supported in v0.1. Do not deploy `latest` or a commit-specific
-`sha-...` tag. A release tag makes the deployed version explicit and lets tools
-such as Dependabot propose a reviewable update to the Kustomize image reference.
+Images are published to `ghcr.io/9renpoto/lens`. Use a released
+`vMAJOR.MINOR.PATCH` tag for production; release tags with prerelease or build
+metadata are unsupported. The release tag, `latest`, and its commit-specific
+`sha-...` tag come from the same build. Image publication follows successful
+CI; version preparation and tagging are described in the
+[release guide](releasing.md).
 
-Images are published to `ghcr.io/9renpoto/lens`. The repository's version bump
-workflow updates the application version and prepares a release PR. After that
-PR is merged, create the release tag manually on the merge commit. Pushing the
-tag starts CI, and the matching release-tagged image is published only after
-its tests pass.
-The release tag, `latest`, and its commit-specific `sha-...` tag are produced
-from the same image build. The `latest` tag therefore advances on successful
-pushes to `main` and on successful release tag publication; production
-deployments should continue to use the immutable release tag.
-Before creating a production workload, ensure the selected release tag exists
-and the deployment environment can pull it anonymously or with its configured
-registry credentials.
+The container runs as the unprivileged `lens` user, listens on
+`0.0.0.0:$PORT`, and needs no writable application filesystem volume.
 
-The GHCR package retains only the two newest tagged image versions. Untagged
-manifests are retained when they may be children of a kept multi-platform
-index, so cleanup cannot make a retained release unpullable. Keep the deployed
-release and its rollback candidate within the two-tag window. Operators who
-need a longer rollback history must provide it in their own image registry or
-backup process.
+## Required services
 
-## Create a release tag
+- PostgreSQL 18 stores canonical records and derived search data.
+- RustFS stores newly collected earnings PDFs. Existing PostgreSQL-backed
+  originals remain readable through their recorded storage location.
+- Configured feed and earnings sources must be reachable from the application.
+- The unauthenticated HTTP API requires a private access boundary.
 
-Run the version bump workflow and merge its release PR into `main`. Record the
-merge commit and the version written to `mix.exs`, then create an annotated tag
-on that exact commit:
-
-```sh
-git fetch origin main
-git tag --list 'v*.*.*'
-git tag -a v0.1.0 <merge-commit> -m "Release v0.1.0"
-git push origin v0.1.0
-```
-
-Replace `v0.1.0` and `<merge-commit>` with the values from the merged release
-PR. The tag must match `vMAJOR.MINOR.PATCH`; pre-release and build metadata are
-unsupported. The tag push runs the normal CI test job and publishes the release
-image only when the tests pass. Do not reuse an existing release tag.
-
-## Required infrastructure
-
-Lens requires the following services and capabilities:
-
-- A runtime that can run the Linux container image and expose its TCP port.
-- The latest PostgreSQL major version supported by the PostgreSQL project,
-  reachable from the application. PostgreSQL is the canonical store and
-  requires durable storage, backups, and a restore procedure. Lens currently
-  supports PostgreSQL 18.
-- Secret delivery for the database connection string and Phoenix secret key.
-- Network access from Lens to configured feed endpoints. This includes any
-  RSSHub instance used as a feed endpoint.
-- A way to restrict access to the HTTP API. Lens has no authentication or
-  authorization in v0.1.
-- Access to `ghcr.io` for image pulls when the image package is private.
-
-Choose how these capabilities are supplied in the target environment. For
-example, PostgreSQL may be an existing managed service or a stateful workload;
-TLS and API access may be provided by an ingress, reverse proxy, private
-network, or another appropriate boundary.
-
-Lens tracks the latest supported PostgreSQL major version. A future major
-version change requires a separately reviewed compatibility update. Minor image
-updates are pinned by digest and tracked by Dependabot.
+Persistent storage is required for records and originals designated for
+retention. The bounded validation procedure uses explicitly disposable
+development/test data under [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md).
 
 ## Application configuration
 
-Pass configuration as environment variables. Store secrets in the deployment
-environment's secret mechanism rather than in a Kustomize repository.
+Pass configuration through environment variables. Deliver credentials as
+runtime secrets rather than committing their values.
 
-| Variable | Required | Description |
+| Variable | Requirement | Description |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | PostgreSQL Ecto URL, for example `ecto://lens:PASSWORD@postgres.example/lens`. |
-| `SECRET_KEY_BASE` | Yes | Unique high-entropy Phoenix secret. Generate and store it as a secret. |
-| `PHX_HOST` | Yes | Public host name used when Lens generates URLs. |
-| `PORT` | No | HTTP listen port. Defaults to `4000`. |
-| `POOL_SIZE` | No | PostgreSQL connection-pool size. Defaults to `10`. Size it within the database connection budget. |
+| `DATABASE_URL` | Required | PostgreSQL Ecto URL, for example `ecto://lens:PASSWORD@postgres.example/lens`. |
+| `SECRET_KEY_BASE` | Required for the HTTP server | Unique high-entropy Phoenix secret. |
+| `PHX_HOST` | Set for the serving environment | Host used to generate URLs; defaults to `localhost`. |
+| `PORT` | Optional | HTTP listen port; defaults to `4000`. |
+| `POOL_SIZE` | Optional | Database pool size; defaults to `10`. |
 
-The container listens on `0.0.0.0:$PORT` and runs as the unprivileged `lens`
-user. It needs no writable application filesystem volume. Only PostgreSQL data
-requires persistent storage.
+## Earnings PDF storage
 
-Generate `SECRET_KEY_BASE` with a cryptographically secure random generator.
-Do not reuse the database password or a value from another service.
+Registered-source earnings collection requires a provisioned RustFS bucket and
+the following settings:
 
-## Deploy a release
+| Variable | Requirement | Description |
+| --- | --- | --- |
+| `LENS_RUSTFS_ENDPOINT` | Required for collection and RustFS-backed reads | RustFS HTTP(S) origin. HTTPS is required outside an isolated trusted network. |
+| `LENS_RUSTFS_BUCKET` | Required with endpoint | Bucket for retained originals. |
+| `LENS_RUSTFS_ACCESS_KEY_ID` | Required with endpoint | Access key delivered as a secret. |
+| `LENS_RUSTFS_SECRET_ACCESS_KEY` | Required with endpoint | Secret key delivered as a secret. |
+| `LENS_RUSTFS_REGION` | Optional | Defaults to `us-east-1`. |
+| `LENS_RUSTFS_TIMEOUT_MS` | Optional | Integer from 1 to 30000; defaults to 30000. |
 
-Configure the workload to use the released image tag, required environment
-variables, and a private Service or equivalent network endpoint. Before
-starting or updating the long-running application workload, run the release
-migration command once against the target database:
+If any RustFS variable is supplied, all four required values must be nonempty.
+Partial configuration or an invalid timeout fails startup; the storage client
+rejects other invalid configuration before collection. With no RustFS
+configuration, the collector returns `{:error, :not_configured}` before
+publisher requests.
+
+PostgreSQL retains identity, acquisition history, storage-work records, and
+extraction/search data. RustFS retains new PDF bytes. Reads verify size and
+SHA-256 and do not silently fall back to another backend or refetch the
+publisher. A database dump does not contain RustFS-backed PDF bytes;
+preservation requirements are defined in [ADR 0005](adr/0005-store-pdfs-in-rustfs.md).
+
+
+Earnings collection is invoked manually; the feed scheduler does not schedule
+it. Follow the [bounded validation procedure](reference/earnings-value-validation.md).
+
+## Application commands and health
+
+Apply outstanding migrations before starting the application, using the same
+image and `DATABASE_URL`:
 
 ```sh
 /app/bin/lens eval 'Lens.Release.migrate()'
+/app/bin/lens start
 ```
 
-Run it as a deployment Job, hook, or equivalent one-shot workload using the
-same image and `DATABASE_URL` as the application. The migration command is
-safe to rerun; it applies outstanding Ecto migrations only. Do not run multiple
-migration workloads concurrently for the same database.
+Run these as separate commands: let migration finish before starting the
+long-running process. Migration applies outstanding Ecto migrations only and
+is safe to rerun. Do not run concurrent migrations against the same database.
+Use one active application process because each process owns its feed scheduler.
+Migrations are forward-only; changing the application image does not undo a
+database migration.
 
-After the migration succeeds, roll out the application workload. A single
-replica is the v0.1 deployment model. Lens owns its source scheduler, so a
-second active replica would duplicate polling work.
-
-Use these HTTP endpoints for probes:
-
-| Endpoint | Purpose |
+| Endpoint | Meaning |
 | --- | --- |
-| `GET /api/health` | Process liveness. Returns `200` when the web process is running. |
-| `GET /api/ready` | Readiness. Returns `200` only when PostgreSQL accepts a query; otherwise it returns `503`. |
+| `GET /api/health` | Process liveness; returns `200` while the web process runs. |
+| `GET /api/ready` | Returns `200` when PostgreSQL accepts a query; otherwise `503`. It does not check RustFS or publisher availability. |
 
-Expose the API only through an access boundary that is appropriate for a
-single-user, unauthenticated application. Do not publish it directly to an
-untrusted network.
+See [source operations](operations.md) and [search](search.md) for application
+usage.
 
-## Update and rollback
+<details>
+<summary>日本語</summary>
 
-Update the Kustomize image reference to the next release tag and review the
-resulting change. Run migrations before rolling out that image, then verify
-`/api/ready` and the workload logs.
+# コンテナ実行契約
 
-To roll back the application, restore the previous release tag while it remains
-available. Database migrations are forward-only in v0.1, so confirm migration
-compatibility before treating an image rollback as a full database rollback.
-Back up PostgreSQL before upgrades and restore from that backup when a database
-rollback is required.
+LensはLinuxコンテナイメージとアプリの実行契約を提供する。
+この文書は環境や配置ツールを指定せず、アプリのinterfaceを記載する。
+[ADR 0012](adr/0012-document-only-the-application-runtime-contract.md)を参照する。
 
-## Operational checks
+## コンテナイメージ
 
-After deployment, confirm all of the following:
+イメージは`ghcr.io/9renpoto/lens`に公開する。本番にはリリース済みの
+`vMAJOR.MINOR.PATCH`タグを使い、prerelease・build metadata付きタグは対象外とする。
+リリースタグ・`latest`・コミット固有の`sha-...`タグは同じbuildから作る。
+CI成功後にイメージを公開する。バージョン準備とタグ作成は[リリース手順](releasing.md)を参照する。
 
-- The selected release tag is recorded in the deployed Kustomize configuration.
-- The migration workload completed successfully.
-- `/api/health` and `/api/ready` return `200` through the intended network path.
-- PostgreSQL backups and restore instructions are available to the operator.
-- Application logs show scheduled ingestion attempts after sources are
-  configured.
+コンテナは非特権の`lens`ユーザーで動作し、`0.0.0.0:$PORT`で待ち受ける。
+書込可能なアプリ用filesystem volumeは必要ない。
 
-For source management, search behavior, and rebuilding derived search data,
-see [operations](operations.md) and the [search API](search.md).
+## 必要なサービス
+
+- PostgreSQL 18は正となる記録と検索用データを保存する。
+- RustFSは新たに収集する決算PDFを保存する。既存のPostgreSQL保存原本は
+  記録された保存場所を通じて読み取れる。
+- 設定したフィード・決算取得先へアプリから接続できる必要がある。
+- 認証を持たないHTTP APIには非公開のアクセス境界が必要。
+
+保持対象とした記録・原本には永続保存が必要。
+上限付き検証では[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)に従い、
+明示的に破棄可能な開発・テストデータを使う。
+
+## アプリ設定
+
+設定は環境変数で渡す。認証情報は値をコミットせず、実行時のsecretとして渡す。
+
+| 変数 | 要件 | 説明 |
+| --- | --- | --- |
+| `DATABASE_URL` | 必須 | PostgreSQL Ecto URL。例：`ecto://lens:PASSWORD@postgres.example/lens`。 |
+| `SECRET_KEY_BASE` | HTTP serverに必須 | 固有で高エントロピーのPhoenix secret。 |
+| `PHX_HOST` | 提供環境に合わせて指定 | URL生成に使うhost。既定は`localhost`。 |
+| `PORT` | 任意 | HTTP待受port。既定は`4000`。 |
+| `POOL_SIZE` | 任意 | DB pool size。既定は`10`。 |
+
+## 決算PDFの保存
+
+登録済み取得先の決算収集には、用意済みのRustFSバケットと次の設定が必要。
+
+| 変数 | 要件 | 説明 |
+| --- | --- | --- |
+| `LENS_RUSTFS_ENDPOINT` | 収集・RustFS保存原本の読取に必要 | RustFSのHTTP(S) origin。隔離された信頼済みネットワーク外ではHTTPSを必須とする。 |
+| `LENS_RUSTFS_BUCKET` | endpointとともに必要 | 原本を保持するバケット。 |
+| `LENS_RUSTFS_ACCESS_KEY_ID` | endpointとともに必要 | secretで渡すアクセスキー。 |
+| `LENS_RUSTFS_SECRET_ACCESS_KEY` | endpointとともに必要 | secretで渡す秘密キー。 |
+| `LENS_RUSTFS_REGION` | 任意 | 既定は`us-east-1`。 |
+| `LENS_RUSTFS_TIMEOUT_MS` | 任意 | 1〜30000の整数。既定は30000。 |
+
+RustFS変数を一つでも渡す場合、必須の4変数すべてに空でない値が必要。
+不足設定・不正なtimeoutでは起動に失敗し、それ以外の不正設定は収集前に保存クライアントが拒否する。
+RustFS設定がなければ、Collectorは公開元への通信前に`{:error, :not_configured}`を返す。
+
+PostgreSQLは識別・取得履歴・保存作業記録・抽出／検索データを保持し、RustFSは新しいPDFバイト列を保持する。
+読取時にはサイズ・SHA-256を検証し、別backendへの暗黙のfallbackや公開元からの再取得は行わない。
+DB dumpはRustFS保存のPDFバイト列を含まない。
+保持要件は[ADR 0005](adr/0005-store-pdfs-in-rustfs.md)に定める。
+
+決算収集は手動で呼び出し、フィードのschedulerは定期実行しない。
+[上限付き検証手順](reference/earnings-value-validation.md)を参照する。
+
+## アプリのコマンドと稼働確認
+
+同じイメージと`DATABASE_URL`を使い、アプリ起動前に未適用migrationを適用する。
+
+```sh
+/app/bin/lens eval 'Lens.Release.migrate()'
+/app/bin/lens start
+```
+
+migrationの終了後に常駐プロセスを起動する、別々のコマンドとして実行する。
+migrationは未適用のEcto migrationだけを適用し、再実行できる。
+同じDBへ同時にmigrationを実行しない。
+各プロセスがフィードschedulerを持つため、有効なアプリプロセスは1つとする。
+migrationは前方適用のみで、アプリのイメージ変更ではDB migrationを元に戻せない。
+
+| Endpoint | 意味 |
+| --- | --- |
+| `GET /api/health` | web processの稼働中に`200`を返す。 |
+| `GET /api/ready` | PostgreSQLがqueryを受け付ければ`200`、それ以外は`503`。RustFSや公開元の可用性は確認しない。 |
+
+使い方は[取得先の操作](operations.md)と[検索](search.md)を参照する。
+
+</details>

@@ -16,7 +16,7 @@ Consider migration to another compatible storage service only when a need arises
 
 Keep original identity and acquisition/extraction history in PostgreSQL. Record verified physical copies in append-only `earnings_original_storage_locations` and select an active read location in `earnings_original_read_locations`. Rows without a selection continue to read from PostgreSQL. RustFS reads require the recorded endpoint and bucket to match the client, verify size and SHA-256, and surface failures without falling back to another backend. Storage completion leaves new RustFS-only originals with `bytes = NULL` and retains any existing PostgreSQL copy. Connecting collection to preparation remains #146.
 
-The current k3s deployment has no stored PDFs, as confirmed for this scope decision on 2026-10-10. Do not add PDF-copy batches, migration or rollback CLIs, PostgreSQL copy-back, durable rollback controls, or write fences for backend rollback. Reconsider backend migration only when a concrete need arises. PR #151 is withdrawn; the storage-location foundation from #150 remains.
+The inventory was empty when this scope decision was made on 2026-10-10. Do not add PDF-copy batches, migration or rollback CLIs, PostgreSQL copy-back, durable rollback controls, or write fences for backend rollback. Reconsider backend migration only when a concrete need arises. PR #151 is withdrawn; the storage-location foundation from #150 remains.
 
 Apply schema changes through forward Ecto migrations and the existing release migration hook. Preserve applied migrations; a follow-up migration removes the rollback control table and restores strict original immutability, including rejection of `NULL`-to-bytes updates. This cleanup migration is forward-only. Stop application writers before applying it; this is not a rolling deployment procedure. Recover from deployment problems using coordinated PostgreSQL and RustFS backups, rather than copying RustFS originals into PostgreSQL. For the currently empty deployment, recreating the database is acceptable; this does not authorize discarding future stored data. Coordinated restore implementation and verification remain #147. This decision does not claim deployment or restore completion.
 
@@ -45,7 +45,7 @@ Writes use signed S3 requests with `If-None-Match: *`, never a check followed by
 
 Leave all variables unset to keep storage unconfigured. Partial configuration or an invalid timeout fails runtime configuration without printing secret values; the constructor validates the origin, bucket and credentials before requests. Provision the bucket separately and grant the application only object read/write access in the originals prefix. The client does not create buckets, delete objects or supply production credentials.
 
-CI runs `mix run --no-start test/system/rustfs_storage_check.exs` against RustFS `1.0.1` pinned to image digest `sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`. It creates disposable test buckets using test-only credentials, proves simultaneous conditional creates preserve one winner, and checks reuse, changed contents, corrupt/missing objects and the size boundary. Run this script only against an isolated test service; it intentionally seeds corrupt objects and leaves evidence in its test buckets. Revalidate conditional creation before changing the RustFS version. This evidence establishes the client foundation, not local k3s deployment, coordinated restore (#147).
+CI runs `mix run --no-start test/system/rustfs_storage_check.exs` against RustFS `1.0.1` pinned to image digest `sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`. It creates disposable test buckets using test-only credentials, proves simultaneous conditional creates preserve one winner, and checks reuse, changed contents, corrupt/missing objects and the size boundary. Run this script only against an isolated test service; it intentionally seeds corrupt objects and leaves evidence in its test buckets. Revalidate conditional creation before changing the RustFS version. This evidence establishes the client foundation, not deployment-specific operation or coordinated restore.
 
 <details>
 <summary>日本語</summary>
@@ -64,7 +64,7 @@ PDFをPostgreSQLに残せば、別のサービスを運用せずファイルと�
 
 原本の識別情報と取得・抽出の履歴はPostgreSQLに残す。検証済みの物理コピーは追記専用の`earnings_original_storage_locations`に記録し、`earnings_original_read_locations`で有効な読取先を選ぶ。選択記録がない行は引き続きPostgreSQLから読む。RustFSの読取では記録済みendpoint・bucketとクライアントの一致を確認し、サイズ・SHA-256を検証する。失敗時は別バックエンドへフォールバックせずエラーを返す。保存完了時、新規RustFS専用原本の`bytes`は`NULL`とし、既存PostgreSQLコピーがあれば保持する。収集処理を準備処理へ接続する作業は#146で扱う。
 
-今回の範囲判断にあたり、2026-10-10時点のk3s配備には保存済みPDFがないことを確認した。PDFコピーのバッチ、移行・逆移行CLI、PostgreSQLへのコピー戻し、逆移行状態の永続管理、バックエンド逆移行の書込フェンスは追加しない。保存先移行は具体的な必要が生じた時点で再検討する。PR #151は取り下げ、#150の保存先記録基盤は維持する。
+2026-10-10の範囲判断時点では、保存済みPDFがないことを確認した。PDFコピーのバッチ、移行・逆移行CLI、PostgreSQLへのコピー戻し、逆移行状態の永続管理、バックエンド逆移行の書込フェンスは追加しない。保存先移行は具体的な必要が生じた時点で再検討する。PR #151は取り下げ、#150の保存先記録基盤は維持する。
 
 スキーマ変更は前方Ecto migrationと既存のリリースmigration hookで適用する。適用済みmigrationは保持し、追加migrationで逆移行制御テーブルを削除し、`NULL`からバイト列への更新も拒否する厳密な原本不変性を復元する。この整理migrationは前方適用のみとする。適用前にアプリのwriterを停止し、ローリング配備手順としては扱わない。配備問題からの復旧はRustFS原本をPostgreSQLへコピーする方式ではなく、PostgreSQLとRustFSを揃えたバックアップ復元とする。現在の空の配備ではDB再作成を許容するが、今後保存するデータの破棄を許可するものではない。両保存先を揃えた復元の実装・検証は#147で扱う。この判断は配備・復元の完了を意味しない。
 
@@ -93,6 +93,6 @@ PDFをPostgreSQLに残せば、別のサービスを運用せずファイルと�
 
 全変数が未設定なら保存を未設定に保つ。不完全な設定・不正タイムアウトは秘密の値を表示せず実行時設定を失敗させる。接続先・バケット・認証情報はコンストラクターがリクエスト前に検証する。バケットは別途用意し、アプリには原本プレフィックス内のオブジェクト読取・書込権限のみを与える。クライアントはバケット作成・オブジェクト削除・本番認証情報の提供を行わない。
 
-CIでは`mix run --no-start test/system/rustfs_storage_check.exs`を、イメージダイジェスト`sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`で固定したRustFS `1.0.1`に対して実行する。テスト専用認証情報で使い捨てバケットを作り、同時条件付き作成で成功した1件が維持されること、再利用・内容変更・破損と欠落・サイズ境界を検証する。このスクリプトは隔離したテストサービスでのみ実行する。意図的に破損オブジェクトを作り、テストバケットに検証結果を残す。RustFSのバージョン変更前には条件付き作成を再検証する。この証跡はクライアント基盤の確認であり、ローカルk3s配置・両保存先の復元（#147）の完了ではない。
+CIでは`mix run --no-start test/system/rustfs_storage_check.exs`を、イメージダイジェスト`sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`で固定したRustFS `1.0.1`に対して実行する。テスト専用認証情報で使い捨てバケットを作り、同時条件付き作成で成功した1件が維持されること、再利用・内容変更・破損と欠落・サイズ境界を検証する。このスクリプトは隔離したテストサービスでのみ実行する。意図的に破損オブジェクトを作り、テストバケットに検証結果を残す。RustFSのバージョン変更前には条件付き作成を再検証する。この証跡はクライアント基盤の確認であり、配備環境固有の運用・両保存先の復元の完了ではない。
 
 </details>

@@ -1,30 +1,30 @@
 # Documentation
 
-Use ADRs for decisions and their reasons, GitHub issues for current implementation work, and operational references for implemented behavior. Follow the [ADR maintenance policy](adr/README.md). Planning documents are deprecated and temporary planning material must be removed before the v0.2 tag. Historical execution plans, measurement reports and duplicate issue-body copies have been removed.
+Use GitHub issues to define planned work and ADRs to record and agree on current design decisions before implementation. Creating standalone planning documents, roadmaps, and execution plans is discouraged. Keep implemented procedures in operational/reference guides. Follow [ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md) and the [ADR maintenance policy](adr/README.md).
 
 - Decisions: [original retention](adr/0004-retain-earnings-pdfs-for-reprocessing.md), [RustFS](adr/0005-store-pdfs-in-rustfs.md), [recovery](adr/0006-record-file-storage-work-before-writing.md), [registration API](adr/0007-register-pilot-sources-through-an-interface.md).
 - Existing implementation decisions: [PDF runner](adr/0003-bound-pdf-runner-replacement.md), [Japanese search](adr/0008-use-postgresql-for-japanese-substring-search.md), [large text](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). ADRs 0001–0002 are superseded history.
-- Current implementation work: [release tracker #68](https://github.com/9renpoto/lens/issues/68), including ADR 0007 tasks #124–#131; #129–#131 are deferred beyond the v0.2 value-validation checkpoint. Unfinished storage, interrupted-write recovery, migration and integration work is tracked in [#138](https://github.com/9renpoto/lens/issues/138); documentation consolidation is tracked in [#139](https://github.com/9renpoto/lens/issues/139). These follow-ups do not change the release scope.
-- Operations: [deployment](deployment.md), [backup and recovery](operations.md), [ingestion](ingestion.md), [PDF extraction](earnings-extraction.md), [search](search.md).
+- Development: [setup and checks](development.md). Planned work and release boundaries: [GitHub issues](https://github.com/9renpoto/lens/issues).
+- Operations: [container runtime contract](deployment.md), [release publication](releasing.md), [local application operations](operations.md), [ingestion](ingestion.md), [PDF extraction](earnings-extraction.md), [search](search.md).
 - Product direction for review: [value and discovery](explanation/product-value.md), a maintained Why/What explanation distinct from the current release scope and implemented behavior.
 - Reference: [API](api.md), [pipeline](reference/earnings-pipeline.md), [candidate collection](reference/earnings-collector.md), [earnings-search value-validation procedure](reference/earnings-value-validation.md), [HTTP transport](reference/earnings-http.md), [HTTP history](reference/earnings-http-history.md), [assessment records](reference/earnings-assessments.md), [run budgets](reference/earnings-run-budget.md), [glossary](../CONTEXT.md).
 
-The implementation currently stores PDF bytes in PostgreSQL. Source registration is implemented; its API contract is in the generated OpenAPI, and its decisions and migration/compatibility contract are in ADR 0007. RustFS remains an accepted direction awaiting implementation; its ADR is not a claim of operational availability. Local k3s Lens is the agreed deployment-verification environment.
+The registered-source collector stores new PDF bytes in RustFS and retains identity, acquisition history, storage-work records, and extraction/search data in PostgreSQL. Existing PostgreSQL-backed originals remain readable through their recorded storage location. Source registration, bounded collection, extraction, and exact-original retrieval are implemented; use the references above for their contracts. The v0.2 pilot uses disposable development/test data under [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md); it does not establish production backup/restore guarantees.
 
 <details>
 <summary>日本語</summary>
 
 # ドキュメント
 
-判断と理由はADR、現在の実装作業はGitHub Issue、実装済みの挙動は操作・参照資料に記載する。[ADR管理方針](adr/README.md)に従う。Planning文書は非推奨とし、一時的な計画資料はv0.2タグ前に削除する。過去の実行プラン・測定報告・Issue本文の重複コピーは削除した。
+実装前にGitHub Issueで予定する作業を定義し、ADRへ現在の設計判断を記録して合意する。独立した計画文書・ロードマップ・実行計画の作成は非推奨とする。実装済み手順は操作・参照資料へ維持する。[ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md)と[ADR管理方針](adr/README.md)に従う。
 
 - 判断：[原本保持](adr/0004-retain-earnings-pdfs-for-reprocessing.md)、[RustFS](adr/0005-store-pdfs-in-rustfs.md)、[復旧](adr/0006-record-file-storage-work-before-writing.md)、[登録API](adr/0007-register-pilot-sources-through-an-interface.md)。
 - 既存実装の判断：[PDFランナー](adr/0003-bound-pdf-runner-replacement.md)、[日本語検索](adr/0008-use-postgresql-for-japanese-substring-search.md)、[大きな本文](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)。ADR 0001〜0002は引継ぎ済みの履歴。
-- 現在の実装作業：[リリース管理#68](https://github.com/9renpoto/lens/issues/68)。ADR 0007のタスク#124〜#131を含み、#129〜#131はv0.2の価値検証区切りより後へ延期する。保存・中断書込の復旧・移行・接続の未完了作業は[#138](https://github.com/9renpoto/lens/issues/138)、文書の集約は[#139](https://github.com/9renpoto/lens/issues/139)で追跡する。これらの後続作業はリリース範囲を変更しない。
-- 操作：[配置](deployment.md)、[バックアップ・復旧](operations.md)、[取り込み](ingestion.md)、[PDF抽出](earnings-extraction.md)、[検索](search.md)。
+- 開発：[セットアップと検証](development.md)。予定する作業とリリース境界：[GitHub Issue](https://github.com/9renpoto/lens/issues)。
+- 操作：[コンテナ実行契約](deployment.md)、[リリース公開](releasing.md)、[ローカルのアプリ操作](operations.md)、[取り込み](ingestion.md)、[PDF抽出](earnings-extraction.md)、[検索](search.md)。
 - レビュー対象のプロダクト方向性：[価値と発見](explanation/product-value.md)。現行リリースの範囲や実装済みの挙動と区別し、Why/Whatを継続して説明する。
 - 参照：[API](api.md)、[処理基盤](reference/earnings-pipeline.md)、[候補収集](reference/earnings-collector.md)、[決算検索の価値検証手順](reference/earnings-value-validation.md)、[HTTP取得](reference/earnings-http.md)、[HTTP履歴](reference/earnings-http-history.md)、[判定記録](reference/earnings-assessments.md)、[実行予算](reference/earnings-run-budget.md)、[用語集](../CONTEXT.md)。
 
-現在の実装はPDFバイト列をPostgreSQLへ保存する。取得先登録は実装済みで、API契約は生成OpenAPI、判断と移行・互換性の契約はADR 0007に記載する。RustFSは合意した方針だが実装待ちであり、そのADRは利用可能という主張ではない。実環境の検証にはローカルk3s上のLensを使う。
+登録済み取得先のCollectorは新しいPDFバイト列をRustFSへ保存し、識別・取得履歴・保存作業記録・抽出／検索データをPostgreSQLへ保持する。既存のPostgreSQL保存原本も、記録された保存場所を通じて読み取れる。取得先登録・上限付き収集・抽出・正確な原本取得は実装済みであり、契約は上記の参照資料に記載する。v0.2のパイロットは[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)に従う破棄可能な開発・テストデータを使い、本番バックアップ／復元の保証を確立するものではない。
 
 </details>

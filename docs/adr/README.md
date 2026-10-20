@@ -2,9 +2,9 @@
 
 Keep agreed architectural decisions and their rationale in `docs/adr/`. Track implementation tasks, priorities, dependencies and progress in GitHub issues. An accepted ADR records agreement; it does not establish implemented behavior or completed verification. Use diagrams when they clarify responsibilities or information flow.
 
-Planning documents are deprecated. Do not add new planning documents or make ADRs depend on temporary planning files. The temporary v0.2 task summary has been removed after moving implementation tracking to GitHub issues. Necessary decisions remain in ADRs and operational or compatibility contracts in maintained documentation.
+Creating standalone planning documents, roadmaps, and execution plans is discouraged. Define scoped work in GitHub issues, record and agree on relevant design decisions in ADRs, and then begin implementation. Reference existing accepted decisions where applicable. See [ADR 0011](0011-plan-work-through-issues-and-adrs.md).
 
-Before tagging v0.2, check for other temporary planning files and incoming links. Preserve any necessary content in its authoritative location before removal. Do not reintroduce duplicate issue-body copies. GitHub issues are authoritative for current implementation work: ADR 0007 links its tasks directly, and [#138](https://github.com/9renpoto/lens/issues/138) preserves storage/recovery/migration follow-up work. Documentation consolidation is tracked in [#139](https://github.com/9renpoto/lens/issues/139).
+GitHub issues are authoritative for release boundaries, tasks, dependencies, and completion evidence. ADRs describe current decisions and rationale in the present tense; do not duplicate issue checklists or delivery status. Move lasting information from existing plans into issues, ADRs, and maintained guides before deleting completed plans and their incoming links. Migrate active plans to issues and ADRs rather than extending a separate planning system.
 
 Write English as the primary text and matching Japanese in a closed-by-default details block. Keep stable ADR numbers; extend an accepted record when clarifying the same decision, and record a replacement explicitly when the decision changes.
 
@@ -15,9 +15,9 @@ Write English as the primary text and matching Japanese in a closed-by-default d
 
 合意した設計判断と理由は`docs/adr/`に残す。実装タスク・優先順位・依存関係・進捗はGitHub Issueで管理する。承認済みADRは合意を記録するものであり、実装や検証の完了を示さない。責務や情報の流れが明確になる場合は図を使う。
 
-Planning文書の利用は非推奨とする。新しいPlanning文書を追加せず、ADRを一時的なPlanningファイルに依存させない。一時的なv0.2タスク要約は、実装の追跡をGitHub Issueへ移した後に削除した。必要な判断はADR、運用・互換契約は維持する文書に残す。
+独立した計画文書・ロードマップ・実行計画の作成は非推奨とする。範囲を定めたGitHub Issueを作成し、必要な設計判断をADRへ記録・合意してから実装を始める。既存の承認済み判断が該当する場合は参照する。[ADR 0011](0011-plan-work-through-issues-and-adrs.md)を参照する。
 
-v0.2タグ作成前に、ほかの一時的なPlanningファイルと参照リンクを確認する。削除前に、必要な内容を正となる管理先へ保持する。Issue本文の重複コピーを再導入しない。現在の実装作業はGitHub Issueを正とし、ADR 0007はタスクを直接参照する。[#138](https://github.com/9renpoto/lens/issues/138)は保存・復旧・移行の後続作業を保持する。文書の集約は[#139](https://github.com/9renpoto/lens/issues/139)で追跡する。
+リリース境界・タスク・依存関係・完了証跡はGitHub Issueを正とする。ADRは現在の判断と理由を現在形で記録し、Issueのチェックリストや進捗を重複させない。既存planの継続して必要な情報をIssue・ADR・維持するガイドへ残してから、完了したplanと参照リンクを削除する。作業中のplanも独立した計画管理として拡張せず、IssueとADRへ移す。
 
 英語を本文とし、対応する日本語訳は初期状態で閉じたdetailsブロックに記載する。ADR番号を維持し、同じ判断の明確化では既存の承認済み記録を拡張する。判断自体を変更する場合は置き換えを明示する。
 

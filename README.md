@@ -2,159 +2,181 @@
 
 ![coverage](https://9renpoto.github.io/lens/coverage.svg)
 
-Lens is a self-hosted, single-user Personal Web Observatory. It accumulates
-useful information over time through a simple flow:
+A self-hosted, single-user Personal Web Observatory.
 
-```text
-Collect → Preserve → Search → Discover
-```
+Lens collects feeds and operator-selected earnings PDFs, preserves provenance,
+and provides a JSON API for searching retained information and retrieving
+original PDFs. It runs as one Elixir/OTP application with Phoenix, PostgreSQL,
+and RustFS for newly collected earnings PDFs.
 
-Version 0.1 concentrates on the first three steps: scheduled RSS 2.0, Atom,
-and RDF/RSS 1.0 feed collection (including output from an existing RSSHub
-endpoint), normalization to canonical plain text, PostgreSQL persistence, and
-PostgreSQL full-text search through a JSON API.
+<details>
+<summary>日本語</summary>
 
-Lens is independent from the experimental offline-first RSS reader. A future
-integration, if useful, will use a loose API boundary rather than a shared
-application model.
+セルフホストで使う、個人向けのWeb観測基盤。
 
-## Status
+Lensはフィードと運用者が選んだ決算PDFを収集し、出典を保持する。
+保存情報の検索と原本PDFの取得をJSON APIから利用できる。
+Elixir/OTP・Phoenix・PostgreSQLを使用し、新たに収集する決算PDFはRustFSに保存する。
 
-The project is under active initial development. The v0.1 plan is tracked in
-[GitHub milestone v0.1](https://github.com/9renpoto/lens/milestone/1).
+</details>
 
-It intentionally excludes LLMs, embeddings, vector databases, external search
-engines, browser automation, custom web crawling, multi-tenancy, and
-distributed deployment. Proactive discovery and recommendations are future
-experiments, not v0.1 requirements.
+## Table of Contents
 
-## Architecture
+- [Install](#install)
+- [Usage](#usage)
+- [Documentation](#documentation)
+- [API](#api)
+- [Maintainers](#maintainers)
+- [Contributing](#contributing)
+- [License](#license)
 
-Lens runs as one Elixir/OTP application with Phoenix as its JSON API layer and
-PostgreSQL as its canonical datastore. The application owns source scheduling;
-RSSHub is only a replaceable feed acquisition endpoint.
+<details>
+<summary>日本語</summary>
 
-Canonical data consists of Sources, Documents, and Observations. PostgreSQL
-full-text vectors are derived data and can be rebuilt without fetching sources
-again. The initial content representation is meaningful plain text with
-paragraph breaks, not raw HTML or a complex content AST.
+目次：
 
-## Development setup
+- [導入](#install)
+- [利用方法](#usage)
+- [文書](#documentation)
+- [API](#api)
+- [メンテナー](#maintainers)
+- [貢献](#contributing)
+- [ライセンス](#license)
 
-Requirements: Elixir 1.18 / Erlang-OTP 27 and the latest supported PostgreSQL
-major version (currently PostgreSQL 18). For the initial development
-environment, install PostgreSQL with Homebrew:
+</details>
 
-```sh
-brew install postgresql@18
-brew services start postgresql@18
-```
+## Install
 
-Lens supports the latest PostgreSQL major version supported by the PostgreSQL
-project. Compose and CI use a fixed current minor release and digest for
-reproducibility; Dependabot tracks Docker image updates. A new PostgreSQL major
-version requires a separately reviewed compatibility update.
+### Dependencies
 
-Install dependencies and create the development database:
+Requires Elixir 1.18 / Erlang-OTP 27 and PostgreSQL 18. From a checkout:
 
 ```sh
 mix setup
 ```
 
-Local Git hooks are optional; CI runs `actionlint`,
-`mix format --check-formatted`, and retention tests independently of hk.
-To enable local hooks, install hk 2.7.1 and run
-`hk install --mise` (or `hk install` without mise). Run them manually with
-`hk run pre-commit --all`. The project configuration adds `actionlint`,
-`mix-format`, and `retention-tests`, requiring `actionlint`, Elixir/Erlang,
-and Node.js on `PATH`.
+See [development setup](docs/development.md) for prerequisites and local
+configuration, or [runtime contract](docs/deployment.md) for container configuration and commands.
 
 <details>
 <summary>日本語</summary>
 
-ローカルの Git フックは任意です。CI は hk に依存せず `actionlint`、
-`mix format --check-formatted`、retention tests を実行します。
-ローカルで有効にする場合は hk 2.7.1 をインストールし、
-`hk install --mise`（mise を使わない場合は `hk install`）を実行してください。
-`hk run pre-commit --all` で手動実行できます。プロジェクト設定には
-`mix-format`、`retention-tests` を定義し、`PATH` 上に
-Elixir/Erlang、Node.js が必要です。
+Elixir 1.18 / Erlang-OTP 27とPostgreSQL 18が必要。
+チェックアウトしたリポジトリで`mix setup`を実行する。
+前提ソフトウェアとローカル設定は[開発手順](docs/development.md)、
+コンテナの設定とコマンドは[実行契約](docs/deployment.md)を参照する。
 
 </details>
 
-Start the API:
+## Usage
+
+Start the local API and check readiness:
 
 ```sh
 mix phx.server
 ```
 
-The initial health endpoint is available at `GET /api/health`.
-
-Run the checks used by CI:
-
 ```sh
-mix format --check-formatted
-mix compile --warnings-as-errors
-mix test --warnings-as-errors
+curl --fail http://127.0.0.1:4000/api/ready
+curl --get http://127.0.0.1:4000/api/search --data-urlencode 'q=example'
 ```
 
-`POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `PORT`,
-and `POOL_SIZE` can override local defaults.
+Register feeds using the [source operations guide](docs/operations.md#configure-and-inspect-sources).
+For earnings PDFs, follow the [bounded collection and original-comparison guide](docs/reference/earnings-value-validation.md).
+Keep the unauthenticated API behind a private access boundary; report
+vulnerabilities according to the [security policy](SECURITY.md).
 
-## Operations
+### CLI
 
-See [production deployment](docs/deployment.md) for the Kustomize deployment
-contract and [single-node operations](docs/operations.md) for local Compose
-operation, backups, restores, and failure recovery. See the [search
-API](docs/search.md) for PostgreSQL FTS behavior, its current Japanese/CJK
-limitations, and search data rebuilds.
+```sh
+mix lens.ingest SOURCE_ID
+mix lens.earnings.extract --original ORIGINAL_ID
+mix lens.search.rebuild
+```
 
-The generated [API reference](docs/api.md) describes the HTTP JSON contract.
-
-## Next release planning
-
-The [documentation index](docs/README.md) links agreed ADRs and operational
-references. See the [ADR maintenance policy](docs/adr/README.md) and
-[domain glossary](CONTEXT.md) for decision management and shared terms.
-Planning documents are deprecated. Required content from the temporary v0.2 task
-summary is maintained in ADRs, operational references and GitHub issues; the
-summary has been removed. Check for other temporary planning files and their
-links before creating the v0.2 tag. Planned capabilities remain distinct from
-existing implementation behavior.
-
-Delivery is tracked in [milestone v0.2](https://github.com/9renpoto/lens/milestone/2)
-and [issue #68](https://github.com/9renpoto/lens/issues/68).
+Use an existing source or original ID. See [ingestion](docs/ingestion.md),
+[PDF extraction](docs/earnings-extraction.md), and [search](docs/search.md)
+for command behavior and limits.
 
 <details>
 <summary>日本語</summary>
 
-## 次のリリースの計画
+`mix phx.server`でローカルAPIを起動し、`GET /api/ready`で接続可能か確認する。
+`GET /api/search`の`q`に検索語を指定する。
+フィード登録は[取得先の運用手順](docs/operations.md#configure-and-inspect-sources)、
+決算PDFは[上限付き収集・原本照合手順](docs/reference/earnings-value-validation.md)を参照する。
+認証を持たないAPIは非公開のアクセス境界内で使い、脆弱性は[セキュリティ方針](SECURITY.md)に従って報告する。
 
-[文書一覧](docs/README.md)から合意したADR・操作資料を参照できます。判断の管理と共通の用語は[ADR管理方針](docs/adr/README.md)と[用語集](CONTEXT.md)を参照してください。Planning文書は非推奨とします。一時的なv0.2タスク要約の必要な内容はADR・操作資料・GitHub Issueへ移し、要約を削除しました。v0.2タグ作成前に、ほかの一時的なPlanningファイルと参照リンクがないか確認します。計画中の機能と既存実装の挙動を区別しています。
+CLIは既存の取得先ID・原本IDを指定して使う。
+`mix lens.ingest SOURCE_ID`はフィードを取得し、
+`mix lens.earnings.extract --original ORIGINAL_ID`は保持したPDFを抽出し、
+`mix lens.search.rebuild`は検索用データを再構築する。
+挙動と上限は[取り込み](docs/ingestion.md)・[PDF抽出](docs/earnings-extraction.md)・
+[検索](docs/search.md)を参照する。
 
-実施状況は[v0.2マイルストーン](https://github.com/9renpoto/lens/milestone/2)と[issue #68](https://github.com/9renpoto/lens/issues/68)で管理します。
+</details>
+
+## Documentation
+
+See the [documentation index](docs/README.md) for operational guides,
+product background, development direction, and architecture decisions.
+Shared terminology is defined in the [domain glossary](CONTEXT.md) and the
+[preservation glossary](GLOSSARY.md).
+
+<details>
+<summary>日本語</summary>
+
+操作手順、プロダクトの背景、開発の方向性、設計判断は[文書索引](docs/README.md)から参照する。
+共通の用語は[ドメイン用語集](CONTEXT.md)と[保持・復旧の用語集](GLOSSARY.md)に定義する。
+
+</details>
+
+## API
+
+The generated [API reference](docs/api.md) describes the HTTP contract.
+
+<details>
+<summary>日本語</summary>
+
+HTTP契約は生成した[API参照資料](docs/api.md)に記載する。
+
+</details>
+
+## Maintainers
+
+[@9renpoto](https://github.com/9renpoto)
+
+## Contributing
+
+Questions and bug reports belong in [GitHub issues](https://github.com/9renpoto/lens/issues).
+Pull requests are welcome. Follow [AGENTS.md](AGENTS.md) and the
+[development guide](docs/development.md): use regression tests for behavior
+changes, and write documentation and GitHub content in English with matching
+Japanese in closed details blocks.
+
+<details>
+<summary>日本語</summary>
+
+質問と不具合は[GitHub Issue](https://github.com/9renpoto/lens/issues)へ報告する。
+Pull Requestも受け付ける。[AGENTS.md](AGENTS.md)と[開発手順](docs/development.md)に従い、
+挙動変更には回帰テストを用意する。文書とGitHubの内容は英語を本文とし、
+対応する日本語訳を閉じたdetailsブロックに記載する。
 
 </details>
 
 ## License
 
-Lens is licensed under the [MIT License](LICENSE). This license applies to
-Lens code and its accompanying documentation; it does not grant rights to
-third-party materials collected by Lens. Those materials remain subject to
-their copyright holders' terms. Keep publisher copyright notices and review
-the applicable conditions before acquisition, even for personal,
-non-commercial use without redistribution. See the
-[earnings-search value-validation procedure](docs/reference/earnings-value-validation.md).
+[MIT](LICENSE) © 2026 9renpoto. This license covers Lens code and documentation.
+Collected third-party materials remain subject to their copyright holders'
+terms. Review publisher conditions before acquisition and preserve required
+copyright notices; see the [earnings validation guide](docs/reference/earnings-value-validation.md).
 
 <details>
 <summary>日本語</summary>
 
-## ライセンス
-
-Lens のコードと付属文書には [MIT License](LICENSE) が適用されます。
-このライセンスは、Lens が取得する第三者の資料の利用権を付与するものではありません。
-取得資料には各著作権者の利用条件が適用されます。個人・非商用・再配布なしの
-利用でも、発行元の著作権表示を保持し、取得前に適用される条件を確認してください。
-[決算検索の価値検証手順](docs/reference/earnings-value-validation.md)を参照してください。
+[MIT](LICENSE) © 2026 9renpoto。Lensのコードと文書に適用する。
+収集した第三者の資料には各著作権者の利用条件が適用される。
+取得前に発行元の条件を確認し、必要な著作権表示を保持する。
+[決算検証手順](docs/reference/earnings-value-validation.md)を参照する。
 
 </details>
