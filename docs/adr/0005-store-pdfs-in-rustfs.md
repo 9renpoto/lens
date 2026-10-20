@@ -4,7 +4,7 @@ status: accepted
 
 # Store PDFs in RustFS
 
-The interrupted-write recovery requirements and implementation notes below are superseded by [ADR 0013](0013-retire-interrupted-storage-recovery.md); retain them as historical context, not recovery instructions. RustFS storage, original integrity/immutability and the future production preservation boundary remain accepted. Runtime removal is pending #195; the collector reference describes the current transitional code.
+The interrupted-write recovery requirements and implementation notes below are superseded by [ADR 0013](0013-retire-interrupted-storage-recovery.md); retain them as historical context, not recovery instructions. RustFS storage, original integrity/immutability and the future production preservation boundary remain accepted.
 
 Use RustFS to store and retrieve earnings PDFs. Keep acquisition records, document identity and extracted text in PostgreSQL. The aim is to simplify Lens by delegating file storage to a dedicated service. Judge that simplification across the whole operation, including backup and recovery, rather than by Lens code size alone.
 
@@ -54,7 +54,7 @@ CI runs `mix run --no-start test/system/rustfs_storage_check.exs` against RustFS
 
 # PDFをRustFSに保存する
 
-以下の中断書き込み復旧要件と実装記録は[ADR 0013](0013-retire-interrupted-storage-recovery.md)へ引き継いだ。復旧手順ではなく過去の経緯として保持する。RustFS保存、原本の整合性・不変性、将来の本番保存の境界は引き続き承認済み。実行時機能の削除は#195待ちであり、移行中の現行コードはCollector参照資料に記載する。
+以下の中断書き込み復旧要件と実装記録は[ADR 0013](0013-retire-interrupted-storage-recovery.md)へ引き継いだ。復旧手順ではなく過去の経緯として保持する。RustFS保存、原本の整合性・不変性、将来の本番保存の境界は引き続き承認済み。
 
 決算短信PDFの保存・取得にはRustFSを使う。取得記録、資料の識別情報、読み取った文章はPostgreSQLに残す。ファイルの保存を専用サービスに任せ、Lensの処理を簡単にすることが目的。Lensのコード量だけでなく、バックアップ・復旧を含む運用全体の簡単さで評価する。
 
