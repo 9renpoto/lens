@@ -67,10 +67,10 @@ the fall or prescribing a trade is not the initial responsibility.
 
 ## Relationship to existing Lens
 
-The [README](../../README.md) describes a personal web observatory with the flow
-Collect → Preserve → Search → Discover. It already includes proactive discovery
-and recommendations as future experiments, outside v0.1. This direction makes
-the intended discovery value explicit rather than claiming that discovery is a
+Lens follows Collect → Preserve → Search → Discover. The [README](../../README.md)
+introduces the application and its usage; the [roadmap](../roadmap.md) describes
+release boundaries and future discovery experiments. This direction makes the
+intended discovery value explicit rather than claiming that discovery is a
 newly invented project goal.
 
 | Aspect | Existing definition or checkpoint | Proposed value emphasis |
@@ -184,10 +184,10 @@ Lensは情報を収集・集約し、何を検索するかを先に決めなく�
 
 ## 既存Lensとの関係
 
-[README](../../README.md)は、個人向けWeb観測基盤として
-Collect → Preserve → Search → Discoverを掲げる。能動的な発見や推薦も、v0.1外の
-将来の実験として既に含まれている。今回の方向性は、発見を新しい目標として発明した
-ものではなく、そこで届けたい価値を具体化するものである。
+LensはCollect → Preserve → Search → Discoverを掲げる。
+[README](../../README.md)はアプリと使い方の入口とし、[ロードマップ](../roadmap.md)に
+リリース境界と将来の発見の実験を記載する。今回の方向性は、発見を新しい目標として
+発明したものではなく、そこで届けたい価値を具体化するものである。
 
 | 観点 | 既存の定義・区切り | 今回重視する価値 |
 | --- | --- | --- |
