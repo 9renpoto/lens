@@ -51,6 +51,7 @@ test("workflow lint runs only for workflow and lint configuration changes", () =
     ".github/actions/custom/action.yml",
     ".github/zizmor.yml",
     ".github/actionlint.yaml",
+    ".github/actionlint-matcher.json",
   ]) {
     assert.deepEqual(classifyChanges([path]), { ...none, actions: true }, path);
   }

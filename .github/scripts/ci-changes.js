@@ -32,6 +32,7 @@ function classifyChanges(paths) {
       (path) =>
         /^\.github\/(workflows|actions)\//.test(path) ||
         /^\.github\/(actionlint|zizmor)\.ya?ml$/.test(path) ||
+        path === ".github/actionlint-matcher.json" ||
         /^zizmor\.ya?ml$/.test(path),
     ),
   };

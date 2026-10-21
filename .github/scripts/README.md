@@ -26,6 +26,12 @@ PostgreSQL/RustFS services, native runner checks, formatting, compilation,
 integration tests, Dialyzer, coverage generation, and API documentation artifacts.
 Coverage reporting and publication stay in `ci.yml`.
 `lint-actions.yml` is a reusable workflow containing actionlint and zizmor.
+Actionlint runs directly from its digest-pinned official container. Its exit
+status gates CI, and the vendored official `.github/actionlint-matcher.json`
+publishes diagnostics as GitHub Actions annotations. The same whole-repository
+check runs for pushes, same-repository PRs, and fork PRs without a reviewdog
+reporter, a PR diff, or PR write permissions. Matcher changes also select workflow
+lint. Changing the container version requires checking its matcher compatibility.
 Tests wait for applicable workflow lint. `CI result` fails if a required job
 fails or is unexpectedly skipped; it succeeds for intentionally skipped jobs.
 Repository rules can require this stable check name.
@@ -100,6 +106,11 @@ PostgreSQL・RustFSサービス、ネイティブrunner検査、format・compile
 Dialyzer、coverage生成、API docsのartifact生成を実行する。
 coverageの報告と公開処理は `ci.yml` に置く。
 `lint-actions.yml` はactionlintとzizmorを含む再利用可能なworkflowである。
+Actionlintはdigestで固定した公式コンテナから直接実行する。終了状態でCIの成否を判定し、
+同梱した公式の `.github/actionlint-matcher.json` で診断をGitHub Actionsのannotationとして
+公開する。push・同一リポジトリPR・fork PRで同じリポジトリ全体の検査を実行し、
+reviewdogのreporter、PR差分、PR書込み権限には依存しない。Matcherの変更もworkflow lintを
+選択する。コンテナのバージョン変更時はmatcherとの互換性を確認する。
 テストは該当するworkflow lintの成功を待つ。`CI result` は必要なジョブの失敗や
 意図しない省略で失敗し、意図した省略では成功する。
 リポジトリのルールでは、この安定したチェック名を必須にできる。

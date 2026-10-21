@@ -51,9 +51,6 @@ jobs:
   lint-actions:
     needs: checks
     if: needs.checks.outputs.actions == 'true'
-    permissions:
-      contents: read
-      pull-requests: write
     uses: ./.github/workflows/lint-actions.yml # zizmor: ignore[self-repository] pinned actionlint does not yet parse GitHub's $/ syntax
 
   test:
