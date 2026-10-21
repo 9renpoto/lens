@@ -2,6 +2,14 @@ name: Dependency Review
 
 on:
   pull_request:
+    paths:
+      - mix.exs
+      - mix.lock
+      - .github/workflows/dependency-review.yml
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

@@ -8,10 +8,43 @@ permissions:
   contents: read
 
 jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      semver: ${{ steps.select.outputs.semver }}
+      previous-tag: ${{ steps.select.outputs.previous-tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read release categories
+        run: ruby -rjson -ryaml -e 'puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0))))' .github/release.yml > "$RUNNER_TEMP/release-config.json"
+      - name: Select the highest applicable version increment
+        id: select
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          RELEASE_CONFIG_PATH: ${{ runner.temp }}/release-config.json
+        with:
+          script: |
+            const { readFileSync } = require('node:fs');
+            const { selectReleaseBump } = require('./.github/scripts/select-release-bump.js');
+            const config = JSON.parse(readFileSync(process.env.RELEASE_CONFIG_PATH, 'utf8'));
+            const { semver, previousTag } = await selectReleaseBump({ github, context, config });
+            core.setOutput('semver', semver);
+            core.setOutput('previous-tag', previousTag);
+            core.info(semver ? `Selected ${semver} since ${previousTag}` : 'No included changes to release');
+
   scheduled_bump:
+    needs: select
+    if: needs.select.outputs.semver != ''
     permissions:
       contents: write
       pull-requests: write
     uses: ./.github/workflows/bump.yml # zizmor: ignore[self-repository] pinned actionlint does not yet parse GitHub's $/ syntax
     with:
-      semver: minor
+      semver: ${{ needs.select.outputs.semver }}
+      previous-tag: ${{ needs.select.outputs.previous-tag }}
