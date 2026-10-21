@@ -10,13 +10,14 @@ supported. See the [runtime contract](deployment.md) for running an image and
 Run the repository's version-bump workflow to prepare a release PR. After a
 maintainer merges that PR, record its merge commit and the version in `mix.exs`.
 Create an annotated tag on that exact commit, then push the tag. For example,
-replace `v0.2.0` and `RELEASE_COMMIT` with the prepared version and commit:
+set `RELEASE_TAG` and `RELEASE_COMMIT` to the prepared version and commit:
 
 ```sh
 git fetch origin main
 git tag --list 'v*.*.*'
-git tag -a v0.2.0 RELEASE_COMMIT -m "Release v0.2.0"
-git push origin v0.2.0
+: "${RELEASE_TAG:?Set the prepared release tag}" "${RELEASE_COMMIT:?Set the release merge commit}"
+git tag -a "$RELEASE_TAG" "$RELEASE_COMMIT" -m "Release $RELEASE_TAG"
+git push origin "$RELEASE_TAG"
 ```
 
 Do not reuse an existing release tag. A tag push runs CI; the matching image
@@ -43,14 +44,15 @@ LensはCIから`ghcr.io/9renpoto/lens`へコンテナイメージを公開する
 
 リポジトリのversion-bump workflowでリリースPRを準備する。
 メンテナーがそのPRをmergeした後、merge commitと`mix.exs`のversionを記録する。
-そのcommitに注釈付きタグを作成してpushする。次の例では`v0.2.0`と`RELEASE_COMMIT`を
-準備したversionとcommitへ置き換える。
+そのcommitに注釈付きタグを作成してpushする。次の例では`RELEASE_TAG`と`RELEASE_COMMIT`に
+準備したversionとcommitを設定する。
 
 ```sh
 git fetch origin main
 git tag --list 'v*.*.*'
-git tag -a v0.2.0 RELEASE_COMMIT -m "Release v0.2.0"
-git push origin v0.2.0
+: "${RELEASE_TAG:?Set the prepared release tag}" "${RELEASE_COMMIT:?Set the release merge commit}"
+git tag -a "$RELEASE_TAG" "$RELEASE_COMMIT" -m "Release $RELEASE_TAG"
+git push origin "$RELEASE_TAG"
 ```
 
 既存のリリースタグは再利用しない。タグpushでCIを実行し、テスト成功後だけ対応する

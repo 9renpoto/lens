@@ -1,7 +1,6 @@
 # Product value: discover changes through connected information
 
-Status: proposed product direction for review, based on the discussion on
-2026-10-17. This is a maintained explanation of why Lens exists and what value
+This is a maintained explanation of why Lens exists and what value
 it aims to provide, not an implementation plan or a claim of delivered capability.
 Its strengths and usefulness remain hypotheses to validate.
 
@@ -81,17 +80,23 @@ newly invented project goal.
 | Attention | Selected targets, sources, and search conditions | Interest-based priorities, extending into related areas |
 | Value evidence | Run the search/original comparison and discuss usefulness | Discover a connection the user had not made and wants to investigate |
 
-The [current v0.2 checkpoint](https://github.com/9renpoto/lens/issues/68) and its
-[validation procedure](../reference/earnings-value-validation.md) cover one
-issuer, bounded manual collection, search, and original comparison. That can
-test foundation usefulness but does not by itself establish the discovery value
-described here. This proposal does not change the checkpoint or claim it has run.
+Lens supports bounded manual collection, Japanese search, and exact-original
+comparison for one issuer through the [validation procedure](../reference/earnings-value-validation.md).
+These operations help inspect retained material; they do not by themselves
+establish the discovery value described here.
 
-[Saved-search monitoring #75](https://github.com/9renpoto/lens/issues/75) concerns
-new publications matching saved conditions, explicitly excluding financial
-comparison and automatic correction interpretation. Matching new material alone
-does not provide the proposed relationships and questions. Its scope remains
-unchanged pending a separate decision.
+The investigation-candidate publication design separates manual registration
+and local RSS publication from automatic discovery and downstream notification.
+[ADR 0014](../adr/0014-publish-manual-investigation-candidates-through-rss.md)
+records that responsibility boundary. The registration and outbound RSS routes
+are not implemented; [#185](https://github.com/9renpoto/lens/issues/185) and
+[#186](https://github.com/9renpoto/lens/issues/186) track the work and its
+verification. A consumer detecting an item demonstrates publication
+interoperability, not candidate usefulness or automatic discovery.
+
+Saved-search matching identifies material that meets retained search conditions.
+It does not by itself provide the relationships and investigation questions
+central to the product-value hypothesis.
 
 The existing directions for
 [preserved analytical evidence #50](https://github.com/9renpoto/lens/issues/50)
@@ -118,19 +123,19 @@ Review should assess whether:
 - Connecting information to personal interests is a credible strength beyond
   search, summaries, and saved-search alerts; differentiation is not yet proven.
 - The initial boundary between supported relationships and user judgment is clear.
-- The distinction between the existing release checkpoint and this proposed
-  product direction is explicit enough.
+- The distinction between implemented behavior, the publication design, and
+  the product-value hypothesis is explicit enough.
 
-Collection methods, analytical techniques, delivery format and frequency, UI,
-architecture, implementation tasks, and changes to release scope are deferred.
-This document selects no approach for those questions.
+Automatic collection methods, analytical techniques, delivery beyond the RSS
+publication boundary, notification frequency, and UI need separate decisions.
+This explanation selects no implementation for them; use release issues for
+scope and ADRs for the agreed architecture.
 
 <details>
 <summary>日本語</summary>
 
 # プロダクトの価値：情報のつながりから変化に気づく
 
-状態：2026-10-17の議論に基づく、レビュー対象のプロダクト方向性の提案。
 Lensがなぜ存在し、何を提供したいかを継続して説明する文書であり、実装計画や
 提供済み機能の主張ではない。強みと有用性は、今後検証する仮説である。
 
@@ -197,15 +202,19 @@ LensはCollect → Preserve → Search → Discoverを掲げる。
 | 注意の向け先 | 選んだ対象・情報源・検索条件 | 関心に沿った優先度と関連領域への広がり |
 | 価値の証拠 | 検索・原本照合を実行し有用性を議論する | 自分では結びつけられず、調べたいと思える関係への気づき |
 
-[現行v0.2の区切り](https://github.com/9renpoto/lens/issues/68)と
-[検証手順](../reference/earnings-value-validation.md)は、1社の上限付き手動収集、
-検索、原本照合を対象とする。基盤の有用性は確かめられるが、それだけでは今回の
-発見価値を証明しない。この提案は現行の区切りを変更せず、実行済みとも扱わない。
+Lensは[検証手順](../reference/earnings-value-validation.md)を通じて、1社の
+上限付き手動収集、日本語検索、正確な原本照合を提供する。保存資料を確かめるための
+操作であり、それだけでは今回の発見価値を証明しない。
 
-[保存検索の監視#75](https://github.com/9renpoto/lens/issues/75)は、保存条件に一致する
-新規公開を扱い、業績比較や訂正の自動解釈は明示的に除外している。
-新しい資料への一致だけでは、今回の関係や問いを提供できない。
-そのIssueの範囲は、別途判断するまで変更しない。
+調査候補の公開設計では、手動登録とローカルRSS公開を、自動的な発見や後続の通知配信から
+分離する。[ADR 0014](../adr/0014-publish-manual-investigation-candidates-through-rss.md)に
+その責務境界を記録する。登録とRSS出力のrouteは未実装であり、
+[#185](https://github.com/9renpoto/lens/issues/185)と
+[#186](https://github.com/9renpoto/lens/issues/186)で作業と検証を追跡する。
+購読側による項目の検出は公開の相互運用性を示すものであり、候補の有用性や自動的な発見は実証しない。
+
+保存検索への一致は、保持した検索条件を満たす資料を見つけるものである。
+それだけでは、プロダクト価値の仮説の中心である関係や調査の問いを提供できない。
 
 既存の[分析根拠の保持#50](https://github.com/9renpoto/lens/issues/50)と
 [一次根拠のレビュー#53](https://github.com/9renpoto/lens/issues/53)は根拠の確認を
@@ -229,9 +238,9 @@ LensはCollect → Preserve → Search → Discoverを掲げる。
 - 自分の関心に情報を結びつけることが、検索・要約・保存検索の通知を超える
   強みになり得るか。差別化はまだ実証されていない。
 - 初期の責任範囲として、根拠のある関係の提示と利用者の判断の境界が明確か。
-- 既存のリリース区切りと、今回提案する方向性の違いが十分明確か。
+- 実装済みの挙動、公開設計、プロダクト価値の仮説の違いが十分明確か。
 
-収集方法、分析手法、届け方・頻度、UI、構成、実装タスク、リリース範囲の変更は
-後の議論とする。この文書ではそれらのアプローチを選定しない。
+自動収集の方法、分析手法、RSS公開の境界を超える配信、通知頻度、UIは別途判断する。
+この説明文書ではそれらの実装を選定せず、範囲はリリースIssue、合意済みの構成はADRを参照する。
 
 </details>
