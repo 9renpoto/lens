@@ -1,4 +1,4 @@
-# CI automation
+# CI and release automation
 
 `ci.yml` runs on pull requests, pushes to `main`, and version-tag pushes.
 Other branch pushes do not start CI. New PR commits cancel older runs for that
@@ -37,13 +37,42 @@ is generated in the test job. Main Pages publication combines that artifact
 with the coverage badge, without recompiling the application. The unused Dialyzer
 cache-metadata lookup is omitted; this workflow does not restore or save PLTs.
 
+`bump-schedule.yml` compares the latest stable release to the scheduled main
+commit. `select-release-bump.js` collects the merged main PRs in that history,
+deduplicates them, and reads category labels and exclusions from
+`.github/release.yml`. Category titles define their version impact:
+
+| Release category title | Increment |
+| --- | --- |
+| `:boom: Type: Breaking Change` | major |
+| `:rocket: Type: Feature` | minor |
+| Any other matching category, including `Other Changes` | patch |
+
+The highest matching increment wins, even when a PR has several category labels.
+Global and category-specific exclusions apply. No included PRs means no bump.
+Missing semantic categories, missing stable releases, divergent history, and
+commits without a merged-main PR association stop the scheduled job instead of
+guessing. For a first release, use the manual `bump.yml` dispatch; it can use
+`mix.exs` as the version baseline. YAML is read with Ruby's standard library on
+`ubuntu-latest`; the selector and version increment need no npm packages or
+SemVer container. The selected baseline and scheduled commit also bound the
+release notes. Bump PRs remain drafts; a milestone need not already exist.
+
 Run the automation tests with `node --test .github/scripts/*.test.js` and check
 workflow definitions with `actionlint` and `zizmor .github/workflows`.
+
+`select-release-bump.js` provides JSDoc types such as `SemverIncrement`,
+`ReleaseConfig`, and `ReleaseGitHubClient`. Other files can reference them through
+`import("./select-release-bump.js").ReleaseConfig`. With TypeScript available, run:
+
+```sh
+tsc --noEmit --strict --allowJs --checkJs --target ES2022 --module node16 --moduleResolution node16 --lib ES2022 .github/scripts/select-release-bump.js
+```
 
 <details>
 <summary>日本語</summary>
 
-# CIの自動化
+# CIとリリースの自動化
 
 `ci.yml` はPR、`main` へのpush、バージョンタグのpushで実行する。
 他のブランチへのpushではCIを開始しない。PRに新しいコミットが追加されると、
@@ -82,7 +111,37 @@ API docsはテストジョブで生成し、mainのPages公開ではそのartifa
 組み合わせて、アプリの再コンパイルを避ける。
 未使用のDialyzerキャッシュのメタデータ照会は削除し、このworkflowではPLTを復元・保存しない。
 
+`bump-schedule.yml` は最新の安定リリースとスケジュール実行のmainコミットを比較する。
+`select-release-bump.js` はその履歴にあるマージ済みmainのPRを重複なく集め、
+`.github/release.yml` のカテゴリラベルと除外設定を使う。
+カテゴリのタイトルでバージョンへの影響を定める。
+
+| リリースカテゴリのタイトル | 変更種別 |
+| --- | --- |
+| `:boom: Type: Breaking Change` | major |
+| `:rocket: Type: Feature` | minor |
+| `Other Changes` を含むその他の一致するカテゴリ | patch |
+
+1つのPRに複数のカテゴリラベルがある場合も、最大の変更種別を採用する。
+全体とカテゴリ固有の除外設定を適用し、対象PRがなければbumpを省略する。
+判定用カテゴリ・安定リリースがない場合、履歴が分岐している場合、
+コミットとマージ済みmainのPRとの関連がない場合は、推測せずスケジュールジョブを失敗させる。
+初回リリースは `bump.yml` を手動実行し、`mix.exs` をバージョンの基準にできる。
+YAMLは `ubuntu-latest` のRuby標準ライブラリで読み取り、
+判定とバージョン更新にはnpmパッケージやSemVerコンテナを使わない。
+リリースノートの範囲も、選択した基準タグとスケジュール実行のコミットに固定する。
+bump PRはdraftのまま作成し、milestoneの事前作成は不要とする。
+
 `node --test .github/scripts/*.test.js` で自動化のテストを実行し、
 `actionlint` と `zizmor .github/workflows` でworkflow定義を確認する。
+
+`select-release-bump.js` は `SemverIncrement`、`ReleaseConfig`、
+`ReleaseGitHubClient` などのJSDocの型を提供する。他のファイルでは
+`import("./select-release-bump.js").ReleaseConfig` の形式で参照できる。
+TypeScriptを利用できる環境では、次のコマンドで検証する。
+
+```sh
+tsc --noEmit --strict --allowJs --checkJs --target ES2022 --module node16 --moduleResolution node16 --lib ES2022 .github/scripts/select-release-bump.js
+```
 
 </details>
