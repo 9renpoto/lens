@@ -10,8 +10,7 @@ supported. See the [runtime contract](deployment.md) for running an image and
 Run the repository's version-bump workflow to prepare a release PR. After a
 maintainer merges that PR, record its merge commit and the version in `mix.exs`.
 Create an annotated tag on that exact commit, then push the tag. For example,
-set `RELEASE_TAG` and `RELEASE_COMMIT` to the prepared version and commit.
-`v0.2.0` is already published and must not be reused:
+set `RELEASE_TAG` and `RELEASE_COMMIT` to the prepared version and commit:
 
 ```sh
 git fetch origin main
@@ -46,7 +45,7 @@ LensはCIから`ghcr.io/9renpoto/lens`へコンテナイメージを公開する
 リポジトリのversion-bump workflowでリリースPRを準備する。
 メンテナーがそのPRをmergeした後、merge commitと`mix.exs`のversionを記録する。
 そのcommitに注釈付きタグを作成してpushする。次の例では`RELEASE_TAG`と`RELEASE_COMMIT`に
-準備したversionとcommitを設定する。`v0.2.0`は公開済みのため再利用しない。
+準備したversionとcommitを設定する。
 
 ```sh
 git fetch origin main
