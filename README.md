@@ -9,6 +9,10 @@ and provides a JSON API for searching retained information and retrieving
 original PDFs. It runs as one Elixir/OTP application with Phoenix, PostgreSQL,
 and RustFS for newly collected earnings PDFs.
 
+[v0.2.0 is released](https://github.com/9renpoto/lens/releases/tag/v0.2.0).
+See the [documentation index](docs/README.md) for the published behavior and
+the next release boundary.
+
 <details>
 <summary>日本語</summary>
 
@@ -17,6 +21,9 @@ and RustFS for newly collected earnings PDFs.
 Lensはフィードと運用者が選んだ決算PDFを収集し、出典を保持する。
 保存情報の検索と原本PDFの取得をJSON APIから利用できる。
 Elixir/OTP・Phoenix・PostgreSQLを使用し、新たに収集する決算PDFはRustFSに保存する。
+
+[v0.2.0は公開済み](https://github.com/9renpoto/lens/releases/tag/v0.2.0)。
+公開済みの挙動と次のリリース境界は[文書索引](docs/README.md)を参照する。
 
 </details>
 

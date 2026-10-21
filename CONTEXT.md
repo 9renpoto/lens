@@ -15,6 +15,10 @@ A route associated with an analysis target from which earnings documents can be 
 **Document candidate**:
 An acquired document considered for inclusion among a target's earnings materials. Acquisition alone does not establish its document kind or reporting identity.
 
+**Investigation candidate**:
+A topic offered to the user for further investigation. It is distinct from an acquired document candidate and does not itself establish the topic's usefulness or the validity of an analytical claim.
+_Avoid_: Document candidate, investment recommendation
+
 **Document assessment**:
 A judgment about a candidate's relationship to an analysis target and earnings document kind, with supporting evidence. An inconclusive assessment leaves the candidate pending confirmation.
 
@@ -90,6 +94,10 @@ _区別する語_: Analytics target
 
 **Document candidate（資料候補）**:
 対象の決算資料に含めるかを検討する取得済み資料。取得だけでは資料種類や対象期間の識別は確定しない。
+
+**Investigation candidate（調査候補）**:
+利用者が追加調査するために提示する論点。取得した資料候補とは区別し、その論点の有用性や分析上の主張の妥当性を、それ自体で確定するものではない。
+_区別する語_: 資料候補、投資先の推薦
 
 **Document assessment（資料判定）**:
 候補と分析対象の関係や決算資料の種類について、根拠を伴う判断。判定できない場合は候補を確認待ちに残す。

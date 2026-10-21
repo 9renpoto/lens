@@ -2,6 +2,10 @@
 
 Use GitHub issues to define planned work and ADRs to record and agree on current design decisions before implementation. Creating standalone planning documents, roadmaps, and execution plans is discouraged. Keep implemented procedures in operational/reference guides. Follow [ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md) and the [ADR maintenance policy](adr/README.md).
 
+[v0.2.0](https://github.com/9renpoto/lens/releases/tag/v0.2.0) is published. Its one-issuer earnings-search and exact-original comparison checkpoint is tracked in [#68](https://github.com/9renpoto/lens/issues/68). Publication does not establish production backup/restore guarantees or discovery value.
+
+The next release boundary is [v0.3 / #185](https://github.com/9renpoto/lens/issues/185): manually register an investigation candidate and expose it through one unauthenticated local RSS feed so a consumer can detect a new item. [#186](https://github.com/9renpoto/lens/issues/186) owns that implementation and local verification; it is not implemented in v0.2.0. The publication boundary is recorded in [ADR 0014](adr/0014-publish-manual-investigation-candidates-through-rss.md). Automatic candidate generation, discovery-quality validation, downstream notification services, and production access control are outside this release.
+
 - Decisions: [original retention](adr/0004-retain-earnings-pdfs-for-reprocessing.md), [RustFS](adr/0005-store-pdfs-in-rustfs.md), [storage simplification](adr/0013-retire-interrupted-storage-recovery.md), [registration API](adr/0007-register-pilot-sources-through-an-interface.md).
 - Existing implementation decisions: [PDF runner](adr/0003-bound-pdf-runner-replacement.md), [Japanese search](adr/0008-use-postgresql-for-japanese-substring-search.md), [large text](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). ADRs 0001–0002 and 0006 are superseded history.
 - Development: [setup and checks](development.md). Planned work and release boundaries: [GitHub issues](https://github.com/9renpoto/lens/issues).
@@ -19,6 +23,10 @@ Storage uses synchronous verified saves under [ADR 0013](adr/0013-retire-interru
 # ドキュメント
 
 実装前にGitHub Issueで予定する作業を定義し、ADRへ現在の設計判断を記録して合意する。独立した計画文書・ロードマップ・実行計画の作成は非推奨とする。実装済み手順は操作・参照資料へ維持する。[ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md)と[ADR管理方針](adr/README.md)に従う。
+
+[v0.2.0](https://github.com/9renpoto/lens/releases/tag/v0.2.0)は公開済み。1社の決算検索・正確な原本照合の区切りは[#68](https://github.com/9renpoto/lens/issues/68)で追跡する。公開は本番バックアップ／復元の保証や発見価値の実証を意味しない。
+
+次のリリース境界は[v0.3 / #185](https://github.com/9renpoto/lens/issues/185)。調査候補を手動登録し、認証なしのローカル単一RSSフィードへ公開して、購読側が新着項目を検出できることを確認する。[#186](https://github.com/9renpoto/lens/issues/186)で実装とローカル検証を行い、v0.2.0では未実装。公開の責務境界は[ADR 0014](adr/0014-publish-manual-investigation-candidates-through-rss.md)に記録する。候補の自動生成、発見品質の検証、後続通知サービス、本番アクセス制御はこのリリースの対象外。
 
 - 判断：[原本保持](adr/0004-retain-earnings-pdfs-for-reprocessing.md)、[RustFS](adr/0005-store-pdfs-in-rustfs.md)、[保存の簡素化](adr/0013-retire-interrupted-storage-recovery.md)、[登録API](adr/0007-register-pilot-sources-through-an-interface.md)。
 - 既存実装の判断：[PDFランナー](adr/0003-bound-pdf-runner-replacement.md)、[日本語検索](adr/0008-use-postgresql-for-japanese-substring-search.md)、[大きな本文](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)。ADR 0001〜0002・0006は引継ぎ済みの履歴。
