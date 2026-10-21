@@ -1,19 +1,8 @@
 name: Elixir CI
 
 on:
+  # Keep PR checks observable; select expensive jobs from changed inputs.
   pull_request:
-    paths:
-      - "**/*.ex"
-      - "**/*.exs"
-      - "mix.lock"
-      - "mix.exs"
-      - "docs/api/**"
-      - "**/*.c"
-      - "**/*.h"
-      - "Dockerfile"
-      - ".octocov.yml"
-      - ".github/workflows/**"
-      - ".github/scripts/**"
   push:
     branches: [main]
     tags:
@@ -22,127 +11,68 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test:
-    # ubuntu-slim is unprivileged and cannot host the PostgreSQL service container.
-    runs-on: ubuntu-latest
+  checks:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
     permissions:
       contents: read
-    services:
-      rustfs:
-        image: rustfs/rustfs:1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
-        env:
-          RUSTFS_ACCESS_KEY: lens-storage-test
-          RUSTFS_SECRET_KEY: lens-storage-test-secret
-          RUSTFS_CONSOLE_ENABLE: "false"
-          RUSTFS_OBS_LOGGER_LEVEL: error
-        ports:
-          - 9000:9000
-      postgres:
-        image: postgres:18.6@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: lens_test
-        options: >-
-          --health-cmd "pg_isready -U postgres -d lens_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-        ports:
-          - 5432:5432
-    env:
-      MIX_ENV: test
-      POSTGRES_HOST: localhost
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: lens_test
+      pull-requests: read
+    outputs:
+      test: ${{ steps.changes.outputs.test }}
+      image: ${{ steps.changes.outputs.image }}
+      actions: ${{ steps.changes.outputs.actions }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+      - uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node --test .github/scripts/*.test.js
+      - name: Detect changed inputs
+        id: changes
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
-          elixir-version: "1.18.3"
-          otp-version: "27.3.4"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: _build/test/dialyxir_*.plt*
-          key: dialyzer-${{ runner.os }}-otp-27.3.4-elixir-1.18.3-${{ hashFiles('mix.exs', 'mix.lock') }}
-          lookup-only: true
-      - run: mix deps.get
-      - name: Verify production repository configuration needs no endpoint secret
-        run: env -u SECRET_KEY_BASE MIX_ENV=prod DATABASE_URL=ecto://lens:unused@localhost/lens mix app.config
-      - name: Install PDF extraction tools
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y poppler-utils poppler-data
-      - name: Build and verify native PDF runner
-        run: |
-          cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner
-          test/pdf_native_runner_check.sh
-      - run: node --test .github/scripts/prune-package-versions.test.js
-      - run: mix format --check-formatted
-      - run: mix compile --warnings-as-errors
-      - name: Verify RustFS create-only storage and exact bytes
-        env:
-          LENS_RUSTFS_ENDPOINT: http://127.0.0.1:9000
-          LENS_RUSTFS_BUCKET: lens-test
-          LENS_RUSTFS_ACCESS_KEY_ID: lens-storage-test
-          LENS_RUSTFS_SECRET_ACCESS_KEY: lens-storage-test-secret
-        run: |
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent --max-time 1 http://127.0.0.1:9000/health > /dev/null; then
-              break
-            fi
-            echo "Waiting for RustFS ($attempt/30)"
-            sleep 1
-          done
-          curl --fail --silent --max-time 1 http://127.0.0.1:9000/health
-          mix run --no-start test/system/rustfs_storage_check.exs
-      - name: Verify synchronous RustFS acquisition and recovery retirement
-        env:
-          POSTGRES_DB: lens_synchronous_storage_test
-          LENS_RUSTFS_ENDPOINT: http://127.0.0.1:9000
-          LENS_RUSTFS_BUCKET: lens-test
-          LENS_RUSTFS_ACCESS_KEY_ID: lens-storage-test
-          LENS_RUSTFS_SECRET_ACCESS_KEY: lens-storage-test-secret
-        run: |
-          mix ecto.create
-          mix run --no-start test/system/earnings_synchronous_storage_check.exs
-          POSTGRES_DB=lens_recovery_retirement_test mix ecto.create
-          POSTGRES_DB=lens_recovery_retirement_test mix run --no-start test/system/earnings_recovery_retirement_check.exs
-      - run: elixir -pa "_build/test/lib/*/ebin" test/pdf_adapter_check.exs
-      - name: Verify search migration over existing large earnings text
-        env:
-          POSTGRES_DB: lens_search_migration_test
-        run: |
-          mix ecto.create
-          mix run --no-start test/system/earnings_search_migration_check.exs
-      - name: Verify concurrent storage selection
-        env:
-          POSTGRES_DB: lens_storage_selection_test
-        run: |
-          mix ecto.create
-          mix run --no-start test/system/earnings_storage_selection_check.exs
-      - run: mix dialyzer
-      - name: Verify source registration migration preserves existing history
-        env:
-          POSTGRES_DB: lens_source_migration_test
-        run: |
-          mix ecto.create
-          mix run --no-start test/system/earnings_source_migration_check.exs
-      - run: mix coveralls.lcov
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: coverage-report
-          path: cover/lcov.info
-          if-no-files-found: error
+          script: |
+            const { detectChanges } = require('./.github/scripts/ci-changes.js');
+            const changes = await detectChanges({ github, context, core });
+            for (const [name, changed] of Object.entries(changes)) {
+              core.setOutput(name, String(changed));
+            }
+
+  lint-actions:
+    needs: checks
+    if: needs.checks.outputs.actions == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/lint-actions.yml # zizmor: ignore[self-repository] pinned actionlint does not yet parse GitHub's $/ syntax
+
+  test:
+    needs: [checks, lint-actions]
+    if: >-
+      !cancelled() && needs.checks.result == 'success' &&
+      needs.checks.outputs.test == 'true' &&
+      (needs.lint-actions.result == 'success' || needs.lint-actions.result == 'skipped')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test-elixir.yml # zizmor: ignore[self-repository] pinned actionlint does not yet parse GitHub's $/ syntax
 
   octocov:
     needs: test
     if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      !cancelled() && needs.test.result == 'success' &&
+      (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: read
       contents: read
@@ -160,17 +90,20 @@ jobs:
           version: v0.83.1
           checksum: 8e9980e02a2713d0335d9928761b2bfa111c6f9ff879252dc2b11e0bd712e332
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.ref == 'refs/heads/main'
         with:
           name: coverage-badge
           path: cover/coverage.svg
           if-no-files-found: error
 
   publish:
-    needs: test
+    needs: [checks, test]
     if: >-
-      github.event_name == 'push' &&
+      !cancelled() && needs.test.result == 'success' &&
+      needs.checks.outputs.image == 'true' && github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -258,20 +191,16 @@ jobs:
 
   build-pages:
     needs: octocov
-    runs-on: ubuntu-latest
+    if: >-
+      !cancelled() && needs.octocov.result == 'success' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          persist-credentials: false
-      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
-        with:
-          elixir-version: "1.18.3"
-          otp-version: "27.3.4"
-      - run: mix deps.get
-      - run: mix compile --warnings-as-errors
-      - run: mkdir _site
-      - run: mix openapi.spec.json --spec LensWeb.ApiSpec --pretty --start-app=false --filename _site/openapi.json
-      - run: cp docs/api/index.html _site/index.html
+          name: api-site
+          path: _site
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: coverage-badge
@@ -282,8 +211,11 @@ jobs:
 
   publish-pages:
     needs: build-pages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      !cancelled() && needs.build-pages.result == 'success' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write
@@ -296,3 +228,30 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  ci-result:
+    name: CI result
+    needs: [checks, lint-actions, test, octocov]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      CHECKS_RESULT: ${{ needs.checks.result }}
+      ACTIONS_REQUIRED: ${{ needs.checks.outputs.actions }}
+      ACTIONS_RESULT: ${{ needs.lint-actions.result }}
+      TEST_REQUIRED: ${{ needs.checks.outputs.test }}
+      TEST_RESULT: ${{ needs.test.result }}
+      COVERAGE_RESULT: ${{ needs.octocov.result }}
+    steps:
+      - name: Require all applicable checks to succeed
+        run: |
+          test "$CHECKS_RESULT" = success
+          if [ "$ACTIONS_REQUIRED" = true ]; then
+            test "$ACTIONS_RESULT" = success
+          fi
+          if [ "$TEST_REQUIRED" = true ]; then
+            test "$TEST_RESULT" = success
+            if [ "$GITHUB_REF_TYPE" != tag ]; then
+              test "$COVERAGE_RESULT" = success
+            fi
+          fi
