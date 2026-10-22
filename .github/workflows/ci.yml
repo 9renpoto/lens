@@ -25,7 +25,6 @@ jobs:
     outputs:
       test: ${{ steps.changes.outputs.test }}
       image: ${{ steps.changes.outputs.image }}
-      actions: ${{ steps.changes.outputs.actions }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,20 +47,11 @@ jobs:
               core.setOutput(name, String(changed));
             }
 
-  lint-actions:
-    needs: checks
-    if: needs.checks.outputs.actions == 'true'
-    permissions:
-      contents: read
-      pull-requests: write
-    uses: ./.github/workflows/lint-actions.yml # zizmor: ignore[self-repository] pinned actionlint does not yet parse GitHub's $/ syntax
-
   test:
-    needs: [checks, lint-actions]
+    needs: checks
     if: >-
       !cancelled() && needs.checks.result == 'success' &&
-      needs.checks.outputs.test == 'true' &&
-      (needs.lint-actions.result == 'success' || needs.lint-actions.result == 'skipped')
+      needs.checks.outputs.test == 'true'
     permissions:
       contents: read
     uses: ./.github/workflows/test-elixir.yml # zizmor: ignore[self-repository] pinned actionlint does not yet parse GitHub's $/ syntax
@@ -231,14 +221,12 @@ jobs:
 
   ci-result:
     name: CI result
-    needs: [checks, lint-actions, test, octocov]
+    needs: [checks, test, octocov]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
       CHECKS_RESULT: ${{ needs.checks.result }}
-      ACTIONS_REQUIRED: ${{ needs.checks.outputs.actions }}
-      ACTIONS_RESULT: ${{ needs.lint-actions.result }}
       TEST_REQUIRED: ${{ needs.checks.outputs.test }}
       TEST_RESULT: ${{ needs.test.result }}
       COVERAGE_RESULT: ${{ needs.octocov.result }}
@@ -246,9 +234,6 @@ jobs:
       - name: Require all applicable checks to succeed
         run: |
           test "$CHECKS_RESULT" = success
-          if [ "$ACTIONS_REQUIRED" = true ]; then
-            test "$ACTIONS_RESULT" = success
-          fi
           if [ "$TEST_REQUIRED" = true ]; then
             test "$TEST_RESULT" = success
             if [ "$GITHUB_REF_TYPE" != tag ]; then

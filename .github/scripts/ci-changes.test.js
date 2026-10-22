@@ -2,8 +2,8 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { classifyChanges, detectChanges } = require("./ci-changes");
 
-const none = { test: false, image: false, actions: false };
-const all = { test: true, image: true, actions: true };
+const none = { test: false, image: false };
+const all = { test: true, image: true };
 
 test("documentation changes skip expensive jobs, but API docs are built and checked", () => {
   assert.deepEqual(classifyChanges(["README.md", "docs/adr/0011.md"]), none);
@@ -45,14 +45,14 @@ test("test-only changes run tests without republishing the image", () => {
   }
 });
 
-test("workflow lint runs only for workflow and lint configuration changes", () => {
+test("workflow lint inputs do not select application jobs", () => {
   for (const path of [
     ".github/workflows/bump.yml",
     ".github/actions/custom/action.yml",
     ".github/zizmor.yml",
     ".github/actionlint.yaml",
   ]) {
-    assert.deepEqual(classifyChanges([path]), { ...none, actions: true }, path);
+    assert.deepEqual(classifyChanges([path]), none, path);
   }
   assert.deepEqual(classifyChanges([".github/workflows/ci.yml"]), all);
   assert.deepEqual(
@@ -184,10 +184,9 @@ test("automation test changes do not republish production images", () => {
   }
 });
 
-test("Elixir test workflow changes run application tests and lint without republishing images", () => {
+test("Elixir test workflow changes run application tests without republishing images", () => {
   assert.deepEqual(classifyChanges([".github/workflows/test-elixir.yml"]), {
     test: true,
     image: false,
-    actions: true,
   });
 });
