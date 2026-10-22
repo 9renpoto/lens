@@ -1,4 +1,4 @@
-const all = { test: true, image: true, actions: true };
+const all = { test: true, image: true };
 
 function classifyChanges(paths) {
   const image = paths.some(
@@ -28,12 +28,6 @@ function classifyChanges(paths) {
           ].includes(path),
       ),
     image,
-    actions: paths.some(
-      (path) =>
-        /^\.github\/(workflows|actions)\//.test(path) ||
-        /^\.github\/(actionlint|zizmor)\.ya?ml$/.test(path) ||
-        /^zizmor\.ya?ml$/.test(path),
-    ),
   };
 }
 

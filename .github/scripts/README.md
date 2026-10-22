@@ -7,28 +7,35 @@ PR; main and tag runs are not cancelled by PR concurrency.
 The `checks` job runs typos, gitleaks, and the Node script tests before any
 application tests. `ci-changes.js` reads GitHub's changed-file API to select jobs:
 
-| Change | Application tests | Main image push | Workflow lint |
-| --- | --- | --- | --- |
-| Runtime inputs (`lib`, `config`, `priv`, `rel`, Mix files, Docker inputs) | Yes | Yes | No |
-| Tests, native source, Elixir scripts, API docs, formatter/toolchain/coverage configuration | Yes | No | No |
-| Workflow/action definitions and workflow lint configuration | No | No | Yes |
-| `ci.yml` | Yes | Yes | Yes |
-| `test-elixir.yml` | Yes | No | Yes |
-| Change-selection or image-retention scripts | Yes | Yes | No |
-| Other docs and automation scripts | No | No | No |
-| Version tag or incomplete change detection | Yes | Yes | Yes |
+| Change | Application tests | Main image push |
+| --- | --- | --- |
+| Runtime inputs (`lib`, `config`, `priv`, `rel`, Mix files, Docker inputs) | Yes | Yes |
+| Tests, native source, Elixir scripts, API docs, formatter/toolchain/coverage configuration | Yes | No |
+| Workflow/action definitions and workflow lint configuration | No | No |
+| `ci.yml` | Yes | Yes |
+| `test-elixir.yml` | Yes | No |
+| Change-selection or image-retention scripts | Yes | Yes |
+| Other docs and automation scripts | No | No |
+| Version tag or incomplete change detection | Yes | Yes |
 
 The table describes changes in isolation; combined changes select the union of
 jobs. Renames include both paths. At the API file limits (3,000 for PR files,
-300 for push comparisons), or on API errors, all jobs are selected.
+300 for push comparisons), or on API errors, application tests and image
+publication are selected.
 `ci.yml` calls the reusable `test-elixir.yml` workflow for Elixir setup,
 PostgreSQL/RustFS services, native runner checks, formatting, compilation,
 integration tests, Dialyzer, coverage generation, and API documentation artifacts.
 Coverage reporting and publication stay in `ci.yml`.
-`lint-actions.yml` is a reusable workflow containing actionlint and zizmor.
-Tests wait for applicable workflow lint. `CI result` fails if a required job
-fails or is unexpectedly skipped; it succeeds for intentionally skipped jobs.
-Repository rules can require this stable check name.
+`lint-actions.yml` independently runs actionlint and zizmor on pull requests and
+main pushes using native `paths` filters for `.github/workflows/**`,
+`.github/actions/**`, `.github/actionlint.y*ml`, `.github/zizmor.y*ml`, and
+`zizmor.y*ml`. It neither waits for nor gates application CI. Actionlint reports
+PR reviews for same-repository PRs and local output for pushes and fork PRs;
+`filter_mode: nofilter` checks findings outside changed lines without a PR diff.
+`CI result` aggregates application checks and coverage only, failing on required
+job failures or unexpected skips. Repository rules can require this stable check;
+path-filtered lint jobs must not be required unconditionally. See
+[ADR 0015](../../docs/adr/0015-run-workflow-lint-independently.md).
 
 Main image publication requires successful tests and an image-related change;
 version tags retain the existing test-before-publication behavior. This does
@@ -81,28 +88,33 @@ tsc --noEmit --strict --allowJs --checkJs --target ES2022 --module node16 --modu
 `checks` ジョブでtypos、gitleaks、Nodeスクリプトのテストを実行してから、
 アプリのテストへ進む。`ci-changes.js` はGitHubの変更ファイルAPIでジョブを選ぶ。
 
-| 変更 | アプリのテスト | mainのイメージ公開 | Workflow lint |
-| --- | --- | --- | --- |
-| 実行時入力（`lib`、`config`、`priv`、`rel`、Mixファイル、Docker入力） | 実行 | 実行 | 省略 |
-| テスト、ネイティブソース、Elixirスクリプト、API docs、formatter・toolchain・coverage設定 | 実行 | 省略 | 省略 |
-| Workflow・Action定義とworkflow lint設定 | 省略 | 省略 | 実行 |
-| `ci.yml` | 実行 | 実行 | 実行 |
-| `test-elixir.yml` | 実行 | 省略 | 実行 |
-| 変更検知・イメージ保持スクリプト | 実行 | 実行 | 省略 |
-| その他のdocsと自動化スクリプト | 省略 | 省略 | 省略 |
-| バージョンタグまたは変更検知が不完全な場合 | 実行 | 実行 | 実行 |
+| 変更 | アプリのテスト | mainのイメージ公開 |
+| --- | --- | --- |
+| 実行時入力（`lib`、`config`、`priv`、`rel`、Mixファイル、Docker入力） | 実行 | 実行 |
+| テスト、ネイティブソース、Elixirスクリプト、API docs、formatter・toolchain・coverage設定 | 実行 | 省略 |
+| Workflow・Action定義とworkflow lint設定 | 省略 | 省略 |
+| `ci.yml` | 実行 | 実行 |
+| `test-elixir.yml` | 実行 | 省略 |
+| 変更検知・イメージ保持スクリプト | 実行 | 実行 |
+| その他のdocsと自動化スクリプト | 省略 | 省略 |
+| バージョンタグまたは変更検知が不完全な場合 | 実行 | 実行 |
 
 表は変更が単独の場合を示し、複数の変更では必要なジョブを合算する。
 改名では変更前後のパスを対象とする。APIの件数上限（PRは3,000件、push比較は300件）
-やAPIエラーの場合は、全ジョブを選択する。
+やAPIエラーの場合は、アプリのテストとイメージ公開を選択する。
 `ci.yml` は再利用可能な `test-elixir.yml` を呼び出し、Elixirのセットアップ、
 PostgreSQL・RustFSサービス、ネイティブrunner検査、format・compile、統合テスト、
 Dialyzer、coverage生成、API docsのartifact生成を実行する。
 coverageの報告と公開処理は `ci.yml` に置く。
-`lint-actions.yml` はactionlintとzizmorを含む再利用可能なworkflowである。
-テストは該当するworkflow lintの成功を待つ。`CI result` は必要なジョブの失敗や
-意図しない省略で失敗し、意図した省略では成功する。
-リポジトリのルールでは、この安定したチェック名を必須にできる。
+`lint-actions.yml` はPRとmain pushで、標準の`paths`フィルターによりactionlintと
+zizmorを独立実行する。対象は`.github/workflows/**`、`.github/actions/**`、
+`.github/actionlint.y*ml`、`.github/zizmor.y*ml`、`zizmor.y*ml`とする。
+アプリCIとの待ち合わせや実行条件の依存は持たない。actionlintは同一リポジトリの
+PRではレビュー、pushとfork PRではlocal出力を使う。`filter_mode: nofilter`により
+PR差分を使わず変更行の外も検査する。`CI result`はアプリのチェックとcoverageだけを
+集約し、必要なジョブの失敗や意図しない省略で失敗する。リポジトリのルールでは
+この安定したチェック名を必須にできるが、パスでフィルターするlintジョブを
+無条件に必須化しない。[ADR 0015](../../docs/adr/0015-run-workflow-lint-independently.md)を参照する。
 
 mainのイメージ公開にはテスト成功とイメージ関連の変更を要求する。
 バージョンタグは既存の公開前テストを維持する。
