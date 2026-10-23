@@ -85,14 +85,15 @@ comparison for one issuer through the [validation procedure](../reference/earnin
 These operations help inspect retained material; they do not by themselves
 establish the discovery value described here.
 
-The investigation-candidate publication design separates manual registration
-and local RSS publication from automatic discovery and downstream notification.
-[ADR 0014](../adr/0014-publish-manual-investigation-candidates-through-rss.md)
-records that responsibility boundary. The registration and outbound RSS routes
-are not implemented; [#185](https://github.com/9renpoto/lens/issues/185) and
-[#186](https://github.com/9renpoto/lens/issues/186) track the work and its
-verification. A consumer detecting an item demonstrates publication
-interoperability, not candidate usefulness or automatic discovery.
+The RSS publication design exposes the already collected earnings information
+for the selected issuer using existing generated titles, full extracted text and
+retained-original links. [ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)
+records this boundary without manual candidate authoring or editorial selection.
+Outbound RSS is not implemented; [#185](https://github.com/9renpoto/lens/issues/185)
+and [#186](https://github.com/9renpoto/lens/issues/186) track the work and its
+verification. Reading the actual retained result provides a basis for discussing
+value and limitations; RSS publication alone does not establish usefulness or
+automatic discovery.
 
 Saved-search matching identifies material that meets retained search conditions.
 It does not by itself provide the relationships and investigation questions
@@ -206,12 +207,14 @@ Lensは[検証手順](../reference/earnings-value-validation.md)を通じて、1
 上限付き手動収集、日本語検索、正確な原本照合を提供する。保存資料を確かめるための
 操作であり、それだけでは今回の発見価値を証明しない。
 
-調査候補の公開設計では、手動登録とローカルRSS公開を、自動的な発見や後続の通知配信から
-分離する。[ADR 0014](../adr/0014-publish-manual-investigation-candidates-through-rss.md)に
-その責務境界を記録する。登録とRSS出力のrouteは未実装であり、
+RSS公開の設計では、すでに収集した検証対象企業の決算情報を、既存の生成済み表題・
+抽出本文の全文・保存原本リンクを使って取得可能にする。
+[ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)に、手動候補作成や
+人間による公開対象の選別を含めない境界を記録する。RSS出力は未実装であり、
 [#185](https://github.com/9renpoto/lens/issues/185)と
 [#186](https://github.com/9renpoto/lens/issues/186)で作業と検証を追跡する。
-購読側による項目の検出は公開の相互運用性を示すものであり、候補の有用性や自動的な発見は実証しない。
+実際の保存済み結果を読むことで価値や不足を議論できるようにする。RSS公開だけで
+有用性や自動的な発見を実証するものではない。
 
 保存検索への一致は、保持した検索条件を満たす資料を見つけるものである。
 それだけでは、プロダクト価値の仮説の中心である関係や調査の問いを提供できない。

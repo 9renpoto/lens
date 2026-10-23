@@ -2,7 +2,7 @@
 
 Use GitHub issues to define planned work and ADRs to record and agree on current design decisions before implementation. Creating standalone planning documents, roadmaps, and execution plans is discouraged. Keep implemented procedures in operational/reference guides. Follow [ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md) and the [ADR maintenance policy](adr/README.md).
 
-- Decisions: [original retention](adr/0004-retain-earnings-pdfs-for-reprocessing.md), [RustFS](adr/0005-store-pdfs-in-rustfs.md), [storage simplification](adr/0013-retire-interrupted-storage-recovery.md), [registration API](adr/0007-register-pilot-sources-through-an-interface.md), [investigation-candidate publication](adr/0014-publish-manual-investigation-candidates-through-rss.md).
+- Decisions: [original retention](adr/0004-retain-earnings-pdfs-for-reprocessing.md), [RustFS](adr/0005-store-pdfs-in-rustfs.md), [storage simplification](adr/0013-retire-interrupted-storage-recovery.md), [registration API](adr/0007-register-pilot-sources-through-an-interface.md), [retained earnings publication](adr/0014-publish-retained-earnings-through-rss.md).
 - Existing implementation decisions: [PDF runner](adr/0003-bound-pdf-runner-replacement.md), [Japanese search](adr/0008-use-postgresql-for-japanese-substring-search.md), [large text](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). ADRs 0001–0002 and 0006 are superseded history.
 - Development: [setup and checks](development.md). Planned work and release boundaries: [GitHub issues](https://github.com/9renpoto/lens/issues).
 - Operations: [container runtime contract](deployment.md), [release publication](releasing.md), [local application operations](operations.md), [ingestion](ingestion.md), [PDF extraction](earnings-extraction.md), [search](search.md).
@@ -20,7 +20,7 @@ Storage uses synchronous verified saves under [ADR 0013](adr/0013-retire-interru
 
 実装前にGitHub Issueで予定する作業を定義し、ADRへ現在の設計判断を記録して合意する。独立した計画文書・ロードマップ・実行計画の作成は非推奨とする。実装済み手順は操作・参照資料へ維持する。[ADR 0011](adr/0011-plan-work-through-issues-and-adrs.md)と[ADR管理方針](adr/README.md)に従う。
 
-- 判断：[原本保持](adr/0004-retain-earnings-pdfs-for-reprocessing.md)、[RustFS](adr/0005-store-pdfs-in-rustfs.md)、[保存の簡素化](adr/0013-retire-interrupted-storage-recovery.md)、[登録API](adr/0007-register-pilot-sources-through-an-interface.md)、[調査候補の公開](adr/0014-publish-manual-investigation-candidates-through-rss.md)。
+- 判断：[原本保持](adr/0004-retain-earnings-pdfs-for-reprocessing.md)、[RustFS](adr/0005-store-pdfs-in-rustfs.md)、[保存の簡素化](adr/0013-retire-interrupted-storage-recovery.md)、[登録API](adr/0007-register-pilot-sources-through-an-interface.md)、[保存済み決算情報の公開](adr/0014-publish-retained-earnings-through-rss.md)。
 - 既存実装の判断：[PDFランナー](adr/0003-bound-pdf-runner-replacement.md)、[日本語検索](adr/0008-use-postgresql-for-japanese-substring-search.md)、[大きな本文](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)。ADR 0001〜0002・0006は引継ぎ済みの履歴。
 - 開発：[セットアップと検証](development.md)。予定する作業とリリース境界：[GitHub Issue](https://github.com/9renpoto/lens/issues)。
 - 操作：[コンテナ実行契約](deployment.md)、[リリース公開](releasing.md)、[ローカルのアプリ操作](operations.md)、[取り込み](ingestion.md)、[PDF抽出](earnings-extraction.md)、[検索](search.md)。

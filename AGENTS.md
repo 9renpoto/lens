@@ -1,5 +1,52 @@
 # Development Instructions
 
+## Public repository and operational target privacy
+
+This is an OSS repository. Treat committed files and GitHub artifacts as public.
+Never commit or publish identifying information about actual evaluation,
+collection, or monitoring targets. This includes real company names, securities
+or issuer codes, source URLs or domains, target/source IDs, private environment
+information, and combinations of values that reveal the target. Mentioning a
+target in a conversation does not authorize publishing its identity.
+
+Apply this rule to code, documentation, ADRs, comments, filenames, fixtures,
+expected test data, commit messages, PR and issue content, review replies, logs,
+and attached artifacts. Use neutral placeholders or wholly fictional examples;
+labeling real identifiers as synthetic does not anonymize them. Keep actual target
+configuration and operational evidence in private, untracked locations.
+
+Inspect the complete staged diff and all outgoing GitHub content for these
+identifiers before publishing. Remove or anonymize existing violations rather
+than copying them into new work. If identifying data has already been committed,
+remove it from the affected branch history within the authorized scope and scrub
+editable public descriptions; a later deletion commit does not remove earlier
+public versions. Do not claim that old copies or caches have been erased without
+verification.
+
+<details>
+<summary>日本語</summary>
+
+## 公開リポジトリと実運用対象の秘匿
+
+このリポジトリはOSSであり、コミットするファイルとGitHub上の情報を公開情報として扱う。
+実際の検証・収集・監視対象を識別できる情報は、絶対にコミット・公開しない。
+実在企業名、証券コード・発行元コード、取得元URL・ドメイン、対象・取得先ID、
+非公開環境の情報、および対象を推測できる値の組み合わせを含む。
+会話中で対象が言及されても、その識別情報の公開が許可されたとは扱わない。
+
+コード、文書、ADR、コメント、ファイル名、fixture、テスト期待値、コミットメッセージ、
+PR・Issue本文、レビュー返信、ログ、添付資料のすべてに適用する。
+中立的なプレースホルダーか完全な架空データを使う。実在の識別子をsyntheticと呼んでも
+匿名化したことにはならない。実際の対象設定や運用証跡は、非公開かつGit追跡対象外の
+場所で管理する。
+
+公開前にステージ済み差分全体とGitHubへ送信する内容を確認する。既存の違反は新しい
+作業へコピーせず、除去・匿名化する。識別情報をコミット済みの場合は、許可された範囲で
+該当ブランチの履歴から取り除き、編集可能な公開説明も修正する。後続の削除コミットだけ
+では過去の公開版から消えない。古いコピーやキャッシュの消去を確認なしに断言しない。
+
+</details>
+
 Use test-driven development for production changes.
 
 1. Write or update a test that describes the intended observable behavior before
