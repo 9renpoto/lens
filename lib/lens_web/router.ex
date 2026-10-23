@@ -44,6 +44,10 @@ defmodule LensWeb.Router do
     )
   end
 
+  scope "/feeds", LensWeb do
+    get("/targets/:target_id/earnings.rss", EarningsFeedController, :show)
+  end
+
   scope "/", LensWeb do
     get("/dashboard", DashboardController, :show)
   end
