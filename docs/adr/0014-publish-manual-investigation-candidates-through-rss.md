@@ -10,6 +10,8 @@ An investigation candidate is a topic offered for further investigation, distinc
 
 Lens owns candidate registration, persistence, and RSS publication. Consumer notification, acknowledgement, read/delivery state, retries, multiple feeds, UI, automatic candidate generation, and production access control are outside this boundary. Detection by a conforming consumer demonstrates publication interoperability; it does not demonstrate discovery quality or delivery to a person. Use the local prototype within the application's existing private access boundary.
 
+The v0.3 candidate lifecycle is registration only: Lens exposes no candidate editing or deletion operation. A correction is registered as a separate candidate with a new identifier; the original retains its identity and content. This keeps repeated feed reads stable without introducing update or withdrawal semantics for consumers.
+
 <details>
 <summary>日本語</summary>
 
@@ -20,5 +22,7 @@ Lens owns candidate registration, persistence, and RSS publication. Consumer not
 調査候補は追加調査のために提示する論点であり、取得した資料候補やその資料の判定とは区別する。最小の公開内容は、タイトル、短い本文、任意の詳細・根拠URL、公開日時とする。フィードを繰り返し取得しても候補の項目識別子を維持し、購読側が新着と既に観測した項目を区別できるようにする。将来の完全な候補モデルを、このプロトタイプの必須フィールドにする必要はない。
 
 Lensは候補登録、永続化、RSS公開を担当する。購読側の通知、確認、既読・配信状態、再試行、複数フィード、UI、候補の自動生成、本番アクセス制御はこの境界に含めない。標準に準拠する購読側の検出は公開の相互運用性を示すものであり、発見品質や人への通知到達は実証しない。ローカルのプロトタイプはアプリの既存の非公開アクセス境界内で使う。
+
+v0.3の候補のライフサイクルは登録のみとし、Lensは候補の編集・削除操作を公開しない。訂正は新しい識別子を持つ別候補として登録し、元の識別子と内容を維持する。これにより、購読側に更新・撤回の意味付けを導入せず、反復取得時のフィードを安定させる。
 
 </details>

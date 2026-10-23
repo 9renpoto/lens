@@ -23,6 +23,7 @@ defmodule LensWeb.Router do
     patch("/sources/:id", SourceController, :update)
     put("/sources/:id", SourceController, :replace)
     get("/search", SearchController, :index)
+    post("/investigation-candidates", InvestigationCandidateController, :create)
     get("/earnings/releases/:id", EarningsController, :show)
     get("/documents/:id", SearchController, :show_document)
     get("/documents/:id/provenance", SearchController, :show_provenance)
@@ -45,6 +46,7 @@ defmodule LensWeb.Router do
   end
 
   scope "/", LensWeb do
+    get("/feeds/investigation-candidates.rss", InvestigationFeedController, :show)
     get("/dashboard", DashboardController, :show)
   end
 end

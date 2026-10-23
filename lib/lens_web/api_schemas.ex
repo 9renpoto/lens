@@ -3,6 +3,77 @@ defmodule LensWeb.ApiSchemas do
 
   alias OpenApiSpex.Schema
 
+  defmodule InvestigationCandidateAttributes do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "InvestigationCandidateAttributes",
+      type: :object,
+      properties: %{
+        title: %Schema{type: :string, minLength: 1, maxLength: 255, pattern: "\\S"},
+        body: %Schema{
+          type: :string,
+          minLength: 1,
+          maxLength: 4000,
+          pattern: "\\S",
+          description:
+            "Plain text; rendered as text in the RSS description. XML 1.0 characters only."
+        },
+        details_url: %Schema{
+          type: :string,
+          format: :uri,
+          maxLength: 2048,
+          nullable: true,
+          description: "Optional absolute HTTP(S) URL without credentials or whitespace."
+        },
+        published_at: %Schema{
+          type: :string,
+          format: :"date-time",
+          description:
+            "Publication metadata with an explicit timezone; registration publishes immediately."
+        }
+      },
+      required: [:title, :body, :published_at]
+    })
+  end
+
+  defmodule InvestigationCandidateRequest do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "InvestigationCandidateRequest",
+      type: :object,
+      properties: %{candidate: InvestigationCandidateAttributes},
+      required: [:candidate]
+    })
+  end
+
+  defmodule InvestigationCandidate do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "InvestigationCandidate",
+      type: :object,
+      properties:
+        Map.put(InvestigationCandidateAttributes.schema().properties, :id, %Schema{
+          type: :string,
+          format: :uuid
+        }),
+      required: [:id, :title, :body, :published_at, :details_url]
+    })
+  end
+
+  defmodule InvestigationCandidateResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "InvestigationCandidateResponse",
+      type: :object,
+      properties: %{candidate: InvestigationCandidate},
+      required: [:candidate]
+    })
+  end
+
   defmodule EarningsOriginalUnavailableResponse do
     require OpenApiSpex
 
