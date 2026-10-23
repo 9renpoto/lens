@@ -11,17 +11,26 @@ originals. The release boundary and implementation work belong in
 [#185](https://github.com/9renpoto/lens/issues/185) and
 [#186](https://github.com/9renpoto/lens/issues/186).
 
-Publish one item per retained earnings document whose successful acquisition
-is already linked to a confirmed release for that issuer and which has an existing
-successful extraction. Include that release's existing generated title,
-the full extracted text and a link to the corresponding retained original PDF.
-Unconfirmed originals are outside feed eligibility; feed retrieval does not
-confirm release identities or invent fallback titles. These conditions reuse
-existing identity and extraction data without editorial selection for usefulness.
-The generated title is a display label, not a claim to reproduce the publisher's
-original title. Preserve the stored extracted text as readable text through RSS
-escaping, without adding a summary or interpretation. Preserve stable item
-identity across repeated reads.
+Publish one item per confirmed earnings release for the selected issuer that
+has a successful acquisition and an existing successful extraction. Reuse the
+existing per-release selection of successful extracted text. Include the
+release's existing generated title, the selected full extracted text and a link
+to that text's retained original PDF. Unconfirmed originals are outside feed
+eligibility; feed retrieval does not confirm release identities or invent
+fallback titles. These conditions reuse existing identity and extraction data
+without editorial selection for usefulness. The generated title is a display
+label, not a claim to reproduce the publisher's original title. Preserve the
+stored extracted text as readable text through RSS escaping, without adding a
+summary or interpretation.
+
+Identify each item by the release UUID, using `urn:uuid:<release-id>` as its GUID
+with `isPermaLink="false"`. If one retained original backs multiple eligible
+releases, publish a separate item for each release with a different GUID, even
+when the selected text and PDF link are shared. Selecting another retained
+original or successful extraction for the same release updates that item's
+content and original link while retaining its GUID. Such an update does not
+guarantee a new-item notification in the consumer. Repeated reads do not generate
+new item identities.
 
 Set item `pubDate` only when existing publisher metadata specifies the publication
 date, time and timezone, allowing an [RSS 2.0](https://www.rssboard.org/rss-2-0-11)
@@ -62,14 +71,21 @@ candidate concept remains a separate product hypothesis.
 [#185](https://github.com/9renpoto/lens/issues/185)と
 [#186](https://github.com/9renpoto/lens/issues/186)で管理する。
 
-成功した取得記録が識別確定済みの検証対象企業のリリースに紐付いており、既存の
-成功した抽出結果を持つ保存済み決算資料ごとに項目を作る。そのリリースの既存の生成済み
-表題、抽出本文の全文、対応する保存原本PDFへのリンクを含める。識別未確定の原本は
-フィードの対象外とし、フィード取得時にリリース識別を確定したり代替表題を作り出したり
-しない。これらの条件は既存の識別・抽出データを使うものであり、有用性による公開対象の
-選別は行わない。生成済み表題は表示用の名前であり、発行元の原題を再現したものとは
-扱わない。RSSのエスケープを通じて保存済み抽出本文を読めるテキストとして維持し、
-要約や解釈は追加しない。反復取得を通じて項目識別子を維持する。
+成功した取得記録と既存の成功した抽出結果を持つ、検証対象企業の識別確定済み
+決算リリースごとに項目を作る。既存のリリース単位の成功した抽出本文の選択を再利用し、
+そのリリースの既存の生成済み表題、選択した抽出本文の全文、その本文に対応する保存原本
+PDFへのリンクを含める。識別未確定の原本はフィードの対象外とし、フィード取得時に
+リリース識別を確定したり代替表題を作り出したりしない。これらの条件は既存の識別・抽出
+データを使うものであり、有用性による公開対象の選別は行わない。生成済み表題は表示用の
+名前であり、発行元の原題を再現したものとは扱わない。RSSのエスケープを通じて保存済み
+抽出本文を読めるテキストとして維持し、要約や解釈は追加しない。
+
+項目はリリースのUUIDで識別し、GUIDを`urn:uuid:<release-id>`、
+`isPermaLink="false"`とする。同じ保存原本が複数の対象リリースに対応する場合は、
+本文やPDFリンクを共有していても、リリースごとに異なるGUIDを持つ項目を出力する。
+同じリリースについて別の保存原本や成功した抽出結果を選択した場合は、項目の内容と
+原本リンクを更新し、GUIDを維持する。この更新が購読側の新着通知を発生させることは
+保証しない。反復取得によって新しい項目識別子を生成しない。
 
 項目の`pubDate`は、発行元の公表日・時刻・タイムゾーンが既存データにあり、
 不足する要素を作り出さずに[RSS 2.0](https://www.rssboard.org/rss-2-0-11)の
