@@ -27,6 +27,10 @@ Operators can manage analysis targets and effective-dated Nikkei 225 membership 
 
 Register, list, inspect and partially update sources under `/api/targets/:target_id/earnings-sources`. Use the [generated OpenAPI reference](https://9renpoto.github.io/lens/) for request examples, enablement and URL validation. [ADR 0007](adr/0007-register-pilot-sources-through-an-interface.md#registration-migration-and-compatibility) records registration decisions and migration/compatibility behavior. The existing `/api/sources` endpoints continue to manage feed sources.
 
+## Investigation-candidate publication
+
+`POST /api/investigation-candidates` registers a candidate; `GET /feeds/investigation-candidates.rss` publishes registered candidates through RSS 2.0. See the [registration and RSS reference](reference/investigation-candidates.md) for validation, stable identity and local Elixir consumer verification. Candidates support registration only.
+
 ## Generate locally
 
 Generate the JSON document without starting the application:
@@ -81,6 +85,10 @@ GitHub Actions経由で公開するようGitHub Pagesを設定すると、リフ
 ## 決算取得先の管理API
 
 `/api/targets/:target_id/earnings-sources`配下で取得先の登録・一覧・詳細・部分更新を提供する。リクエスト例、有効状態、URL検証は[生成OpenAPIリファレンス](https://9renpoto.github.io/lens/)を参照する。登録方針と移行・互換性の挙動は[ADR 0007](adr/0007-register-pilot-sources-through-an-interface.md#registration-migration-and-compatibility)に記録する。既存の`/api/sources`エンドポイントは引き続きフィード取得先を管理する。
+
+## 調査候補の公開
+
+`POST /api/investigation-candidates`で候補を登録し、`GET /feeds/investigation-candidates.rss`で登録済み候補をRSS 2.0として公開する。入力検証、安定した識別子、Elixirによるローカル購読側の検証は[登録とRSSのリファレンス](reference/investigation-candidates.md)を参照する。候補の操作は登録のみとする。
 
 ## ローカルでの生成
 
