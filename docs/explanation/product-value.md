@@ -89,9 +89,10 @@ The RSS publication design exposes the already collected earnings information
 for the selected issuer using existing generated titles, full extracted text and
 retained-original links. [ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)
 records this boundary without manual candidate authoring or editorial selection.
-Outbound RSS is not implemented; [#185](https://github.com/9renpoto/lens/issues/185)
-and [#186](https://github.com/9renpoto/lens/issues/186) track the work and its
-verification. Reading the actual retained result provides a basis for discussing
+The [RSS reference](../reference/earnings-feed.md) describes the implemented
+output and read-only consumer check. [#185](https://github.com/9renpoto/lens/issues/185)
+and [#186](https://github.com/9renpoto/lens/issues/186) track the release boundary
+and verification evidence. Reading the actual retained result provides a basis for discussing
 value and limitations; RSS publication alone does not establish usefulness or
 automatic discovery.
 
@@ -210,9 +211,10 @@ Lensは[検証手順](../reference/earnings-value-validation.md)を通じて、1
 RSS公開の設計では、すでに収集した検証対象企業の決算情報を、既存の生成済み表題・
 抽出本文の全文・保存原本リンクを使って取得可能にする。
 [ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)に、手動候補作成や
-人間による公開対象の選別を含めない境界を記録する。RSS出力は未実装であり、
+人間による公開対象の選別を含めない境界を記録する。実装済みの出力と読み取り専用の
+購読側検証は[RSS参照資料](../reference/earnings-feed.md)に記載する。
 [#185](https://github.com/9renpoto/lens/issues/185)と
-[#186](https://github.com/9renpoto/lens/issues/186)で作業と検証を追跡する。
+[#186](https://github.com/9renpoto/lens/issues/186)でリリース境界と検証証跡を追跡する。
 実際の保存済み結果を読むことで価値や不足を議論できるようにする。RSS公開だけで
 有用性や自動的な発見を実証するものではない。
 
