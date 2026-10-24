@@ -2,15 +2,20 @@ defmodule Lens.Earnings.CorrectionsTest do
   use Lens.DataCase
 
   alias Lens.{Analysis, Earnings}
-  alias Lens.Earnings.{Acquisition, Assessments, Corrections, Extractions, HTTPHistory, Sources}
+  alias Lens.Earnings.{Acquisition, Assessments, Corrections, Extractions, Sources}
 
-  @fixtures "test/fixtures/earnings/corrections.json" |> File.read!() |> Jason.decode!()
+  @fixtures "test/fixtures/earnings/corrections.json"
+            |> File.read!()
+            |> Jason.decode!()
+            |> Map.new(fn {name, text} ->
+              {name, Regex.replace(~r/(?<=コード番号 )[^\s]+/u, text, "SYNX")}
+            end)
   @at ~U[2026-08-08 00:00:00.000000Z]
 
   setup do
     {:ok, target} =
       Analysis.create_target(%{
-        security_code: "7203",
+        security_code: "SYNX",
         market: "TSE",
         display_name: "Example",
         sector: "Test"
@@ -26,7 +31,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
     {:ok, earlier} =
       Earnings.confirm_identity(acquisition(original).acquisition_id, %{
-        issuer_code: "7203",
+        issuer_code: "SYNX",
         fiscal_year_end: ~D[2027-03-31],
         period: "q1",
         category: "earnings_release"
@@ -67,7 +72,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
   test "contradictory issuer and reporting identity stay pending with observations", ctx do
     for text <- [
-          @fixtures["known"] <> "\nコード番号 8035",
+          @fixtures["known"] <> "\nコード番号 SYNY",
           @fixtures["known"] <> "\n（訂正）2027年3月期 第2四半期決算短信"
         ] do
       {check, extraction} = candidate(ctx, text)
@@ -95,7 +100,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
     {:ok, _} =
       Earnings.confirm_identity(acquisition(original).acquisition_id, %{
-        issuer_code: "7203",
+        issuer_code: "SYNX",
         fiscal_year_end: ~D[2027-03-31],
         period: "q1",
         category: "earnings_release"
@@ -123,7 +128,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
     {:ok, earlier} =
       Earnings.confirm_identity(acquisition(original).acquisition_id, %{
-        issuer_code: "7203",
+        issuer_code: "SYNX",
         fiscal_year_end: ~D[2026-12-31],
         period: "full_year",
         category: "earnings_release"
@@ -142,7 +147,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
     {:ok, _} =
       Earnings.confirm_identity(acquisition(original).acquisition_id, %{
-        issuer_code: "7203",
+        issuer_code: "SYNX",
         fiscal_year_end: ~D[2027-03-31],
         period: "q1",
         category: "earnings_release"
@@ -174,7 +179,7 @@ defmodule Lens.Earnings.CorrectionsTest do
     {original, _} = candidate(ctx, @fixtures["regular"], ~U[2026-08-06 00:00:00.000000Z])
 
     identity = %{
-      issuer_code: "7203",
+      issuer_code: "SYNX",
       fiscal_year_end: ~D[2027-03-31],
       period: "q1",
       category: "earnings_release"
@@ -218,7 +223,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
       {:ok, earlier} =
         Earnings.confirm_identity(acquisition(original).acquisition_id, %{
-          issuer_code: "7203",
+          issuer_code: "SYNX",
           fiscal_year_end: ~D[2027-03-31],
           period: "q1",
           category: "earnings_release"
@@ -233,7 +238,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
   defp candidate(ctx, text, at \\ @at) do
     {:ok, check} =
-      HTTPHistory.record(%{
+      Lens.StorageFixtures.record_http(%{
         check_id: Ecto.UUID.generate(),
         issuer_code: ctx.target.security_code,
         url: "https://example.test/#{Ecto.UUID.generate()}.pdf",
@@ -257,7 +262,7 @@ defmodule Lens.Earnings.CorrectionsTest do
 
   defp additional_candidate(ctx, text) do
     {:ok, check} =
-      HTTPHistory.record(%{
+      Lens.StorageFixtures.record_http(%{
         check_id: Ecto.UUID.generate(),
         issuer_code: ctx.target.security_code,
         url: "https://example.test/#{Ecto.UUID.generate()}.pdf",

@@ -6,7 +6,7 @@ config = Application.fetch_env!(:lens, Lens.Repo)
 Application.put_env(:lens, Lens.Repo, Keyword.put(config, :pool, DBConnection.ConnectionPool))
 {:ok, repo} = Lens.Repo.start_link()
 Process.unlink(repo)
-Ecto.Migrator.run(Lens.Repo, Application.app_dir(:lens, "priv/repo/migrations"), :up, all: true)
+Lens.Release.prepare()
 ExUnit.start(seed: 0)
 
 defmodule Lens.SynchronousStorageCheck do
@@ -34,7 +34,7 @@ defmodule Lens.SynchronousStorageCheck do
 
     attrs = %{
       check_id: id,
-      issuer_code: "1234",
+      issuer_code: "issuer-alpha",
       kind: :pdf,
       url: "https://publisher.invalid/" <> id,
       checked_at: DateTime.utc_now(),
@@ -83,7 +83,7 @@ defmodule Lens.SynchronousStorageCheck do
     assert check.metadata["source_id"] == source.id
     acquisition = Repo.get!(Acquisition, check.acquisition_id)
     assert acquisition.release_id == nil
-    assert Repo.get!(Original, acquisition.original_id).bytes == nil
+    assert Repo.get!(Original, acquisition.original_id).endpoint == c.client.endpoint
 
     assert Lens.Earnings.original_bytes(acquisition.original_id, rustfs: c.client) ==
              {:ok, c.bytes}

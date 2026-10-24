@@ -8,7 +8,8 @@ defmodule Lens.ContentTest do
     test "validates source scheduling and endpoint configuration" do
       assert {:error, changeset} =
                Content.create_source(%{
-                 source_type: "rss",
+                 feed_format: "rss_2_0",
+                 acquisition_kind: "direct",
                  endpoint_url: "not a URL",
                  poll_interval_seconds: 0
                })
@@ -38,16 +39,17 @@ defmodule Lens.ContentTest do
       assert source.acquisition_metadata == %{"route" => "example/news"}
     end
 
-    test "keeps legacy source types compatible without inventing authority" do
+    test "keeps explicit format independent of unknown publisher authority" do
       {:ok, atom} =
         Content.create_source(%{
-          source_type: "atom",
-          endpoint_url: "https://feeds.example.test/legacy.atom",
+          feed_format: "atom",
+          acquisition_kind: "direct",
+          endpoint_url: "https://feeds.example.test/current.atom",
           poll_interval_seconds: 300
         })
 
       assert atom.feed_format == "atom"
-      assert atom.acquisition_kind == "unknown"
+      assert atom.acquisition_kind == "direct"
       assert atom.publisher_authority == "unknown"
     end
 
@@ -540,7 +542,8 @@ defmodule Lens.ContentTest do
     attributes =
       Map.merge(
         %{
-          source_type: "rss",
+          feed_format: "rss_2_0",
+          acquisition_kind: "direct",
           endpoint_url: "https://feeds.example.com/default.xml",
           poll_interval_seconds: 300
         },

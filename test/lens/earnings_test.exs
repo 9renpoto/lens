@@ -12,9 +12,15 @@ defmodule Lens.EarningsTest do
     second = success("second", "%PDF-second", "https://example.test/a.pdf")
     third = success("third", "%PDF-first", "https://example.test/b.pdf")
 
-    assert {:ok, %{release: release, original: original}} = Earnings.record_success(first)
-    assert {:ok, %{release: ^release, original: changed}} = Earnings.record_success(second)
-    assert {:ok, %{release: ^release, original: ^original}} = Earnings.record_success(third)
+    assert {:ok, %{release: release, original: original}} =
+             Lens.StorageFixtures.record_success(first)
+
+    assert {:ok, %{release: ^release, original: changed}} =
+             Lens.StorageFixtures.record_success(second)
+
+    assert {:ok, %{release: ^release, original: ^original}} =
+             Lens.StorageFixtures.record_success(third)
+
     assert changed.id != original.id
     assert Repo.aggregate(Release, :count) == 1
     assert Repo.aggregate(Original, :count) == 2
@@ -24,17 +30,17 @@ defmodule Lens.EarningsTest do
 
   test "a persistence retry does not invent another acquisition" do
     attrs = success("same-event", "%PDF-bytes", "https://example.test/a.pdf")
-    assert {:ok, first} = Earnings.record_success(attrs)
-    assert {:ok, second} = Earnings.record_success(attrs)
+    assert {:ok, first} = Lens.StorageFixtures.record_success(attrs)
+    assert {:ok, second} = Lens.StorageFixtures.record_success(attrs)
     assert first.acquisition.id == second.acquisition.id
-    assert second.original.bytes == nil
+    refute Map.has_key?(second.original, :bytes)
     assert Repo.aggregate(Acquisition, :count) == 1
 
     assert {:error, :acquisition_conflict} =
-             Earnings.record_success(%{attrs | bytes: "%PDF-other"})
+             Lens.StorageFixtures.record_success(%{attrs | bytes: "%PDF-other"})
 
     assert {:error, :acquisition_conflict} =
-             Earnings.record_success(%{attrs | release: %{@release | period: "q2"}})
+             Lens.StorageFixtures.record_success(%{attrs | release: %{@release | period: "q2"}})
 
     assert Repo.aggregate(Release, :count) == 1
   end
@@ -43,16 +49,16 @@ defmodule Lens.EarningsTest do
     attrs = success("pending", "%PDF-pending", "https://example.test/pending.pdf")
 
     assert {:ok, %{acquisition: pending, release: nil}} =
-             Earnings.record_success(Map.delete(attrs, :release))
+             Lens.StorageFixtures.record_success(Map.delete(attrs, :release))
 
     assert pending.release_id == nil
-    assert pending.issuer_code == "6857"
+    assert pending.issuer_code == "issuer-example-a"
     assert Repo.aggregate(Release, :count) == 0
 
     assert {:ok, %{acquisition: ^pending, release: nil}} =
-             Earnings.record_success(Map.delete(attrs, :release))
+             Lens.StorageFixtures.record_success(Map.delete(attrs, :release))
 
-    assert {:error, :acquisition_conflict} = Earnings.record_success(attrs)
+    assert {:error, :acquisition_conflict} = Lens.StorageFixtures.record_success(attrs)
     assert Repo.aggregate(Release, :count) == 0
 
     assert {:ok, confirmed} = Earnings.confirm_identity(pending.acquisition_id, @release)
@@ -62,16 +68,18 @@ defmodule Lens.EarningsTest do
 
   test "issuer and period are part of release identity" do
     assert {:ok, _} =
-             Earnings.record_success(success("one", "%PDF-one", "https://example.test/1.pdf"))
-
-    assert {:ok, _} =
-             Earnings.record_success(
-               success("two", "%PDF-two", "https://example.test/2.pdf")
-               |> Map.put(:issuer_code, "8035")
+             Lens.StorageFixtures.record_success(
+               success("one", "%PDF-one", "https://example.test/1.pdf")
              )
 
     assert {:ok, _} =
-             Earnings.record_success(
+             Lens.StorageFixtures.record_success(
+               success("two", "%PDF-two", "https://example.test/2.pdf")
+               |> Map.put(:issuer_code, "issuer-example-b")
+             )
+
+    assert {:ok, _} =
+             Lens.StorageFixtures.record_success(
                success("three", "%PDF-three", "https://example.test/3.pdf")
                |> Map.put(:release, %{@release | period: "q2"})
              )
@@ -83,12 +91,14 @@ defmodule Lens.EarningsTest do
     at_limit = :binary.copy("x", 20_971_520)
 
     assert {:ok, %{original: original}} =
-             Earnings.record_success(success("limit", at_limit, "https://example.test/limit.pdf"))
+             Lens.StorageFixtures.record_success(
+               success("limit", at_limit, "https://example.test/limit.pdf")
+             )
 
     assert original.byte_size == 20_971_520
 
     assert {:error, :too_large, failure} =
-             Earnings.record_success(
+             Lens.StorageFixtures.record_success(
                success("too-large", at_limit <> "x", "https://example.test/large.pdf")
              )
 
@@ -99,19 +109,23 @@ defmodule Lens.EarningsTest do
     assert Repo.aggregate(Acquisition, :count) == 2
 
     assert {:error, %Ecto.Changeset{}} =
-             Earnings.record_success(success("invalid-large", at_limit <> "x", "invalid URL"))
+             Lens.StorageFixtures.record_success(
+               success("invalid-large", at_limit <> "x", "invalid URL")
+             )
 
     assert Repo.aggregate(Acquisition, :count) == 2
   end
 
   test "download failures are retryable and do not affect retained originals" do
     assert {:ok, %{original: original}} =
-             Earnings.record_success(success("good", "%PDF-good", "https://example.test/a.pdf"))
+             Lens.StorageFixtures.record_success(
+               success("good", "%PDF-good", "https://example.test/a.pdf")
+             )
 
     assert {:ok, failure} =
              Earnings.record_failure(%{
                acquisition_id: "failed",
-               issuer_code: "6857",
+               issuer_code: "issuer-example-a",
                url: "https://example.test/a.pdf",
                acquired_at: @at,
                reason: "timeout"
@@ -121,7 +135,9 @@ defmodule Lens.EarningsTest do
     assert failure.original_id == nil
 
     assert {:ok, _} =
-             Earnings.record_success(success("retry", "%PDF-good", "https://example.test/a.pdf"))
+             Lens.StorageFixtures.record_success(
+               success("retry", "%PDF-good", "https://example.test/a.pdf")
+             )
 
     assert Repo.aggregate(Original, :count) == 1
     assert Earnings.original_bytes(original.id) == {:ok, "%PDF-good"}
@@ -132,7 +148,7 @@ defmodule Lens.EarningsTest do
 
     attrs = %{
       acquisition_id: "long-error",
-      issuer_code: "6857",
+      issuer_code: "issuer-example-a",
       url: "https://example.test/a.pdf",
       acquired_at: @at,
       reason: reason
@@ -148,7 +164,9 @@ defmodule Lens.EarningsTest do
       ["concurrent-a", "concurrent-b"]
       |> Task.async_stream(
         fn id ->
-          Earnings.record_success(success(id, "%PDF-shared", "https://example.test/a.pdf"))
+          Lens.StorageFixtures.record_success(
+            success(id, "%PDF-shared", "https://example.test/a.pdf")
+          )
         end,
         max_concurrency: 2
       )
@@ -161,11 +179,11 @@ defmodule Lens.EarningsTest do
 
   test "a stored original cannot be changed or deleted" do
     assert {:ok, %{original: original}} =
-             Earnings.record_success(
+             Lens.StorageFixtures.record_success(
                success("immutable", "%PDF-original", "https://example.test/a.pdf")
              )
 
-    assert_immutable_mutation("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [
+    assert_immutable_mutation("UPDATE earnings_originals SET key = $1 WHERE id = $2", [
       "%PDF-changed",
       Ecto.UUID.dump!(original.id)
     ])
@@ -175,7 +193,7 @@ defmodule Lens.EarningsTest do
 
   test "acquisition provenance and release identity cannot be rewritten" do
     assert {:ok, %{acquisition: acquisition, release: release}} =
-             Earnings.record_success(
+             Lens.StorageFixtures.record_success(
                success("history", "%PDF-history", "https://example.test/a.pdf")
              )
 
@@ -192,7 +210,7 @@ defmodule Lens.EarningsTest do
 
   test "invalid provenance rolls back all successful storage" do
     attrs = success("bad-url", "%PDF-new", "https://user:secret@example.test/a.pdf")
-    assert {:error, %Ecto.Changeset{}} = Earnings.record_success(attrs)
+    assert {:error, %Ecto.Changeset{}} = Lens.StorageFixtures.record_success(attrs)
     assert Repo.aggregate(Release, :count) == 0
     assert Repo.aggregate(Original, :count) == 0
     assert Repo.aggregate(Acquisition, :count) == 0
@@ -201,7 +219,7 @@ defmodule Lens.EarningsTest do
   test "failed persistence retries are idempotent and reject conflicting outcomes" do
     attrs = %{
       acquisition_id: "failure-event",
-      issuer_code: "6857",
+      issuer_code: "issuer-example-a",
       url: "https://example.test/a.pdf",
       acquired_at: @at,
       reason: "timeout"
@@ -217,7 +235,7 @@ defmodule Lens.EarningsTest do
              Earnings.record_failure(%{attrs | url: "https://example.test/other.pdf"})
 
     assert {:error, :acquisition_conflict} =
-             Earnings.record_success(success("failure-event", "%PDF-late", attrs.url))
+             Lens.StorageFixtures.record_success(success("failure-event", "%PDF-late", attrs.url))
 
     assert {:error, :not_successful} = Earnings.confirm_identity("failure-event", @release)
     assert Repo.aggregate(Acquisition, :count) == 1
@@ -228,7 +246,7 @@ defmodule Lens.EarningsTest do
     attrs =
       success("confirm", "%PDF-confirm", "https://example.test/a.pdf") |> Map.delete(:release)
 
-    assert {:ok, %{acquisition: pending}} = Earnings.record_success(attrs)
+    assert {:ok, %{acquisition: pending}} = Lens.StorageFixtures.record_success(attrs)
     assert {:error, :invalid_identity} = Earnings.confirm_identity(pending.acquisition_id, nil)
 
     assert {:error, %Ecto.Changeset{}} =
@@ -245,10 +263,12 @@ defmodule Lens.EarningsTest do
   end
 
   test "invalid bytes and invalid acquisition metadata do not create retained data" do
-    assert {:error, :invalid_bytes} = Earnings.record_success(%{bytes: nil})
+    assert {:error, :invalid_bytes} = Lens.StorageFixtures.record_success(%{bytes: nil})
 
     assert {:error, %Ecto.Changeset{}} =
-             Earnings.record_success(success("empty", "", "https://example.test/a.pdf"))
+             Lens.StorageFixtures.record_success(
+               success("empty", "", "https://example.test/a.pdf")
+             )
 
     assert {:error, %Ecto.Changeset{}} =
              Earnings.record_failure(%{acquisition_id: "invalid", reason: "timeout"})
@@ -256,13 +276,13 @@ defmodule Lens.EarningsTest do
     assert {:error, %Ecto.Changeset{}} =
              Earnings.record_failure(%{
                acquisition_id: "missing-reason",
-               issuer_code: "6857",
+               issuer_code: "issuer-example-a",
                url: "https://example.test/a.pdf",
                acquired_at: @at
              })
 
     assert {:error, :invalid_identity} =
-             Earnings.record_success(%{
+             Lens.StorageFixtures.record_success(%{
                success("bad-identity", "%PDF-bad", "https://example.test/a.pdf")
                | release: "unknown"
              })
@@ -275,7 +295,7 @@ defmodule Lens.EarningsTest do
   defp success(id, bytes, url) do
     %{
       acquisition_id: id,
-      issuer_code: "6857",
+      issuer_code: "issuer-example-a",
       url: url,
       acquired_at: @at,
       bytes: bytes,
@@ -291,11 +311,14 @@ defmodule Lens.EarningsTest do
 
   test "successful attempts validate required provenance on first writes and retries" do
     attrs = success("validated", "%PDF-valid", "https://example.test/a.pdf")
-    assert {:ok, _} = Earnings.record_success(attrs)
+    assert {:ok, _} = Lens.StorageFixtures.record_success(attrs)
 
     for key <- [:acquisition_id, :url, :acquired_at] do
-      assert {:error, %Ecto.Changeset{}} = Earnings.record_success(Map.delete(attrs, key))
-      assert {:error, %Ecto.Changeset{}} = Earnings.record_success(Map.put(attrs, key, nil))
+      assert {:error, %Ecto.Changeset{}} =
+               Lens.StorageFixtures.record_success(Map.delete(attrs, key))
+
+      assert {:error, %Ecto.Changeset{}} =
+               Lens.StorageFixtures.record_success(Map.put(attrs, key, nil))
     end
 
     assert Repo.aggregate(Acquisition, :count) == 1
@@ -304,8 +327,8 @@ defmodule Lens.EarningsTest do
   test "cast publication attempt timestamps compare consistently across retries" do
     attrs = success("iso-time", "%PDF-time", "https://example.test/a.pdf")
     iso_attrs = %{attrs | acquired_at: DateTime.to_iso8601(@at)}
-    assert {:ok, first} = Earnings.record_success(iso_attrs)
-    assert {:ok, second} = Earnings.record_success(attrs)
+    assert {:ok, first} = Lens.StorageFixtures.record_success(iso_attrs)
+    assert {:ok, second} = Lens.StorageFixtures.record_success(attrs)
     assert first.acquisition.id == second.acquisition.id
     failed = Map.merge(iso_attrs, %{acquisition_id: "iso-failure", reason: "timeout"})
     assert {:ok, failure} = Earnings.record_failure(failed)
@@ -314,7 +337,7 @@ defmodule Lens.EarningsTest do
 
   test "concurrent confirmations of the same identity are idempotent" do
     attrs = success("concurrent-confirm", "%PDF-confirm", "https://example.test/a.pdf")
-    assert {:ok, _} = Earnings.record_success(Map.delete(attrs, :release))
+    assert {:ok, _} = Lens.StorageFixtures.record_success(Map.delete(attrs, :release))
 
     results =
       1..2

@@ -1,7 +1,6 @@
 defmodule Lens.Earnings.Identity do
   @moduledoc "Conservative identity mapping from explicit PDF text."
 
-  @period_order %{"q1" => 1, "q2" => 2, "q3" => 3, "full_year" => 4}
   @issuer_evidence ~r/コード\s*番号\s*[:：]?\s*([^\s()〔〕]{1,50})(?=[\s()〔〕]|$)/u
 
   @doc "Read explicit PDF identity fields. Missing or contradictory identity stays pending."
@@ -42,47 +41,6 @@ defmodule Lens.Earnings.Identity do
   end
 
   def from_text(_, _), do: {:error, :unsupported_issuer}
-
-  @doc "Select one issuer's newest identified regular release, leaving competing candidates pending."
-  def select_initial(candidates) when is_list(candidates) do
-    regular =
-      candidates
-      |> Enum.filter(fn
-        %{
-          status: :identified,
-          release: %{issuer_code: issuer, category: "earnings_release"}
-        }
-        when is_binary(issuer) and byte_size(issuer) > 0 ->
-          true
-
-        _ ->
-          false
-      end)
-      |> Enum.uniq()
-
-    issuers = Enum.map(regular, & &1.release.issuer_code) |> Enum.uniq()
-
-    case issuers do
-      [] -> :empty
-      [_] -> select_newest(regular)
-      _ -> {:error, :mixed_issuers}
-    end
-  end
-
-  defp select_newest(candidates) do
-    newest = Enum.max_by(candidates, &sort_key/1) |> sort_key()
-    competing = Enum.filter(candidates, &(sort_key(&1) == newest))
-
-    case competing do
-      [candidate] -> {:ok, candidate}
-      multiple -> {:pending_confirmation, multiple}
-    end
-  end
-
-  defp sort_key(candidate) do
-    {Date.to_gregorian_days(candidate.release.fiscal_year_end),
-     Map.fetch!(@period_order, candidate.release.period)}
-  end
 
   defp title_fields([year, month, quarter, interim]) do
     year = String.to_integer(year)

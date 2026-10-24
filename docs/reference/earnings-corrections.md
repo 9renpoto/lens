@@ -20,8 +20,7 @@ optional `第1四半期`–`第3四半期` (`第2四半期` may include `(中間
 parenthesized or `〔…〕` qualifiers; spaces before and between qualifiers are
 accepted. A title without a quarter denotes
 `full_year`. The fiscal month comes from the title; no three-company catalog or
-fixed fiscal month is used. This module does not implement the ordinary-release
-classifier tracked by #127.
+fixed fiscal month is used. Ordinary releases use the separate `Lens.Earnings.ReleaseAssessment` classifier.
 
 The classifier records issuer, fiscal year-end, period, publication date and
 referenced publication date only when uniquely observed. Unknown or conflicting
@@ -71,7 +70,7 @@ unsupported correction markers, extraction provenance and reassessment history.
 
 ## 対応する根拠
 
-バージョン`1`はNFKC正規化した日本語本文の明示的な`コード番号`と行単位の見出しを使用する。`(訂正)`に続く決算短信タイトル、引用符付きタイトルに続く`の一部訂正に関するお知らせ`または`の決算数値の訂正に関するお知らせ`、単独の`一部訂正に関するお知らせ`または`決算数値の訂正に関するお知らせ`に対応する。対象期間のタイトルは`YYYY年M月期`、任意の`第1四半期`〜`第3四半期`（`第2四半期`では`(中間期)`を付記できる）、`決算短信`で構成し、丸括弧または`〔…〕`による付記を許容する。付記の前や付記間には空白を入れられる。四半期がないタイトルは`full_year`を表す。決算月はタイトルから取得し、固定3社の一覧や固定決算月を使わない。このモジュールは#127の通常短信判定を実装しない。
+バージョン`1`はNFKC正規化した日本語本文の明示的な`コード番号`と行単位の見出しを使用する。`(訂正)`に続く決算短信タイトル、引用符付きタイトルに続く`の一部訂正に関するお知らせ`または`の決算数値の訂正に関するお知らせ`、単独の`一部訂正に関するお知らせ`または`決算数値の訂正に関するお知らせ`に対応する。対象期間のタイトルは`YYYY年M月期`、任意の`第1四半期`〜`第3四半期`（`第2四半期`では`(中間期)`を付記できる）、`決算短信`で構成し、丸括弧または`〔…〕`による付記を許容する。付記の前や付記間には空白を入れられる。四半期がないタイトルは`full_year`を表す。決算月はタイトルから取得し、固定3社の一覧や固定決算月を使わない。通常短信の判定には別の`Lens.Earnings.ReleaseAssessment`を使う。
 
 企業コード・決算期末・対象期間・公開日・参照公開日は、一意に観測できる場合のみ記録する。不明・矛盾する値は`null`とし、根拠には観測内容を保持する。公開日は企業コード行より前にある単独の和文日付を必要とする。元短信の参照は行全体が`YYYY年M月D日に公表した決算短信を訂正します。`である場合に対応する（末尾の句点は省略可能）。ほかの表現による参照は未解決とする。これは明示的に対応するレイアウトの判定であり、汎用的な日本語資料パーサーではない。
 

@@ -18,7 +18,8 @@ defmodule Lens.Ingestion.SchedulerTest do
   test "test cleanup restarts the scheduler without claiming a due source" do
     assert {:ok, source} =
              Content.create_source(%{
-               source_type: "rss",
+               feed_format: "rss_2_0",
+               acquisition_kind: "direct",
                endpoint_url: "http://127.0.0.1:1/unavailable.xml",
                poll_interval_seconds: 60,
                next_fetch_at: DateTime.add(DateTime.utc_now(), -1, :second)
@@ -59,7 +60,8 @@ defmodule Lens.Ingestion.SchedulerTest do
   test "releases a failed source task so it cannot consume a scheduler slot" do
     assert {:ok, source} =
              Content.create_source(%{
-               source_type: "rss",
+               feed_format: "rss_2_0",
+               acquisition_kind: "direct",
                endpoint_url: "http://127.0.0.1:1/unavailable.xml",
                poll_interval_seconds: 60,
                next_fetch_at: DateTime.add(DateTime.utc_now(), -1, :second)
@@ -81,7 +83,8 @@ defmodule Lens.Ingestion.SchedulerTest do
       for index <- 1..3 do
         {:ok, source} =
           Content.create_source(%{
-            source_type: "rss",
+            feed_format: "rss_2_0",
+            acquisition_kind: "direct",
             endpoint_url: "https://feeds.example.test/#{index}.xml",
             poll_interval_seconds: 60,
             next_fetch_at: DateTime.add(DateTime.utc_now(), -1, :second)

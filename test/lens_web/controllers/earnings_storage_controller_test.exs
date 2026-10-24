@@ -3,7 +3,6 @@ defmodule LensWeb.EarningsStorageControllerTest do
   import Phoenix.ConnTest
   import Plug.Conn
   import OpenApiSpex.TestAssertions
-  alias Lens.Earnings
   alias Lens.Earnings.{Extraction, Original, RustFS}
   @endpoint LensWeb.Endpoint
 
@@ -38,6 +37,7 @@ defmodule LensWeb.EarningsStorageControllerTest do
   end
 
   test "original endpoint retrieves exact older bytes and negotiates PDF without affecting JSON routes" do
+    Application.put_env(:lens, RustFS, Lens.StorageFixtures.options())
     older = retained("older")
     retained("newer")
 
@@ -74,15 +74,6 @@ defmodule LensWeb.EarningsStorageControllerTest do
   test "known originals return safe storage errors without fallback or mutation", c do
     original = retained("storage").original
 
-    reference = %{
-      key: "earnings/originals/sha256/#{original.sha256}.pdf",
-      sha256: original.sha256,
-      byte_size: original.byte_size,
-      endpoint: c.client.endpoint,
-      bucket: c.client.bucket
-    }
-
-    assert {:ok, _} = Lens.Earnings.OriginalStorage.select_rustfs(original, reference)
     original = Repo.get!(Original, original.id)
     conn = get(build_conn(), "/api/earnings/originals/#{original.id}")
 
@@ -133,17 +124,11 @@ defmodule LensWeb.EarningsStorageControllerTest do
       test_bytes = "%PDF-storage-#{status}-#{Ecto.UUID.generate()}"
       endpoint = storage_server(status, if(reason, do: body, else: test_bytes))
       # Use a fresh original because persisted destination facts are immutable.
-      next = retained("storage-#{status}-#{Ecto.UUID.generate()}", test_bytes).original
-
-      next_reference = %{
-        reference
-        | key: "earnings/originals/sha256/#{next.sha256}.pdf",
-          sha256: next.sha256,
-          byte_size: next.byte_size,
-          endpoint: endpoint
-      }
-
-      {:ok, _} = Lens.Earnings.OriginalStorage.select_rustfs(next, next_reference)
+      next =
+        retained("storage-#{status}-#{Ecto.UUID.generate()}", test_bytes, %{
+          endpoint: endpoint,
+          bucket: c.client.bucket
+        }).original
 
       Application.put_env(:lens, RustFS,
         endpoint: endpoint,
@@ -171,12 +156,16 @@ defmodule LensWeb.EarningsStorageControllerTest do
     assert Repo.aggregate(Extraction, :count) == 0
   end
 
-  defp retained(id, bytes \\ nil) do
+  defp retained(id, bytes \\ nil, reference_options \\ %{}) do
+    bytes = bytes || "%PDF-" <> id
+    reference = Map.merge(Lens.StorageFixtures.reference(bytes), reference_options)
+
     {:ok, result} =
-      Earnings.record_success(%{
-        bytes: bytes || "%PDF-" <> id,
+      Lens.StorageFixtures.record_success(%{
+        bytes: bytes,
+        storage_reference: reference,
         acquisition_id: id,
-        issuer_code: "7203",
+        issuer_code: "issuer-example-a",
         url: "https://publisher.test/#{id}.pdf",
         acquired_at: DateTime.utc_now()
       })

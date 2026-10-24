@@ -1,206 +1,143 @@
 defmodule Lens.Earnings.OriginalStorageTest do
   use Lens.DataCase
-
   alias Lens.Earnings
+  alias Lens.Earnings.{Acquisition, Original, RustFS}
 
-  alias Lens.Earnings.{
-    Original,
-    OriginalReadLocation,
-    OriginalStorage,
-    OriginalStorageLocation
-  }
+  @at ~U[2026-10-24 01:00:00.000000Z]
 
-  @at ~U[2026-09-26 01:00:00.000000Z]
+  test "a successful acquisition requires a complete verified RustFS reference" do
+    attrs = attrs("missing", "%PDF-retained")
 
-  test "RustFS-only originals remain immutable even when supplied their exact bytes" do
-    bytes = "%PDF-original"
-    digest = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
-
-    original =
-      %Original{}
-      |> Original.rustfs_changeset(%{sha256: digest, byte_size: byte_size(bytes)})
-      |> Repo.insert!()
-
-    id = Ecto.UUID.dump!(original.id)
-
-    assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.transaction(
-        fn ->
-          Repo.query!("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [
-            "%PDF-corrupt!",
-            id
-          ])
-        end,
-        mode: :savepoint
-      )
-    end
-
-    assert Repo.get!(Original, original.id).bytes == nil
-
-    assert_raise Postgrex.Error, ~r/immutable/, fn ->
-      Repo.transaction(
-        fn ->
-          Repo.query!("UPDATE earnings_originals SET bytes = $1 WHERE id = $2", [bytes, id])
-        end,
-        mode: :savepoint
-      )
-    end
-
-    assert Repo.get!(Original, original.id).bytes == nil
-  end
-
-  test "the schema has no storage rollback control state" do
-    assert Repo.query!("SELECT to_regclass('earnings_storage_controls') IS NULL").rows == [[true]]
-  end
-
-  test "selects a verified RustFS location while retaining the PostgreSQL copy" do
-    bytes = "%PDF-storage-location"
-    original = record_original("storage-location-select-rustfs", bytes)
-    reference = reference(original)
-    original_with_bytes = Repo.get!(Original, original.id)
-
-    assert {:ok, rustfs_location} = OriginalStorage.select_rustfs(original_with_bytes, reference)
-    assert rustfs_location.backend == "rustfs"
-    assert rustfs_location.key == reference.key
-
-    assert Repo.get_by!(OriginalStorageLocation,
-             original_id: original.id,
-             backend: "postgresql"
-           ).sha256 == original.sha256
-
-    assert {:ok, selected} = OriginalStorage.read_location(original.id)
-    assert selected.id == rustfs_location.id
-    assert {:ok, repeated} = OriginalStorage.select_rustfs(original_with_bytes, reference)
-    assert repeated.id == rustfs_location.id
-    assert Repo.aggregate(OriginalReadLocation, :count) == 1
-    assert Repo.aggregate(OriginalStorageLocation, :count) == 2
-    assert Repo.get!(Lens.Earnings.Original, original.id).bytes == bytes
-
-    assert {:error, :location_conflict} =
-             OriginalStorage.select_rustfs(original_with_bytes, %{
-               reference
-               | bucket: "other-bucket"
-             })
-  end
-
-  test "rejects invalid RustFS references and PostgreSQL bytes without selecting a location" do
-    bytes = "%PDF-storage-location-integrity"
-    original = record_original("storage-location-invalid-reference", bytes)
-    reference = reference(original)
-
-    assert {:error, :invalid_reference} = OriginalStorage.select_rustfs(original, %{})
-
-    assert {:error, :integrity_error} =
-             OriginalStorage.select_rustfs(original, %{reference | key: "wrong-key.pdf"})
-
-    assert {:error, :integrity_error} =
-             OriginalStorage.select_rustfs(%{original | bytes: "corrupt"}, reference)
-
-    assert {:ok, nil} = OriginalStorage.read_location(original.id)
-  end
-
-  test "reports conflicts when a persisted backend location disagrees with the reference" do
-    bytes = "%PDF-storage-location-conflict"
-    original = record_original("storage-location-conflict", bytes)
-    reference = reference(original)
-
-    assert {:ok, _location} =
-             %OriginalStorageLocation{}
-             |> OriginalStorageLocation.changeset(%{
-               original_id: original.id,
-               backend: "rustfs",
-               key: "earnings/originals/sha256/wrong.pdf",
-               endpoint: "http://storage.test",
-               bucket: "lens-originals",
-               sha256: original.sha256,
-               byte_size: original.byte_size,
-               verified_at: @at
-             })
-             |> Repo.insert()
-
-    assert {:error, :location_conflict} = OriginalStorage.select_rustfs(original, reference)
-    assert {:ok, nil} = OriginalStorage.read_location(original.id)
-  end
-
-  test "partial references return an error without changing the selected backend" do
-    original = record_original("storage-partial-reference", "%PDF-partial")
-    reference = reference(original)
-
-    for key <- [:key, :sha256, :byte_size] do
+    for reference <- [
+          nil,
+          %{},
+          Map.delete(attrs.storage_reference, :endpoint),
+          Map.delete(attrs.storage_reference, :bucket)
+        ] do
       assert {:error, :invalid_reference} =
-               OriginalStorage.select_rustfs(original, Map.delete(reference, key))
+               Earnings.record_success(Map.put(attrs, :storage_reference, reference))
 
-      assert {:ok, nil} = OriginalStorage.read_location(original.id)
+      assert Repo.aggregate(Original, :count) == 0
+      assert Repo.aggregate(Acquisition, :count) == 0
     end
   end
 
-  test "returns a changeset error when the original does not exist" do
-    sha256 = String.duplicate("a", 64)
+  test "stores the immutable reference directly and deduplicates repeated bytes" do
+    first = attrs("first", "%PDF-retained")
+    assert {:ok, one} = Earnings.record_success(first)
+    assert {:ok, two} = Earnings.record_success(%{first | acquisition_id: "second"})
+    assert one.original.id == two.original.id
+    original = Repo.get!(Original, one.original.id)
 
-    original = %Original{
-      id: Ecto.UUID.generate(),
-      bytes: nil,
-      sha256: sha256,
-      byte_size: 1
+    assert Map.take(original, [:endpoint, :bucket, :key, :sha256, :byte_size]) ==
+             first.storage_reference
+
+    assert original.verified_at != nil
+    refute Map.has_key?(original, :bytes)
+
+    assert {:ok, changed} = Earnings.record_success(attrs("changed", "%PDF-changed"))
+    refute changed.original.id == original.id
+  end
+
+  test "repeat observations cannot change an original's destination" do
+    first = attrs("first", "%PDF-retained")
+    assert {:ok, _} = Earnings.record_success(first)
+    conflicting = put_in(first, [:storage_reference, :bucket], "different-bucket")
+    assert {:error, :reference_conflict} = Earnings.record_success(conflicting)
+
+    assert {:error, :reference_conflict} =
+             Earnings.record_success(%{conflicting | acquisition_id: "different"})
+
+    assert Repo.aggregate(Acquisition, :count) == 1
+  end
+
+  test "rejects a mismatched hash, key or byte size without persisting success" do
+    first = attrs("first", "%PDF-retained")
+
+    for {key, value} <- [sha256: String.duplicate("a", 64), key: "wrong.pdf", byte_size: 1] do
+      assert {:error, :integrity_error} =
+               Earnings.record_success(put_in(first, [:storage_reference, key], value))
+    end
+
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
+  test "exact original reads verify bytes and reject a changed destination" do
+    first = attrs("read", "%PDF-retained")
+    assert {:ok, result} = Earnings.record_success(first)
+
+    {:ok, base} =
+      RustFS.new(
+        endpoint: "http://storage.test",
+        bucket: "test-originals",
+        access_key_id: "fixture",
+        secret_access_key: "fixture"
+      )
+
+    client = %{
+      base
+      | request: Req.new(plug: fn conn -> Plug.Conn.send_resp(conn, 200, first.bytes) end)
     }
 
-    assert {:error, %Ecto.Changeset{}} =
-             OriginalStorage.select_rustfs(original, %{
-               key: "earnings/originals/sha256/#{sha256}.pdf",
-               endpoint: "http://storage.test",
-               bucket: "lens-originals",
-               sha256: sha256,
-               byte_size: 1
-             })
+    assert {:ok, bytes} = Earnings.original_bytes(result.original.id, rustfs: client)
+    assert bytes == first.bytes
+
+    assert {:error, :destination_mismatch} =
+             Earnings.original_bytes(result.original.id,
+               rustfs: %{client | bucket: "other-bucket"}
+             )
+
+    corrupt = %{
+      base
+      | request: Req.new(plug: fn conn -> Plug.Conn.send_resp(conn, 200, "corrupt") end)
+    }
+
+    assert {:error, :integrity_error} =
+             Earnings.original_bytes(result.original.id, rustfs: corrupt)
   end
 
-  test "a read selection cannot point at another original's storage location" do
-    first = record_original("storage-location-first", "%PDF-first")
-    second = record_original("storage-location-second", "%PDF-second")
+  test "the supported schema contains no PDF bytes or storage-selection tables" do
+    assert Repo.query!(
+             "SELECT to_regclass('earnings_original_storage_locations'), to_regclass('earnings_original_read_locations')"
+           ).rows == [[nil, nil]]
 
-    {:ok, location} =
-      %OriginalStorageLocation{}
-      |> OriginalStorageLocation.changeset(%{
-        original_id: first.id,
-        backend: "postgresql",
-        key: nil,
-        sha256: first.sha256,
-        byte_size: first.byte_size,
-        verified_at: @at
-      })
-      |> Repo.insert()
-
-    assert {:error, changeset} =
-             %OriginalReadLocation{}
-             |> OriginalReadLocation.changeset(%{
-               original_id: second.id,
-               location_id: location.id
-             })
-             |> Repo.insert()
-
-    assert %{location_id: [_]} = errors_on(changeset)
+    assert Repo.query!(
+             "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'earnings_originals' AND column_name = 'bytes'"
+           ).rows == [[0]]
   end
 
-  defp record_original(acquisition_id, bytes) do
-    assert {:ok, %{original: original}} =
-             Earnings.record_success(%{
-               acquisition_id: acquisition_id,
-               issuer_code: "6857",
-               url: "https://example.test/#{acquisition_id}.pdf",
-               acquired_at: @at,
-               bytes: bytes
-             })
+  test "stored original references cannot be changed" do
+    assert {:ok, result} = Earnings.record_success(attrs("immutable", "%PDF-immutable"))
 
-    original
+    assert_raise Postgrex.Error, ~r/immutable/, fn ->
+      Repo.transaction(
+        fn ->
+          Repo.query!(
+            "UPDATE earnings_originals SET bucket = 'different-bucket' WHERE id = $1",
+            [Ecto.UUID.dump!(result.original.id)]
+          )
+        end,
+        mode: :savepoint
+      )
+    end
   end
 
-  defp reference(original) do
+  defp attrs(id, bytes) do
+    digest = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+
     %{
-      key: "earnings/originals/sha256/#{original.sha256}.pdf",
-      endpoint: "http://storage.test",
-      bucket: "lens-originals",
-      sha256: original.sha256,
-      byte_size: original.byte_size
+      acquisition_id: id,
+      issuer_code: "issuer-alpha",
+      url: "https://publisher.example.test/report.pdf",
+      acquired_at: @at,
+      bytes: bytes,
+      storage_reference: %{
+        endpoint: "http://storage.test",
+        bucket: "test-originals",
+        key: "earnings/originals/sha256/#{digest}.pdf",
+        sha256: digest,
+        byte_size: byte_size(bytes)
+      }
     }
   end
 end

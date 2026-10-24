@@ -1,7 +1,7 @@
 defmodule Lens.Earnings.HTTPHistoryTest do
   use Lens.DataCase
   alias Lens.Earnings
-  alias Lens.Earnings.{Acquisition, HTTP, HTTPHistory, HTTPCheck, Original}
+  alias Lens.Earnings.{Acquisition, HTTP, HTTPCheck, Original}
 
   @at ~U[2026-10-02 00:00:00.000000Z]
   @url "https://example.test/request.pdf"
@@ -11,13 +11,13 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     for {kind, body} <- [{:listing, "<html>listing</html>"}, {:pdf, "%PDF-non-pilot"}] do
       input =
         attrs("non-pilot-#{kind}", :success, body)
-        |> Map.put(:issuer_code, "7203")
+        |> Map.put(:issuer_code, "issuer-example-b")
         |> Map.put(:kind, kind)
         |> Map.delete(:release)
 
-      assert {:ok, check} = HTTPHistory.record(input)
-      assert check.issuer_code == "7203"
-      assert {:ok, ^check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
+      assert check.issuer_code == "issuer-example-b"
+      assert {:ok, ^check} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 2
@@ -30,7 +30,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert {:ok, target} =
              target
              |> Lens.Analysis.Target.changeset(%{
-               security_code: "A7203",
+               security_code: "Aissuer-example-b",
                market: "TSE",
                display_name: "Example Corp",
                sector: "Technology",
@@ -42,7 +42,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     success = attrs("registered-target-success", :success, "%PDF-registered-target")
     success = Map.put(success, :issuer_code, target.security_code)
 
-    assert {:ok, success_check} = HTTPHistory.record(success)
+    assert {:ok, success_check} = Lens.StorageFixtures.record_http(success)
     success_acquisition = Repo.get!(Acquisition, success_check.acquisition_id)
     assert success_acquisition.issuer_code == target.security_code
 
@@ -52,7 +52,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     failure = attrs("registered-target-failure", :failed, nil)
     failure = Map.put(failure, :issuer_code, target.security_code)
 
-    assert {:ok, failure_check} = HTTPHistory.record(failure)
+    assert {:ok, failure_check} = Lens.StorageFixtures.record_http(failure)
 
     assert Repo.get!(Acquisition, failure_check.acquisition_id).issuer_code ==
              target.security_code
@@ -66,14 +66,17 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       |> Map.put(:kind, :listing)
       |> Map.delete(:release)
 
-    assert {:ok, check} = HTTPHistory.record(input)
-    assert {1, nil} = Repo.insert_all(HTTPCheck, [copied_row(check, %{issuer_code: "7203"})])
-    assert_db_rejects(check, %{issuer_code: "7203", requests: 5}, :check_violation)
+    assert {:ok, check} = Lens.StorageFixtures.record_http(input)
+
+    assert {1, nil} =
+             Repo.insert_all(HTTPCheck, [copied_row(check, %{issuer_code: "issuer-example-b"})])
+
+    assert_db_rejects(check, %{issuer_code: "issuer-example-b", requests: 5}, :check_violation)
   end
 
   test "persists an original and distinct publisher/acquisition facts atomically" do
     attrs = attrs("first", :success, "%PDF-first") |> Map.put(:published_on, ~D[2026-07-29])
-    assert {:ok, check} = HTTPHistory.record(attrs)
+    assert {:ok, check} = Lens.StorageFixtures.record_http(attrs)
     assert check.status == "success"
     assert check.url == @url
     assert check.final_url == @final
@@ -88,8 +91,8 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   end
 
   test "304 creates a check without fabricating downloaded bytes or acquisition history" do
-    assert {:ok, _} = HTTPHistory.record(attrs("download", :success, "%PDF-first"))
-    assert {:ok, check} = HTTPHistory.record(attrs("unchanged", :not_modified, nil))
+    assert {:ok, _} = Lens.StorageFixtures.record_http(attrs("download", :success, "%PDF-first"))
+    assert {:ok, check} = Lens.StorageFixtures.record_http(attrs("unchanged", :not_modified, nil))
     assert check.status == "not_modified"
     assert check.acquisition_id == nil
     assert check.sha256 == nil
@@ -101,7 +104,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   test "304 checks require the final response URL" do
     input = put_in(attrs("missing-final-url", :not_modified, nil), [:result, :final_url], nil)
 
-    assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+    assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     assert Repo.aggregate(HTTPCheck, :count) == 0
     assert Repo.aggregate(Acquisition, :count) == 0
   end
@@ -112,7 +115,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         attrs("failure-final-url-#{inspect(final_url)}", :failed, nil)
         |> put_in([:result, :final_url], final_url)
 
-      assert {:error, _} = HTTPHistory.record(input)
+      assert {:error, _} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -134,7 +137,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       end
 
     for input <- inputs do
-      assert {:error, _} = HTTPHistory.record(input)
+      assert {:error, _} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -164,7 +167,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         |> put_in([:result, :headers], if(is_nil(status), do: %{}, else: %{"etag" => "v1"}))
         |> put_in([:result, :retryable], retryable)
 
-      assert {:error, _} = HTTPHistory.record(input)
+      assert {:error, _} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -201,7 +204,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         |> put_in([:result, :requests], requests)
         |> put_in([:result, :retryable], reason in [:timeout, :interrupted, :transport_error])
 
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -228,7 +231,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         |> put_in([:result, :headers], headers)
         |> put_in([:result, :retryable], false)
 
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -240,7 +243,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert result.http_status == 200
 
     input = attrs("small-limit", :failed, nil) |> Map.put(:url, url) |> Map.put(:result, result)
-    assert {:ok, check} = HTTPHistory.record(input)
+    assert {:ok, check} = Lens.StorageFixtures.record_http(input)
     assert check.response_headers["content-length"] == "2"
     assert check.byte_size == nil
     assert Repo.aggregate(Original, :count) == 0
@@ -259,7 +262,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         |> put_in([:result, :headers], headers)
         |> put_in([:result, :retryable], false)
 
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -281,7 +284,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         attrs("success-#{kind}-#{inspect(headers)}", :success, bytes) |> Map.put(:kind, kind)
 
       input = put_in(input, [:result, :headers], headers)
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -308,7 +311,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       }
 
       assert {:error, %Ecto.Changeset{valid?: false}} =
-               HTTPHistory.record(%{input | result: result})
+               Lens.StorageFixtures.record_http(%{input | result: result})
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -325,8 +328,8 @@ defmodule Lens.Earnings.HTTPHistoryTest do
            %{"content-encoding" => "gzip", "content-length" => "999999999"}}
         ] do
       input = put_in(attrs(id, outcome, bytes), [:result, :headers], headers)
-      assert {:ok, check} = HTTPHistory.record(input)
-      assert {:ok, ^check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
+      assert {:ok, ^check} = Lens.StorageFixtures.record_http(input)
     end
 
     for {reason, headers} <- [
@@ -346,8 +349,8 @@ defmodule Lens.Earnings.HTTPHistoryTest do
           retryable: false
       }
 
-      assert {:ok, check} = HTTPHistory.record(%{input | result: result})
-      assert {:ok, ^check} = HTTPHistory.record(%{input | result: result})
+      assert {:ok, check} = Lens.StorageFixtures.record_http(%{input | result: result})
+      assert {:ok, ^check} = Lens.StorageFixtures.record_http(%{input | result: result})
     end
   end
 
@@ -358,7 +361,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     assert result.failure_reason == :transport_error
     assert result.requests == 0
 
-    assert {:ok, check} = HTTPHistory.record(%{input | result: result})
+    assert {:ok, check} = Lens.StorageFixtures.record_http(%{input | result: result})
     assert check.acquisition_id == nil
     assert check.requests == 0
     assert Repo.aggregate(Acquisition, :count) == 0
@@ -377,7 +380,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     }
 
     assert {:error, %Ecto.Changeset{valid?: false}} =
-             HTTPHistory.record(%{input | result: result})
+             Lens.StorageFixtures.record_http(%{input | result: result})
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
     assert Repo.aggregate(Acquisition, :count) == 0
@@ -394,7 +397,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     input =
       attrs("denied-redirect", :failed, nil) |> Map.put(:url, url) |> Map.put(:result, result)
 
-    assert {:ok, check} = HTTPHistory.record(input)
+    assert {:ok, check} = Lens.StorageFixtures.record_http(input)
     assert check.url == url
     assert check.final_url == target
     assert check.http_status == nil
@@ -402,7 +405,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     acquisition = Repo.get!(Acquisition, check.acquisition_id)
     assert acquisition.url == url
     assert acquisition.failure_reason == "url_not_allowed"
-    assert {:ok, ^check} = HTTPHistory.record(input)
+    assert {:ok, ^check} = Lens.StorageFixtures.record_http(input)
     assert Repo.aggregate(HTTPCheck, :count) == 1
     assert Repo.aggregate(Acquisition, :count) == 1
     assert Repo.aggregate(Original, :count) == 0
@@ -423,7 +426,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         |> Map.put(:url, url)
         |> Map.put(:result, result)
 
-      assert {:ok, check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
       assert check.final_url == target
       assert check.requests == 1
       assert check.http_status == nil
@@ -431,7 +434,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       acquisition = Repo.get!(Acquisition, check.acquisition_id)
       assert acquisition.url == url
       assert acquisition.failure_reason == Atom.to_string(reason)
-      assert {:ok, ^check} = HTTPHistory.record(input)
+      assert {:ok, ^check} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 2
@@ -450,7 +453,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       assert result.requests == 0
       input = attrs("missing-evaluated-#{result.failure_reason}", :failed, nil)
       input = Map.put(input, :result, Map.delete(result, :final_url))
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -458,7 +461,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
 
     for result <- results do
       input = attrs("evaluated-#{result.failure_reason}", :failed, nil)
-      assert {:ok, check} = HTTPHistory.record(Map.put(input, :result, result))
+      assert {:ok, check} = Lens.StorageFixtures.record_http(Map.put(input, :result, result))
       assert check.final_url == @url
       assert check.requests == 0
       assert check.acquisition_id == nil
@@ -496,10 +499,10 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       end
 
     for {field, input} <- inputs do
-      assert {:ok, check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
       assert check.response_headers[field] == %{"encoding" => "base64", "value" => "/w=="}
       assert Base.decode64!(check.response_headers[field]["value"]) == raw
-      assert {:ok, ^check} = HTTPHistory.record(input)
+      assert {:ok, ^check} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 3
@@ -526,7 +529,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         |> put_in([:result, :headers], headers)
         |> put_in([:result, :retryable], false)
 
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -545,16 +548,16 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         |> put_in([:result, :headers], headers)
         |> put_in([:result, :retryable], false)
 
-      assert {:ok, check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
       assert check.failure_reason == "unsupported_encoding"
       assert check.response_headers == headers |> Jason.encode!() |> Jason.decode!()
-      assert {:ok, ^check} = HTTPHistory.record(input)
+      assert {:ok, ^check} = Lens.StorageFixtures.record_http(input)
     end
   end
 
   test "identical reacquisition adds history while changed bytes preserve old originals" do
     for {id, bytes} <- [{"one", "%PDF-one"}, {"two", "%PDF-one"}, {"three", "%PDF-two"}] do
-      assert {:ok, _} = HTTPHistory.record(attrs(id, :success, bytes))
+      assert {:ok, _} = Lens.StorageFixtures.record_http(attrs(id, :success, bytes))
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 3
@@ -568,7 +571,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   end
 
   test "failed downloads record their reason and HTTP status while retaining prior data" do
-    assert {:ok, _} = HTTPHistory.record(attrs("prior", :success, "%PDF-first"))
+    assert {:ok, _} = Lens.StorageFixtures.record_http(attrs("prior", :success, "%PDF-first"))
 
     cases = [
       {:too_large, nil, %{}, false},
@@ -592,7 +595,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       input = put_in(input.result.http_status, status)
       input = put_in(input.result.headers, headers)
       input = put_in(input.result.retryable, retryable)
-      assert {:ok, check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
       assert check.failure_reason == to_string(reason)
       assert check.http_status == status
       assert check.response_headers == headers
@@ -607,12 +610,12 @@ defmodule Lens.Earnings.HTTPHistoryTest do
 
   test "persistence retries reuse one check, conflicts roll back instead of changing facts" do
     input = attrs("retry", :success, "%PDF-first")
-    assert {:ok, first} = HTTPHistory.record(input)
-    assert {:ok, second} = HTTPHistory.record(input)
+    assert {:ok, first} = Lens.StorageFixtures.record_http(input)
+    assert {:ok, second} = Lens.StorageFixtures.record_http(input)
     assert first == second
 
     assert {:error, :check_conflict} =
-             HTTPHistory.record(Map.put(input, :published_on, ~D[2026-07-30]))
+             Lens.StorageFixtures.record_http(Map.put(input, :published_on, ~D[2026-07-30]))
 
     assert Repo.aggregate(HTTPCheck, :count) == 1
     assert Repo.aggregate(Acquisition, :count) == 1
@@ -628,7 +631,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       })
       |> put_in([:result, :headers], %{etag: "v1"})
 
-    assert {:ok, check} = HTTPHistory.record(input)
+    assert {:ok, check} = Lens.StorageFixtures.record_http(input)
 
     assert check.metadata == %{
              "listing" => %{"label" => "pending"},
@@ -637,7 +640,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
            }
 
     assert check.response_headers == %{"etag" => "v1"}
-    assert {:ok, ^check} = HTTPHistory.record(input)
+    assert {:ok, ^check} = Lens.StorageFixtures.record_http(input)
     assert Repo.aggregate(HTTPCheck, :count) == 1
     assert Repo.aggregate(Acquisition, :count) == 1
   end
@@ -651,7 +654,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         "listing_label" => "FY2026"
       })
 
-    assert {:ok, check} = HTTPHistory.record(input)
+    assert {:ok, check} = Lens.StorageFixtures.record_http(input)
     acquisition = Repo.get!(Acquisition, check.acquisition_id)
     assert acquisition.release_id == nil
     assert check.published_on == nil
@@ -668,7 +671,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
 
   test "listing checks and rejected-before-request outcomes create no PDF acquisitions" do
     assert {:ok, listing} =
-             HTTPHistory.record(
+             Lens.StorageFixtures.record_http(
                attrs("listing", :success, "<html>listing</html>")
                |> Map.put(:kind, :listing)
              )
@@ -685,7 +688,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       |> put_in([:result, :http_status], nil)
       |> put_in([:result, :headers], %{})
 
-    assert {:ok, rejected} = HTTPHistory.record(input)
+    assert {:ok, rejected} = Lens.StorageFixtures.record_http(input)
     assert rejected.acquisition_id == nil
     assert Repo.aggregate(Acquisition, :count) == 0
     assert Repo.aggregate(Original, :count) == 0
@@ -696,10 +699,10 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       attrs("bad", :success, "%PDF-first")
       |> Map.put(:metadata, %{"large" => String.duplicate("x", 32_769)})
 
-    assert {:error, _} = HTTPHistory.record(input)
+    assert {:error, _} = Lens.StorageFixtures.record_http(input)
 
     assert {:error, _} =
-             HTTPHistory.record(
+             Lens.StorageFixtures.record_http(
                put_in(attrs("status", :success, "%PDF-first"), [:result, :http_status], 304)
              )
 
@@ -712,7 +715,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
           attrs("null-metadata", :success, "%PDF-first") |> Map.put(:metadata, nil),
           put_in(attrs("null-headers", :success, "%PDF-first"), [:result, :headers], nil)
         ] do
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -732,7 +735,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
             "etag" => <<255, 0>>
           })
         ] do
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -748,7 +751,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
     ]
 
     for input <- inputs do
-      assert {:error, %Ecto.Changeset{valid?: false}} = HTTPHistory.record(input)
+      assert {:error, %Ecto.Changeset{valid?: false}} = Lens.StorageFixtures.record_http(input)
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -770,7 +773,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       }
 
       assert {:error, %Ecto.Changeset{valid?: false}} =
-               HTTPHistory.record(%{input | result: result})
+               Lens.StorageFixtures.record_http(%{input | result: result})
     end
 
     assert Repo.aggregate(HTTPCheck, :count) == 0
@@ -778,7 +781,9 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   end
 
   test "database requires a final URL even when changesets are bypassed" do
-    assert {:ok, check} = HTTPHistory.record(attrs("required-final", :not_modified, nil))
+    assert {:ok, check} =
+             Lens.StorageFixtures.record_http(attrs("required-final", :not_modified, nil))
+
     assert_db_rejects(check, %{final_url: nil}, :not_null_violation)
     assert Repo.aggregate(HTTPCheck, :count) == 1
   end
@@ -796,7 +801,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
         retryable: true
     }
 
-    assert {:ok, check} = HTTPHistory.record(%{input | result: result})
+    assert {:ok, check} = Lens.StorageFixtures.record_http(%{input | result: result})
 
     for changes <- [
           %{final_url: @final},
@@ -835,7 +840,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
           input
         end
 
-      assert {:ok, check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
       assert {1, nil} = Repo.insert_all(HTTPCheck, [copied_row(check, %{})])
     end
 
@@ -849,7 +854,10 @@ defmodule Lens.Earnings.HTTPHistoryTest do
           {"retry-db-304", :not_modified, nil}
         ] do
       assert {:ok, check} =
-               HTTPHistory.record(attrs(id, outcome, bytes) |> Map.put(:kind, :listing))
+               Lens.StorageFixtures.record_http(
+                 attrs(id, outcome, bytes)
+                 |> Map.put(:kind, :listing)
+               )
 
       assert_db_rejects(check, %{retryable: true}, :check_violation)
     end
@@ -858,7 +866,8 @@ defmodule Lens.Earnings.HTTPHistoryTest do
   end
 
   test "database rejects rewriting or deleting completed check facts" do
-    assert {:ok, check} = HTTPHistory.record(attrs("immutable", :success, "%PDF-first"))
+    assert {:ok, check} =
+             Lens.StorageFixtures.record_http(attrs("immutable", :success, "%PDF-first"))
 
     for sql <- [
           "UPDATE earnings_http_checks SET published_on = '2000-01-01' WHERE id = $1",
@@ -890,14 +899,15 @@ defmodule Lens.Earnings.HTTPHistoryTest do
       |> put_in([:result, :headers], %{"etag" => "impossible"})
     ]
 
-    for input <- inputs, do: assert({:error, _} = HTTPHistory.record(input))
+    for input <- inputs, do: assert({:error, _} = Lens.StorageFixtures.record_http(input))
     assert Repo.aggregate(HTTPCheck, :count) == 0
     assert Repo.aggregate(Acquisition, :count) == 0
     assert Repo.aggregate(Original, :count) == 0
   end
 
   test "database rejects a check digest that disagrees with its retained original" do
-    assert {:ok, check} = HTTPHistory.record(attrs("digest", :success, "%PDF-first"))
+    assert {:ok, check} =
+             Lens.StorageFixtures.record_http(attrs("digest", :success, "%PDF-first"))
 
     sql = """
     INSERT INTO earnings_http_checks
@@ -979,7 +989,7 @@ defmodule Lens.Earnings.HTTPHistoryTest do
 
     %{
       check_id: id,
-      issuer_code: "6857",
+      issuer_code: "issuer-example-a",
       url: @url,
       checked_at: @at,
       release: %{fiscal_year_end: ~D[2027-03-31], period: "q1", category: "earnings_release"},

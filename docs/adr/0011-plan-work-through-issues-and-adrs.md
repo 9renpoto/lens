@@ -17,14 +17,15 @@ accepted ADR when it already covers the decision rather than duplicating it.
 Begin concrete development after the issue and applicable ADRs are in place.
 Use actual sub-issues for independently reviewable implementation units.
 
-ADRs describe current decisions in the present tense; they do not duplicate
-task checklists or delivery status. Preserve superseded status and replacement
-links when decisions change. Implemented procedures and contracts belong in
-maintained operational/reference documents. Preserve lasting information from
-existing plans in issues, ADRs, or those maintained guides before deleting
-completed plans and their incoming links. Git history retains the removed
-documents. Active plans are migrated to issues and ADRs, rather than extended
-as a parallel planning system.
+ADRs describe only active decisions and rationale in the present tense; they do
+not duplicate task checklists, delivery status or historical implementation
+details. Keep history and superseded decisions in GitHub issues. Before removing
+obsolete repository content, preserve useful historical context in issues and
+repair incoming links. Do not keep superseded ADRs or repository archives solely
+to explain past designs; retain stable numbers for the active ADRs. Implemented
+procedures and contracts belong in maintained operational/reference documents.
+Move active plans to issues and agreed decisions to ADRs rather than maintaining
+a parallel planning system.
 
 <details>
 <summary>日本語</summary>
@@ -42,11 +43,11 @@ READMEはLensの理解・導入・利用の入口とする。
 Issueと該当するADRを用意した後に具体的な開発へ入る。
 独立してレビュー可能な実装単位には、実際のサブIssueを使う。
 
-ADRは現在の決定を現在形で記録し、タスクのチェックリストや進捗は重複させない。
-判断が変わる場合は、引継ぎ済みの状態と後継へのリンクを保持する。
-実装済みの手順・契約は維持する操作・参照文書に置く。
-既存planの継続して必要な情報をIssue・ADR・維持するガイドへ残したうえで、
-完了したplanと参照リンクを削除する。削除した文書はGit履歴に残る。
-作業中のplanも並行した計画管理として拡張せず、IssueとADRへ移す。
+ADRは現在有効な判断と理由だけを現在形で記録し、タスクのチェックリスト・進捗・
+過去の実装詳細を重複させない。歴史と置換済みの判断はGitHub Issueに残す。
+古い内容をリポジトリから削除する前に、必要な経緯をIssueへ残し、参照リンクを直す。
+過去の設計を説明するためだけの置換済みADRやリポジトリ内のarchiveは維持しない。
+有効なADRの番号は維持する。実装済みの手順・契約は維持する操作・参照文書に置く。
+作業中のplanはIssue、合意した判断はADRへ移し、別の計画管理を維持しない。
 
 </details>

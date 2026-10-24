@@ -5,3 +5,6 @@
 ExUnit.start()
 
 Ecto.Adapters.SQL.Sandbox.mode(Lens.Repo, :manual)
+
+{:ok, _} = Supervisor.start_child(Lens.Supervisor, Lens.StorageFixtures)
+Application.put_env(:lens, Lens.Earnings.RustFS, Lens.StorageFixtures.options())

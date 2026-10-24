@@ -136,7 +136,9 @@ defmodule Lens.Content do
         order_by: [asc: observation.source_id, desc: observation.observed_at],
         select: %{
           id: source.id,
-          source_type: source.source_type,
+          feed_format: source.feed_format,
+          acquisition_kind: source.acquisition_kind,
+          publisher_authority: source.publisher_authority,
           endpoint_url: source.endpoint_url,
           observed_at: observation.observed_at
         }

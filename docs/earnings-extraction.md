@@ -1,10 +1,10 @@
 # Extract retained earnings originals
 
-Processing reads each original's selected storage location: PostgreSQL for originals without a selection, or verified RustFS objects. RustFS reads require the recorded endpoint and bucket to match runtime configuration. Configure the [RustFS client](adr/0005-store-pdfs-in-rustfs.md) when processing RustFS originals. Collection integration remains separate under #146.
+Processing retrieves each original from its immutable RustFS reference. The recorded endpoint and bucket must match runtime configuration. Configure the [RustFS client](adr/0005-store-pdfs-in-rustfs.md) before processing retained originals.
 
 Retrieve and verify size and SHA-256 before creating an extraction attempt. Storage failures create no attempt and leave extraction history unchanged. Single-original commands fail with `original UUID unavailable: REASON`; regeneration reports `original_id`, `error: "original_unavailable"` and `reason` for each unavailable original and continues the bounded batch. No storage failure triggers publisher access or fallback to another backend. Storage completion does not automatically start extraction.
 
-Apply database migrations before processing. Run these commands in a fresh Mix
+Prepare the current database schema before processing. Run these commands in a fresh Mix
 process with the usual PostgreSQL configuration. The task starts only Ecto and
 the repository, and refuses to run if the collection scheduler is already
 running. It does not start the web endpoint or fetch publisher material.
@@ -107,7 +107,6 @@ conditionally on unchanged plain text to avoid overwriting a concurrent success.
 
 ## Verification
 
-The optional historical runner comparison tool, `test/system/pdf_runner_comparison.exs`, writes its report to `PDF_COMPARISON_REPORT` or the system temporary directory (`lens-pdf-runner-samples.json`). It does not recreate archived planning documents.
 
 Synthetic PDFs and their ReportLab generator live in `test/fixtures/`.
 Build the helper with `cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner`
@@ -116,7 +115,7 @@ process bounds and cleanup; `elixir -pa "_build/test/lib/*/ebin" test/pdf_adapte
 checks real PDFs, text validity and adapter lifecycle. The ReportLab generator
 is optional developer tooling; ordinary CI uses the checked-in PDF bytes.
 `test/system/earnings_offline_check.exs` is a scratch-database check run with
-`mix run --no-start`. It migrates an empty test database and verifies the real
+`mix run --no-start`. It initializes an empty test database and verifies the real
 CLI, bytes and acquisition counts. Run it in an internal Docker network with
 only PostgreSQL available; do not use a production database.
 
@@ -127,11 +126,11 @@ only PostgreSQL available; do not use a production database.
 
 再試行は原本取得前に確認した失敗試行を対象とする。試行割り当てで原本行をロックした時点で、同じ試行が最新かつ失敗状態でなくなっていれば、試行を作らず`retry_conflict`を返す。再実行前に現在の履歴を確認する。開始時点から対象不適格なら、引き続き`not_failed`を返す。
 
-処理は各原本で選択された保存先を読む。選択がない原本はPostgreSQL、RustFS原本は検証付きオブジェクト取得を使う。RustFSの読取では記録済みendpoint・bucketと実行時設定の一致が必要である。RustFS原本の処理では[RustFSクライアント](adr/0005-store-pdfs-in-rustfs.md)を設定する。収集への接続は#146の別作業として残る。
+処理は原本に直接記録した不変のRustFS参照から取得する。記録済みendpoint・bucketと実行時設定の一致が必要である。保存原本の処理前に[RustFSクライアント](adr/0005-store-pdfs-in-rustfs.md)を設定する。
 
 抽出試行の作成前に原本を取得し、サイズとSHA-256を検証する。保存障害では試行を作らず、抽出履歴を変えない。単一原本のコマンドは`original UUID unavailable: REASON`で失敗し、再生成は利用不可の原本ごとに`original_id`・`error: "original_unavailable"`・`reason`を返して上限付きバッチを続ける。保存障害による公開元アクセスや別バックエンドへのフォールバックは行わない。保存完了で抽出を自動開始しない。
 
-処理前にDBマイグレーションを適用する。通常のPostgreSQL設定を使い、新しい
+処理前に現行DBスキーマを準備する。通常のPostgreSQL設定を使い、新しい
 Mixプロセスで上記の4コマンドを実行する。タスクはEctoとRepoだけを起動し、
 収集スケジューラが既に動いている場合は実行を拒否する。Web endpointや発行元の取得は起動しない。
 本番環境でRepoのみを使うコマンドには `DATABASE_URL` を指定すればよく、
@@ -199,7 +198,6 @@ CPU上限を設ける。既定は20秒・本文8 MiB。`--timeout-ms`（1〜3000
 
 ## 検証
 
-任意の過去ランナー比較ツール`test/system/pdf_runner_comparison.exs`は、`PDF_COMPARISON_REPORT`またはシステム一時ディレクトリの`lens-pdf-runner-samples.json`へ報告を書き込む。削除した計画文書を再作成しない。
 
 合成PDFとReportLab生成器は `test/fixtures/` にある。
 Linuxのチェックアウト開発では
@@ -208,7 +206,7 @@ Linuxのチェックアウト開発では
 `elixir -pa "_build/test/lib/*/ebin" test/pdf_adapter_check.exs` で実PDF・本文・ライフサイクルを確認する。
 ReportLab生成器は任意の開発用で、通常CIはコミット済みPDFを使用する。
 `test/system/earnings_offline_check.exs` は `mix run --no-start` で実行する使い捨てDB用の検証。
-空のテストDBをマイグレーションし、実CLI・原本バイト列・取得件数を確認する。
+空のテストDBを初期化し、実CLI・原本バイト列・取得件数を確認する。
 PostgreSQLだけがある内部Dockerネットワークで実行し、本番DBは使わない。
 
 </details>

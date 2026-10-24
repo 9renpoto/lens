@@ -1,6 +1,6 @@
 # Earnings discovery and identity reference
 
-This describes discovery and identity foundations. The [registered candidate collector](earnings-collector.md) connects bounded discovery, acquisition and history independently of assessment. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `HTTPCheck` and HTTP history no longer use the fixed pilot issuer whitelist. `Identity` still uses a fixed fiscal-month map that [#127](https://github.com/9renpoto/lens/issues/127) must replace with evidence-backed assessment. The [registration interface](https://9renpoto.github.io/lens/) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
+This describes discovery and identity foundations. The [registered candidate collector](earnings-collector.md) connects bounded discovery, acquisition and history independently of assessment. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `Identity` derives the issuer, fiscal year-end and reporting period from explicit PDF text; there is no fixed issuer list or fiscal-month map. The [registration interface](https://9renpoto.github.io/lens/) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
 
 ## Listing discovery
 
@@ -35,7 +35,7 @@ must check source enablement and supply an explicit `allowed_url?` predicate to
 URL and every redirect destination before contacting it; without a predicate,
 all URLs are rejected. Source registration and enablement are not URL-policy
 approval. `SourceCatalog` stores no document host/path policy and provides no
-route-authorization predicate. The [registered candidate collector](earnings-collector.md) supplies an explicit HTTP(S) URL policy for listing and external document URLs, and records candidate provenance without invoking identity classification. Release-aware initial selection, acquisition state, scheduling and a dedicated CLI remain follow-up work. See its reference for run limits and policy customization.
+route-authorization predicate. The [registered candidate collector](earnings-collector.md) supplies an explicit HTTP(S) URL policy for listing and external document URLs, and records candidate provenance without invoking identity classification. See its reference for run limits and policy customization.
 
 Tests compare the exact discovered URL sets from all bundled source fixtures and
 exercise HTML parsing, relative links, provenance, heading transitions,
@@ -44,11 +44,11 @@ without a policy and rejection of redirect destinations before contact. Reduced
 fixtures do not prove compatibility with a publisher's complete live page or
 permission to acquire/preserve its PDFs. No new live-source check is claimed.
 
-## Identity and initial selection
+## Identity assessment
 
 `from_text/2` normalizes Unicode compatibility characters, including full-width
 digits. It requires an explicit matching `コード番号` and an unambiguous Japanese
-`YYYY年M月期 ... 決算短信` title. The current parser checks a configured fiscal month through a fixed implementation map; [#127](https://github.com/9renpoto/lens/issues/127) must replace that restriction with evidence-backed assessment. The stored
+`YYYY年M月期 ... 決算短信` title. The parser reads the fiscal month from the title and validates the date without a fixed issuer map. The stored
 fiscal year-end comes from the PDF title, never a listing-year label or filename.
 The result uses the persistence period values `q1`, `q2`, `q3`, and `full_year`.
 A title without a quarter denotes full year. An explicit second-quarter
@@ -69,26 +69,14 @@ otherwise complete identity. No dates are inferred from URLs or acquisition time
 Unrecognized layouts remain pending for operator review; this conservative
 parser is not a generic Japanese disclosure classifier.
 
-`select_initial/1` accepts candidates containing the mapping result and the
-actual discovered `url`. It selects only identified regular releases, ordered
-by fiscal year-end and then period (`q1` < `q2` < `q3` < `full_year`). It returns
-`{:ok, candidate}`, `:empty`, or `{:pending_confirmation, candidates}` when the
-newest identity has competing candidates. It does not break conflicts by URL or
-fall back to an older release. Repeated identical candidate records collapse;
-different URLs for one identity require review. A mixed-issuer regular-release
-set returns `{:error, :mixed_issuers}`; callers select per company. Pending
-candidates and corrections remain available to the caller but are not initial
-regular-release choices. Selection does not delete historical identities.
-
-
-See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md), [run budgets](earnings-run-budget.md), and [historical fixtures](../../test/fixtures/source_catalog/README.md).
+See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md), [run budgets](earnings-run-budget.md), and [fictional fixtures](../../test/fixtures/source_catalog/README.md).
 
 <details>
 <summary>日本語</summary>
 
 # 決算資料の発見・識別の参照情報
 
-発見と識別の基盤関数を説明する。[登録候補の収集処理](earnings-collector.md)は、上限付きの発見・取得・履歴を判定と独立して接続する。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`HTTPCheck`とHTTP履歴は固定の試行対象企業の制限を使わない。`Identity`には固定の決算月マップが残り、[#127](https://github.com/9renpoto/lens/issues/127)で根拠に基づく判定へ置き換える必要がある。[登録インターフェース](https://9renpoto.github.io/lens/)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
+発見と識別の基盤関数を説明する。[登録候補の収集処理](earnings-collector.md)は、上限付きの発見・取得・履歴を判定と独立して接続する。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`Identity`はPDF本文に明示された発行元・決算期末・対象期間を読み取り、固定の企業一覧や決算月マップを使わない。[登録インターフェース](https://9renpoto.github.io/lens/)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
 
 ## 一覧からの発見
 
@@ -126,11 +114,11 @@ HTTP取得は初期URLと各リダイレクト先を、その先へ通信する�
 縮小した固定データだけで発行元の実ページ全体との互換性やPDF取得・保存の許可を
 実証したとは扱わない。新しい実サイト確認を行ったとは主張しない。
 
-## 識別と初回選択
+## 識別の判定
 
 `from_text/2`は全角数字などUnicode互換文字を正規化する。企業と一致する
 `コード番号`と、一意な日本語の`YYYY年M月期 ... 決算短信`表題を必須とする。
-現行パーサーは実装内の固定マップで決算月を確認する。[#127](https://github.com/9renpoto/lens/issues/127)でこの制限を根拠に基づく判定へ置き換える。
+パーサーはタイトルから決算月を読み取り、固定の企業別マップを使わず日付を検証する。
 決算期末はPDF表題から読み、一覧の年度ラベルやファイル名から補わない。
 保存期間値は`q1`・`q2`・`q3`・`full_year`。四半期表記のない表題は通期とする。明示的な第2四半期の`(中間期)`表記と、
 抽出された日付の各要素間の空白にも対応する。
@@ -148,16 +136,6 @@ HTTP取得は初期URLと各リダイレクト先を、その先へ通信する�
 URLや取得時刻から日付を推測しない。未対応のレイアウトは運用者の確認待ちとし、
 汎用の日本語開示分類器とは扱わない。
 
-`select_initial/1`には対応付け結果と実際に発見した`url`を持つ候補を渡す。
-識別済みの通常短信だけを、決算期末と期間順（`q1` < `q2` < `q3` < `full_year`）
-で選ぶ。戻り値は`{:ok, candidate}`・`:empty`、または最新識別情報に競合候補がある
-場合の`{:pending_confirmation, candidates}`。URL順で決着させたり旧期へ戻ったり
-しない。同じ候補の繰り返しはまとめるが、同じ識別情報でURLが違えば確認を要求する。
-通常短信候補に複数企業が混在する場合は`{:error, :mixed_issuers}`であり、呼び出し側は
-企業別に選ぶ。確認待ち候補と訂正資料は呼び出し側で保持するが初回通常短信としては
-選ばない。選択によって過去の識別情報を削除しない。
-
-
-[HTTP取得](earnings-http.md)、[HTTP履歴](earnings-http-history.md)、[実行予算](earnings-run-budget.md)、[過去の固定データ](../../test/fixtures/source_catalog/README.md)も参照する。
+[HTTP取得](earnings-http.md)、[HTTP履歴](earnings-http-history.md)、[実行予算](earnings-run-budget.md)、[架空の固定データ](../../test/fixtures/source_catalog/README.md)も参照する。
 
 </details>

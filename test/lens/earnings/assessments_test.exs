@@ -2,7 +2,7 @@ defmodule Lens.Earnings.AssessmentsTest do
   use Lens.DataCase
 
   alias Lens.{Analysis, Earnings}
-  alias Lens.Earnings.{Acquisition, Assessment, Assessments, HTTPCheck, HTTPHistory, Sources}
+  alias Lens.Earnings.{Acquisition, Assessment, Assessments, HTTPCheck, Sources}
 
   @at ~U[2026-10-15 00:00:00.000000Z]
 
@@ -59,7 +59,7 @@ defmodule Lens.Earnings.AssessmentsTest do
     acquisition = Repo.get!(Acquisition, candidate.acquisition_id)
 
     identity = %{
-      issuer_code: "7203",
+      issuer_code: "issuer-example-a",
       fiscal_year_end: ~D[2027-03-31],
       period: "q1",
       category: "earnings_release"
@@ -101,7 +101,7 @@ defmodule Lens.Earnings.AssessmentsTest do
           }
         ] do
       input = check_attrs(target, source) |> Map.merge(changes)
-      assert {:ok, check} = HTTPHistory.record(input)
+      assert {:ok, check} = Lens.StorageFixtures.record_http(input)
       assert {:error, :invalid_candidate} = Assessments.record(check.id, attrs())
     end
 
@@ -223,7 +223,7 @@ defmodule Lens.Earnings.AssessmentsTest do
       assessor: "fixture",
       assessor_version: "1",
       reason: "Explicit title and issuer",
-      evidence: %{title: "決算短信", issuer_code: "7203"}
+      evidence: %{title: "決算短信", issuer_code: "issuer-example-a"}
     }
   end
 
@@ -238,7 +238,7 @@ defmodule Lens.Earnings.AssessmentsTest do
       })
 
     {:ok, source} = Sources.create(target, %{listing_url: "https://example.test/results"})
-    {:ok, check} = HTTPHistory.record(check_attrs(target, source))
+    {:ok, check} = Lens.StorageFixtures.record_http(check_attrs(target, source))
     {target, source, check}
   end
 

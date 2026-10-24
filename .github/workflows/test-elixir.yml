@@ -75,7 +75,7 @@ jobs:
           done
           curl --fail --silent --max-time 1 http://127.0.0.1:9000/health
           mix run --no-start test/system/rustfs_storage_check.exs
-      - name: Verify synchronous RustFS acquisition and recovery retirement
+      - name: Verify synchronous RustFS acquisition
         env:
           POSTGRES_DB: lens_synchronous_storage_test
           LENS_RUSTFS_ENDPOINT: http://127.0.0.1:9000
@@ -85,28 +85,14 @@ jobs:
         run: |
           mix ecto.create
           mix run --no-start test/system/earnings_synchronous_storage_check.exs
-          POSTGRES_DB=lens_recovery_retirement_test mix ecto.create
-          POSTGRES_DB=lens_recovery_retirement_test mix run --no-start test/system/earnings_recovery_retirement_check.exs
       - run: elixir -pa "_build/test/lib/*/ebin" test/pdf_adapter_check.exs
-      - name: Verify search migration over existing large earnings text
+      - name: Verify concurrent original persistence
         env:
-          POSTGRES_DB: lens_search_migration_test
+          POSTGRES_DB: lens_concurrent_storage_test
         run: |
           mix ecto.create
-          mix run --no-start test/system/earnings_search_migration_check.exs
-      - name: Verify concurrent storage selection
-        env:
-          POSTGRES_DB: lens_storage_selection_test
-        run: |
-          mix ecto.create
-          mix run --no-start test/system/earnings_storage_selection_check.exs
+          mix run --no-start test/system/earnings_concurrent_storage_check.exs
       - run: mix dialyzer
-      - name: Verify source registration migration preserves existing history
-        env:
-          POSTGRES_DB: lens_source_migration_test
-        run: |
-          mix ecto.create
-          mix run --no-start test/system/earnings_source_migration_check.exs
       - run: mix coveralls.lcov
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
