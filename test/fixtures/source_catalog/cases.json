@@ -87,9 +87,7 @@
       "discovered_urls": [
         "HTTPS://publisher.example.test:443/reports/spelled.pdf#download"
       ],
-      "comparison_urls": [
-        "https://publisher.example.test/reports/spelled.pdf"
-      ]
+      "comparison_urls": ["https://publisher.example.test/reports/spelled.pdf"]
     }
   },
   {
