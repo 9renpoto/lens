@@ -2,23 +2,52 @@
 status: accepted
 ---
 
-# Defer backups until value is established
+# Recreate disposable databases from the current schema
 
-[ADR 0013](0013-retire-interrupted-storage-recovery.md) retires interrupted-write recovery for this disposable validation scope. It does not retire original retention or relax the preservation/production requirements below.
+Use disposable development/test databases and recreate them from the current
+schema definition when the schema changes. Keeping only the supported schema
+avoids maintaining compatibility, incremental migration history, rollback and
+data-transfer code for discarded designs.
 
-Lens development and test data may be changed destructively or deleted through the v1 development release. Value validation after v1 may use real earnings data only in a development or test environment where those records are explicitly designated disposable; they may be deleted after validation. This allowance does not apply to data designated for preservation or to production operation. Before retaining non-disposable records or operating Lens in production, follow [ADR 0005](0005-store-pdfs-in-rustfs.md) and [the deployment requirements](../deployment.md), including coordinated PostgreSQL/RustFS backup and recovery. Track the v1 review and value-validation sequence in [#173](https://github.com/9renpoto/lens); #147 and #169–#172 remain closed as not planned.
+Keep the current indexes and relational constraints. Preserve original
+immutability, acquisition provenance and search structures. Initialize an empty database explicitly;
+initialization must not silently drop or overwrite an existing schema. Provide
+an explicit reset operation for disposable databases. Remove obsolete tables
+and columns from the schema rather than retaining compatibility structures.
+Do not provide an upgrade or data-copy path from older schemas.
 
-When value validation shows that records should be retained, define the minimum backup and recovery work needed for that scope. Manual operation and downtime remain acceptable starting preferences, with no fixed recovery-point objective. Decide the backup format, writer-fencing mechanism, retention and restore evidence then. This ADR does not waive existing production backup requirements or establish backup integrity or completed restore verification. Source/assessment workflow verification remains #131 under the milestone-independent capability tracker #184. The former broad verification issue #74 was closed as not planned; define new bounded work if that verification becomes necessary. The v0.2 release boundary remains #68.
+Database recreation loses registrations, retained database records and their
+relationships. Operators must recreate the configuration and data they need.
+This development model does not provide continuity for retained records or
+authorize deleting objects in an external RustFS bucket.
+
+Defer backup/restore implementation while the data is explicitly disposable.
+Before retaining non-disposable records or operating in production, agree and
+verify preservation appropriate to that scope, including a coordinated
+PostgreSQL/RustFS recovery point and reference/hash reconciliation. Database
+recreation does not supply backup integrity or restore evidence.
 
 <details>
 <summary>日本語</summary>
 
-# 価値が確認できるまでバックアップを後回しにする
+# 破棄可能なDBを現行スキーマから再生成する
 
-[ADR 0013](0013-retire-interrupted-storage-recovery.md)に従い、この破棄可能な検証範囲では中断書き込みの復旧を廃止する。原本保持の廃止や、以下の保持・本番要件の緩和は行わない。
+開発・テストでは破棄可能なDBを使い、スキーマ変更時は現在のスキーマ定義から
+再生成する。サポート対象のスキーマだけを残すことで、破棄した設計のための互換性・
+差分migration履歴・ロールバック・データ移行コードを維持しない。
 
-Lensの開発・テストデータは、開発環境でのv1リリースまでは破壊的変更や全削除を許容する。v1後の価値検証で実際の決算データを使う場合も、開発・テスト環境で明示的に破棄可能とした記録だけを対象にし、検証後の削除を許容する。この許容は、保持対象に指定したデータや本番運用には適用しない。破棄できない記録の保持開始前または本番運用前には、[ADR 0005](0005-store-pdfs-in-rustfs.md)と[デプロイ要件](../deployment.md)に従い、PostgreSQL/RustFSの協調バックアップ・復旧を含む既存要件を満たす。v1前の確認と価値検証の順序は[#173](https://github.com/9renpoto/lens/issues/173)で追跡し、#147・#169〜#172はnot plannedでクローズしたままとする。
+現在のindex・外部キー・不変性／取得経緯の保護・検索構造は維持する。
+空DBを明示的に初期化し、初期化によって既存スキーマを黙って削除・上書きしない。
+破棄可能なDBには明示的なreset操作を用意する。互換構造を残さず、不要なテーブル・
+カラムをスキーマから削除する。旧スキーマからの更新・データコピー経路は提供しない。
 
-価値検証で記録を保持する必要が確認されたら、その範囲に必要な最小のバックアップ・復旧作業を定める。現時点の出発点は手動操作・停止許容・固定の復旧時点目標なしとする。バックアップ形式、writer停止の仕組み、保持期間、復元の証跡はその時点で決める。本ADRは既存の本番バックアップ要件を免除せず、バックアップの整合や復元検証の完了も意味しない。取得先・判定フローの検証は、マイルストーンと独立した機能管理#184配下の#131に残る。以前の包括検証Issue #74はnot plannedでクローズしており、必要になった場合は範囲を絞った作業を新たに定義する。v0.2のリリース境界は#68で管理する。
+DB再生成では登録設定・保持したDB記録・その関連を失う。必要な設定とデータは
+運用者が再作成する。この開発モデルは保持記録の継続性を提供せず、外部RustFSの
+bucket内のオブジェクト削除を許可するものでもない。
+
+データを明示的に破棄可能とする間は、バックアップ・復元の実装を延期する。
+破棄できない記録の保持や本番運用を始める前に、PostgreSQL/RustFSを揃えた復旧時点と
+参照・ハッシュの照合を含め、その範囲に適した保持を合意して検証する。
+DB再生成はバックアップの整合性や復元の証跡を提供しない。
 
 </details>
