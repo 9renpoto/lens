@@ -2,7 +2,6 @@ defmodule LensWeb.EarningsControllerTest do
   use Lens.DataCase
   import Phoenix.ConnTest
   import OpenApiSpex.TestAssertions
-  alias Lens.Earnings
   alias Lens.Earnings.Extractions
   @endpoint LensWeb.Endpoint
 
@@ -11,10 +10,10 @@ defmodule LensWeb.EarningsControllerTest do
     assert empty["full_text_complete"] == true
 
     {:ok, retained} =
-      Earnings.record_success(%{
+      Lens.StorageFixtures.record_success(%{
         bytes: "%PDF-large-api",
         acquisition_id: "large-api",
-        issuer_code: "6857",
+        issuer_code: "issuer-example-a",
         acquired_at: ~U[2026-09-27 01:00:00.000000Z],
         url: "https://example.test/large.pdf",
         release: %{fiscal_year_end: ~D[2027-03-31], period: "q1", category: "earnings_release"}
@@ -42,10 +41,10 @@ defmodule LensWeb.EarningsControllerTest do
 
   test "a release remains inspectable while pending and failed without invented text" do
     {:ok, retained} =
-      Earnings.record_success(%{
+      Lens.StorageFixtures.record_success(%{
         bytes: "%PDF-api",
         acquisition_id: "api",
-        issuer_code: "6857",
+        issuer_code: "issuer-example-a",
         acquired_at: ~U[2026-09-27 01:00:00.000000Z],
         url: "https://example.test/api.pdf",
         release: %{fiscal_year_end: ~D[2027-03-31], period: "q1", category: "earnings_release"}

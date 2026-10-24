@@ -96,14 +96,6 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION public.reject_earnings_original_storage_location_mutation() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  RAISE EXCEPTION 'earnings original storage locations are immutable';
-END;
-$$;
-
 CREATE FUNCTION public.reject_earnings_release_mutation() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -245,35 +237,17 @@ END))))),
     CONSTRAINT earnings_http_check_response CHECK ((((requests > 0) OR ((final_url = url) AND (http_status IS NULL) AND (response_headers = '{}'::jsonb))) AND (((status)::text = 'failed'::text) OR (retryable = false))))
 );
 
-CREATE TABLE public.earnings_original_read_locations (
-    original_id uuid NOT NULL,
-    location_id uuid NOT NULL,
-    inserted_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
-);
-
-CREATE TABLE public.earnings_original_storage_locations (
-    id uuid NOT NULL,
-    original_id uuid NOT NULL,
-    backend character varying(255) NOT NULL,
-    key text,
-    endpoint text,
-    bucket character varying(255),
-    sha256 character varying(255) NOT NULL,
-    byte_size integer NOT NULL,
-    verified_at timestamp without time zone NOT NULL,
-    inserted_at timestamp without time zone NOT NULL,
-    CONSTRAINT earnings_original_storage_backend CHECK (((((backend)::text = 'postgresql'::text) AND (key IS NULL) AND (endpoint IS NULL) AND (bucket IS NULL)) OR (((backend)::text = 'rustfs'::text) AND (key IS NOT NULL) AND (endpoint IS NOT NULL) AND (endpoint <> ''::text) AND (bucket IS NOT NULL) AND ((bucket)::text <> ''::text)))),
-    CONSTRAINT earnings_original_storage_digest CHECK ((((sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((byte_size >= 1) AND (byte_size <= 20971520))))
-);
-
 CREATE TABLE public.earnings_originals (
     id uuid NOT NULL,
     sha256 character varying(255) NOT NULL,
     byte_size integer NOT NULL,
-    bytes bytea,
+    key text NOT NULL,
+    endpoint text NOT NULL,
+    bucket text NOT NULL,
+    verified_at timestamp without time zone NOT NULL,
     inserted_at timestamp without time zone NOT NULL,
-    CONSTRAINT earnings_originals_size_check CHECK (((byte_size > 0) AND (byte_size <= 20971520) AND ((bytes IS NULL) OR (byte_size = octet_length(bytes)))))
+    CONSTRAINT earnings_originals_size_check CHECK (byte_size > 0 AND byte_size <= 20971520),
+    CONSTRAINT earnings_originals_reference_check CHECK (sha256 ~ '^[0-9a-f]{64}$' AND key = 'earnings/originals/sha256/' || sha256 || '.pdf' AND endpoint <> '' AND bucket <> '')
 );
 
 CREATE TABLE public.earnings_releases (
@@ -377,12 +351,6 @@ ALTER TABLE ONLY public.earnings_extractions
 ALTER TABLE ONLY public.earnings_http_checks
     ADD CONSTRAINT earnings_http_checks_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY public.earnings_original_read_locations
-    ADD CONSTRAINT earnings_original_read_locations_pkey PRIMARY KEY (original_id);
-
-ALTER TABLE ONLY public.earnings_original_storage_locations
-    ADD CONSTRAINT earnings_original_storage_locations_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY public.earnings_originals
     ADD CONSTRAINT earnings_originals_pkey PRIMARY KEY (id);
 
@@ -439,10 +407,6 @@ CREATE UNIQUE INDEX earnings_http_checks_check_id_index ON public.earnings_http_
 
 CREATE INDEX earnings_http_checks_issuer_code_checked_at_id_index ON public.earnings_http_checks USING btree (issuer_code, checked_at, id);
 
-CREATE UNIQUE INDEX earnings_original_storage_locations_id_original_id_index ON public.earnings_original_storage_locations USING btree (id, original_id);
-
-CREATE UNIQUE INDEX earnings_original_storage_locations_original_id_backend_index ON public.earnings_original_storage_locations USING btree (original_id, backend);
-
 CREATE UNIQUE INDEX earnings_originals_sha256_index ON public.earnings_originals USING btree (sha256);
 
 CREATE UNIQUE INDEX earnings_releases_issuer_code_fiscal_year_end_period_category_i ON public.earnings_releases USING btree (issuer_code, fiscal_year_end, period, category);
@@ -462,8 +426,6 @@ CREATE TRIGGER earnings_acquisitions_immutable BEFORE DELETE OR UPDATE ON public
 CREATE TRIGGER earnings_assessments_protected BEFORE INSERT OR DELETE OR UPDATE ON public.earnings_assessments FOR EACH ROW EXECUTE FUNCTION public.protect_earnings_assessment();
 
 CREATE TRIGGER earnings_http_checks_protected BEFORE INSERT OR DELETE OR UPDATE ON public.earnings_http_checks FOR EACH ROW EXECUTE FUNCTION public.protect_earnings_http_check();
-
-CREATE TRIGGER earnings_original_storage_locations_immutable BEFORE DELETE OR UPDATE ON public.earnings_original_storage_locations FOR EACH ROW EXECUTE FUNCTION public.reject_earnings_original_storage_location_mutation();
 
 CREATE TRIGGER earnings_originals_immutable BEFORE DELETE OR UPDATE ON public.earnings_originals FOR EACH ROW EXECUTE FUNCTION public.reject_earnings_original_mutation();
 
@@ -492,15 +454,6 @@ ALTER TABLE ONLY public.earnings_extractions
 
 ALTER TABLE ONLY public.earnings_http_checks
     ADD CONSTRAINT earnings_http_checks_acquisition_id_fkey FOREIGN KEY (acquisition_id) REFERENCES public.earnings_acquisitions(id) ON DELETE RESTRICT;
-
-ALTER TABLE ONLY public.earnings_original_read_locations
-    ADD CONSTRAINT earnings_original_read_location_match FOREIGN KEY (location_id, original_id) REFERENCES public.earnings_original_storage_locations(id, original_id);
-
-ALTER TABLE ONLY public.earnings_original_read_locations
-    ADD CONSTRAINT earnings_original_read_locations_original_id_fkey FOREIGN KEY (original_id) REFERENCES public.earnings_originals(id);
-
-ALTER TABLE ONLY public.earnings_original_storage_locations
-    ADD CONSTRAINT earnings_original_storage_locations_original_id_fkey FOREIGN KEY (original_id) REFERENCES public.earnings_originals(id);
 
 ALTER TABLE ONLY public.earnings_sources
     ADD CONSTRAINT earnings_sources_target_id_fkey FOREIGN KEY (target_id) REFERENCES public.analysis_targets(id) ON DELETE RESTRICT;

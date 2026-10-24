@@ -1,6 +1,5 @@
 defmodule Lens.Earnings.SearchTest do
   use Lens.DataCase
-  alias Lens.Earnings
   alias Lens.Earnings.{Extraction, Extractions}
   alias Lens.Search
 
@@ -8,7 +7,7 @@ defmodule Lens.Earnings.SearchTest do
   test "titles use the registered issuer and confirmed identity without changing provenance" do
     {:ok, _target} =
       Lens.Analysis.create_target(%{
-        security_code: "6857",
+        security_code: "issuer-example-a",
         display_name: "架空株式会社",
         market: "TSE",
         sector: "電気機器",
@@ -55,7 +54,7 @@ defmodule Lens.Earnings.SearchTest do
       assert {:ok, results} = Search.search("fallbackmarker")
       result = Enum.find(results, &(&1.id == retained.release.id))
       assert result
-      assert result.title == "6857 2027年12月期 #{label}"
+      assert result.title == "issuer-example-a 2027年12月期 #{label}"
     end
   end
 
@@ -185,10 +184,10 @@ defmodule Lens.Earnings.SearchTest do
          }
        ) do
     assert {:ok, result} =
-             Earnings.record_success(%{
+             Lens.StorageFixtures.record_success(%{
                bytes: "%PDF-#{bytes}",
                acquisition_id: "#{bytes}-#{seconds}",
-               issuer_code: "6857",
+               issuer_code: "issuer-example-a",
                acquired_at: DateTime.add(~U[2026-09-27 01:00:00.000000Z], seconds),
                url: "https://example.test/#{bytes}.pdf",
                release: identity

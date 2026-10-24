@@ -1,5 +1,4 @@
 # Run with mix run --no-start inside an internal Docker network containing only PostgreSQL.
-alias Lens.Earnings
 alias Lens.Earnings.{Acquisition, Extraction, Original}
 alias Lens.Repo
 
@@ -7,6 +6,8 @@ alias Lens.Repo
 {:ok, _} = Application.ensure_all_started(:postgrex)
 {:ok, _} = Repo.start_link()
 Lens.Release.prepare()
+{:ok, _} = Lens.StorageFixtures.start_link([])
+Application.put_env(:lens, Lens.Earnings.RustFS, Lens.StorageFixtures.options())
 
 nil = Process.whereis(Lens.Ingestion.Scheduler)
 nil = Process.whereis(LensWeb.Endpoint)
@@ -15,7 +16,7 @@ retain = fn name ->
   bytes = File.read!("test/fixtures/earnings-#{name}.pdf")
 
   {:ok, result} =
-    Earnings.record_success(%{
+    Lens.StorageFixtures.record_success(%{
       bytes: bytes,
       acquisition_id: "offline-#{name}",
       issuer_code: "issuer-alpha",
@@ -52,4 +53,4 @@ Mix.Tasks.Lens.Earnings.Extract.run(["--regenerate", "--limit", "1"])
 {:ok, ^image_bytes} = Earnings.original_bytes(image.original.id)
 nil = Process.whereis(Lens.Ingestion.Scheduler)
 nil = Process.whereis(LensWeb.Endpoint)
-IO.puts("Offline PostgreSQL extraction, retry and bounded regeneration verified.")
+IO.puts("Offline retained-original extraction, retry and bounded regeneration verified.")

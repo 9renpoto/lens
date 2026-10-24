@@ -13,12 +13,17 @@ defmodule Mix.Tasks.Lens.Earnings.ExtractTest do
       :ok = :sys.suspend(Lens.Ingestion.Scheduler)
     end)
 
-    original =
-      Repo.insert!(%Lens.Earnings.Original{
+    {:ok, retained} =
+      Lens.StorageFixtures.record_success(%{
         bytes: "%PDF-success",
-        byte_size: 12,
-        sha256: String.duplicate("0", 64)
+        acquisition_id: "unavailable-original",
+        issuer_code: "issuer-alpha",
+        acquired_at: DateTime.utc_now(),
+        url: "https://publisher.example.test/original.pdf"
       })
+
+    original = retained.original
+    :ets.insert(Lens.StorageFixtures, {original.key, "%PDF-corrupt"})
 
     assert_raise Mix.Error, "original #{original.id} unavailable: integrity_error", fn ->
       Extract.run(["--original", original.id])
@@ -51,10 +56,10 @@ defmodule Mix.Tasks.Lens.Earnings.ExtractTest do
         bytes = File.read!("test/fixtures/earnings-#{kind}.pdf")
 
         {:ok, result} =
-          Lens.Earnings.record_success(%{
+          Lens.StorageFixtures.record_success(%{
             bytes: bytes,
             acquisition_id: "cli-#{kind}",
-            issuer_code: "6857",
+            issuer_code: "issuer-example-a",
             acquired_at: ~U[2026-09-27 01:00:00.000000Z],
             url: "https://publisher.invalid/#{kind}.pdf"
           })

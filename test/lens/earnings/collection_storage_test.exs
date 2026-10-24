@@ -5,7 +5,7 @@ defmodule Lens.Earnings.CollectionStorageTest do
   setup do
     {:ok, target} =
       Lens.Analysis.create_target(%{
-        security_code: "7203",
+        security_code: "issuer-example-a",
         market: "TSE",
         display_name: "Example",
         sector: "Test"
@@ -23,7 +23,7 @@ defmodule Lens.Earnings.CollectionStorageTest do
 
     attrs = %{
       check_id: Ecto.UUID.generate(),
-      issuer_code: "7203",
+      issuer_code: "issuer-example-a",
       kind: :pdf,
       url: "https://publisher.test/request.pdf",
       checked_at: DateTime.utc_now(),
@@ -72,7 +72,7 @@ defmodule Lens.Earnings.CollectionStorageTest do
     assert check.checked_at == c.attrs.checked_at
     acquisition = Repo.get!(Acquisition, check.acquisition_id)
     assert acquisition.status == "success"
-    assert Repo.get!(Lens.Earnings.Original, acquisition.original_id).bytes == nil
+    assert Repo.get!(Lens.Earnings.Original, acquisition.original_id).endpoint == client.endpoint
 
     read_client = %{
       client

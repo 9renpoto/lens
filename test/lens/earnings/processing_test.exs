@@ -8,7 +8,6 @@ defmodule Lens.Earnings.ProcessingTest do
     Extraction,
     Extractions,
     Original,
-    OriginalStorage,
     Processing,
     RustFS
   }
@@ -140,9 +139,6 @@ defmodule Lens.Earnings.ProcessingTest do
 
   test "RustFS read failures create no extraction attempts or fallback reads" do
     original = retain("%PDF-rustfs-redirect").original
-    stored_original = Repo.get!(Original, original.id)
-    reference = storage_reference(stored_original)
-    assert {:ok, _} = OriginalStorage.select_rustfs(stored_original, reference)
 
     client = rustfs_client(fn conn -> Plug.Conn.send_resp(conn, 307, "redirect") end)
 
@@ -160,14 +156,14 @@ defmodule Lens.Earnings.ProcessingTest do
 
   test "verified RustFS-only bytes reach extraction before an attempt is allocated" do
     bytes = "%PDF-success"
-    digest = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
     original =
       Repo.insert!(
-        Original.rustfs_changeset(%Original{}, %{sha256: digest, byte_size: byte_size(bytes)})
+        Original.changeset(
+          %Original{},
+          Map.put(Lens.StorageFixtures.reference(bytes), :verified_at, DateTime.utc_now())
+        )
       )
-
-    assert {:ok, _} = OriginalStorage.select_rustfs(original, storage_reference(original))
 
     client =
       rustfs_client(fn conn ->
@@ -181,15 +177,13 @@ defmodule Lens.Earnings.ProcessingTest do
 
     assert attempt.status == "succeeded"
     assert attempt.original_id == original.id
-    assert Repo.get!(Original, original.id).bytes == nil
+    refute Map.has_key?(Repo.get!(Original, original.id), :bytes)
     assert Repo.aggregate(Acquisition, :count) == 0
   end
 
   test "missing, corrupt and unavailable objects leave extraction history unchanged" do
     original = retain("%PDF-timeout").original
     assert {:ok, failed} = Processing.extract(original.id, extractor: FixtureExtractor)
-    stored = Repo.get!(Original, original.id)
-    assert {:ok, _} = OriginalStorage.select_rustfs(stored, storage_reference(stored))
 
     for {status, body, reason} <- [
           {404, "missing", :not_found},
@@ -219,25 +213,8 @@ defmodule Lens.Earnings.ProcessingTest do
 
   test "retry eligibility is checked before storage access" do
     original = retain("%PDF-success").original
-    stored = Repo.get!(Original, original.id)
-    assert {:ok, _} = OriginalStorage.select_rustfs(stored, storage_reference(stored))
     client = rustfs_client(fn _conn -> flunk("ineligible retry must not access storage") end)
     assert {:error, :not_failed} = Processing.retry_failed(original.id, rustfs: client)
-    assert Repo.aggregate(Extraction, :count) == 0
-  end
-
-  test "PostgreSQL byte integrity is verified before extraction" do
-    original =
-      Repo.insert!(%Original{
-        bytes: "%PDF-success",
-        byte_size: 12,
-        sha256: String.duplicate("0", 64)
-      })
-
-    assert {:error, {:original_unavailable, id, :integrity_error}} =
-             Processing.extract(original.id, extractor: FixtureExtractor)
-
-    assert id == original.id
     assert Repo.aggregate(Extraction, :count) == 0
   end
 
@@ -304,9 +281,6 @@ defmodule Lens.Earnings.ProcessingTest do
 
     owner = self()
 
-    stored = Repo.get!(Original, original.id)
-    assert {:ok, _} = OriginalStorage.select_rustfs(stored, storage_reference(stored))
-
     slow =
       rustfs_client(fn conn ->
         send(owner, {:retrieving, self()})
@@ -336,10 +310,10 @@ defmodule Lens.Earnings.ProcessingTest do
 
   defp retain(bytes) do
     assert {:ok, result} =
-             Earnings.record_success(%{
+             Lens.StorageFixtures.record_success(%{
                bytes: bytes,
                acquisition_id: bytes,
-               issuer_code: "6857",
+               issuer_code: "issuer-example-a",
                acquired_at: ~U[2026-09-27 01:00:00.000000Z],
                url: "https://example.test/original.pdf"
              })
@@ -347,21 +321,11 @@ defmodule Lens.Earnings.ProcessingTest do
     result
   end
 
-  defp storage_reference(original) do
-    %{
-      key: "earnings/originals/sha256/#{original.sha256}.pdf",
-      endpoint: "http://storage.test",
-      bucket: "lens-originals",
-      sha256: original.sha256,
-      byte_size: original.byte_size
-    }
-  end
-
   defp rustfs_client(plug) do
     {:ok, client} =
       RustFS.new(
-        endpoint: "http://storage.test",
-        bucket: "lens-originals",
+        endpoint: Lens.StorageFixtures.options()[:endpoint],
+        bucket: "fixture-originals",
         access_key_id: "test-access",
         secret_access_key: "test-secret"
       )

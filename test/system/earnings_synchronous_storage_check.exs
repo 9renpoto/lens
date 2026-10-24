@@ -83,7 +83,7 @@ defmodule Lens.SynchronousStorageCheck do
     assert check.metadata["source_id"] == source.id
     acquisition = Repo.get!(Acquisition, check.acquisition_id)
     assert acquisition.release_id == nil
-    assert Repo.get!(Original, acquisition.original_id).bytes == nil
+    assert Repo.get!(Original, acquisition.original_id).endpoint == c.client.endpoint
 
     assert Lens.Earnings.original_bytes(acquisition.original_id, rustfs: c.client) ==
              {:ok, c.bytes}

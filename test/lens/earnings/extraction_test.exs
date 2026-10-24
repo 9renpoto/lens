@@ -26,7 +26,7 @@ defmodule Lens.Earnings.ExtractionTest do
   test "release without eligible originals has no extracted text" do
     release =
       %Lens.Earnings.Release{}
-      |> Lens.Earnings.Release.changeset(Map.put(identity(), :issuer_code, "6857"))
+      |> Lens.Earnings.Release.changeset(Map.put(identity(), :issuer_code, "issuer-example-a"))
       |> Repo.insert!()
 
     assert {:ok, %{extraction: nil, latest_original_id: nil, latest_attempt: nil, stale: false}} =
@@ -111,9 +111,9 @@ defmodule Lens.Earnings.ExtractionTest do
 
   defp retain(bytes, seconds, release \\ identity()) do
     assert {:ok, retained} =
-             Earnings.record_success(%{
+             Lens.StorageFixtures.record_success(%{
                acquisition_id: "#{bytes}-#{seconds}",
-               issuer_code: "6857",
+               issuer_code: "issuer-example-a",
                url: "https://example.test/#{bytes}.pdf",
                acquired_at: DateTime.add(~U[2026-09-26 01:00:00.000000Z], seconds),
                bytes: "%PDF-#{bytes}",
@@ -127,9 +127,9 @@ defmodule Lens.Earnings.ExtractionTest do
     bytes = "%PDF-retained"
 
     assert {:ok, %{original: original}} =
-             Earnings.record_success(%{
+             Lens.StorageFixtures.record_success(%{
                acquisition_id: "extraction-fixture",
-               issuer_code: "6857",
+               issuer_code: "issuer-example-a",
                url: "https://example.test/earnings.pdf",
                acquired_at: ~U[2026-09-26 01:00:00.000000Z],
                bytes: bytes
@@ -150,9 +150,9 @@ defmodule Lens.Earnings.ExtractionTest do
 
   test "completion order cannot replace a newer successful attempt" do
     assert {:ok, %{original: original}} =
-             Earnings.record_success(%{
+             Lens.StorageFixtures.record_success(%{
                acquisition_id: "ordering-fixture",
-               issuer_code: "6857",
+               issuer_code: "issuer-example-a",
                url: "https://example.test/ordering.pdf",
                acquired_at: ~U[2026-09-26 01:00:00.000000Z],
                bytes: "%PDF-ordering"

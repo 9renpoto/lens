@@ -3,7 +3,7 @@ defmodule Lens.Earnings do
 
   import Ecto.Query
 
-  alias Lens.Earnings.{Acquisition, Original, OriginalStorage, Release, RustFS}
+  alias Lens.Earnings.{Acquisition, Original, Release, RustFS}
   alias Lens.Repo
 
   @max_original_bytes 20_971_520
@@ -18,6 +18,7 @@ defmodule Lens.Earnings do
     else
       Repo.transaction(fn ->
         with {:ok, base, identity} <- validate_success(attrs),
+             :ok <- validate_storage_reference(Map.get(attrs, :storage_reference), bytes),
              {:ok, result} <-
                do_record_success(base, bytes, identity, Map.get(attrs, :storage_reference)) do
           result
@@ -79,33 +80,14 @@ defmodule Lens.Earnings do
     end)
   end
 
-  @doc "Fetch raw bytes by original ID; ordinary acquisition queries leave the bytes unloaded."
+  @doc "Fetch and verify the exact retained RustFS bytes by original ID."
   def original_bytes(id, options \\ []) do
     with {:ok, id} <- Ecto.UUID.cast(id),
-         %Original{} = original <- original_metadata(id),
-         {:ok, location} <- OriginalStorage.read_location(id) do
-      case location do
-        %{backend: "rustfs"} = rustfs_location ->
-          read_rustfs(original, rustfs_location, options)
-
-        nil ->
-          read_postgresql(original)
-
-        %{backend: "postgresql"} ->
-          read_postgresql(original)
-      end
+         %Original{} = original <- Repo.get(Original, id) do
+      read_rustfs(original, options)
     else
       _ -> :error
     end
-  end
-
-  defp original_metadata(id) do
-    Repo.one(
-      from(o in Original,
-        where: o.id == ^id,
-        select: struct(o, [:id, :sha256, :byte_size])
-      )
-    )
   end
 
   defp do_record_success(base, bytes, identity, storage_reference) do
@@ -116,7 +98,6 @@ defmodule Lens.Earnings do
       existing_success(existing, base, sha256, identity, storage_reference)
     else
       with {:ok, original} <- upsert_original(bytes, sha256, storage_reference),
-           :ok <- maybe_select_rustfs(original, storage_reference),
            {:ok, release} <- upsert_release(identity),
            acquisition_attrs <-
              Map.merge(base, %{
@@ -137,7 +118,7 @@ defmodule Lens.Earnings do
         Repo.one!(
           from(o in Original,
             where: o.id == ^existing.original_id,
-            select: struct(o, [:id, :sha256, :byte_size, :inserted_at])
+            select: o
           )
         )
       end
@@ -146,7 +127,7 @@ defmodule Lens.Earnings do
 
     if existing.status == "success" and same_common?(existing, base) and
          original.sha256 == sha256 and identity_matches?(release, identity) do
-      case maybe_select_rustfs(original, storage_reference) do
+      case matching_reference(original, storage_reference) do
         :ok -> {:ok, %{acquisition: existing, original: original, release: release}}
         {:error, reason} -> {:error, reason}
       end
@@ -184,59 +165,35 @@ defmodule Lens.Earnings do
     end
   end
 
-  defp upsert_original(bytes, sha256, nil) do
-    insert_original(Original.changeset(%Original{}, bytes), sha256)
-  end
+  defp upsert_original(_bytes, sha256, reference) do
+    changeset =
+      Original.changeset(%Original{}, Map.put(reference, :verified_at, DateTime.utc_now()))
 
-  defp upsert_original(bytes, sha256, reference) when is_map(reference) do
-    with :ok <- validate_storage_reference(reference, bytes) do
-      changeset =
-        Original.rustfs_changeset(%Original{}, %{
-          sha256: sha256,
-          byte_size: byte_size(bytes)
-        })
-
-      insert_original(changeset, sha256)
-    end
-  end
-
-  defp upsert_original(_bytes, _sha256, _reference), do: {:error, :invalid_reference}
-
-  defp insert_original(changeset, sha256) do
     case Repo.insert(changeset, on_conflict: :nothing, conflict_target: :sha256) do
       {:ok, _} ->
-        {:ok,
-         Repo.one!(
-           from(o in Original,
-             where: o.sha256 == ^sha256,
-             select: struct(o, [:id, :sha256, :byte_size, :inserted_at])
-           )
-         )}
+        original = Repo.get_by!(Original, sha256: sha256)
+        with :ok <- matching_reference(original, reference), do: {:ok, original}
 
       error ->
         error
     end
   end
 
-  defp maybe_select_rustfs(_original, nil), do: :ok
-
-  defp maybe_select_rustfs(original, reference) do
-    full_original = Repo.get!(Original, original.id)
-
-    case OriginalStorage.select_rustfs(full_original, reference) do
-      {:ok, _location} -> :ok
-      {:error, _} = error -> error
-    end
+  defp matching_reference(original, reference) do
+    if Map.take(original, [:key, :endpoint, :bucket, :sha256, :byte_size]) == reference,
+      do: :ok,
+      else: {:error, :reference_conflict}
   end
 
   defp validate_storage_reference(
-         %{key: key, sha256: sha256, byte_size: byte_size},
+         %{key: key, endpoint: endpoint, bucket: bucket, sha256: sha256, byte_size: size},
          bytes
-       ) do
-    expected_sha256 = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+       )
+       when is_binary(endpoint) and endpoint != "" and is_binary(bucket) and bucket != "" do
+    digest = Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
-    if key == "earnings/originals/sha256/#{expected_sha256}.pdf" and sha256 == expected_sha256 and
-         byte_size == Kernel.byte_size(bytes),
+    if key == "earnings/originals/sha256/#{digest}.pdf" and sha256 == digest and
+         size == byte_size(bytes),
        do: :ok,
        else: {:error, :integrity_error}
   end
@@ -300,37 +257,11 @@ defmodule Lens.Earnings do
   defp identity_matches?(nil, _identity), do: false
   defp identity_matches?(release, identity), do: Map.take(release, Map.keys(identity)) == identity
 
-  defp read_postgresql(original) do
-    id = original.id
-
-    case Repo.one(from(original in Original, where: original.id == ^id, select: original.bytes)) do
-      bytes when is_binary(bytes) ->
-        if byte_size(bytes) == original.byte_size and
-             Base.encode16(:crypto.hash(:sha256, bytes), case: :lower) == original.sha256,
-           do: {:ok, bytes},
-           else: {:error, :integrity_error}
-
-      _ ->
-        {:error, :original_unavailable}
-    end
-  end
-
-  defp read_rustfs(original, location, options) do
-    cond do
-      location.sha256 != original.sha256 or location.byte_size != original.byte_size ->
-        {:error, :integrity_error}
-
-      true ->
-        with {:ok, client} <- rustfs_client(options),
-             :ok <- validate_destination(client, location),
-             {:ok, bytes} <-
-               RustFS.get(client, %{
-                 key: location.key,
-                 sha256: location.sha256,
-                 byte_size: location.byte_size
-               }) do
-          {:ok, bytes}
-        end
+  defp read_rustfs(original, options) do
+    with {:ok, client} <- rustfs_client(options),
+         :ok <- validate_destination(client, original),
+         {:ok, bytes} <- RustFS.get(client, Map.take(original, [:key, :sha256, :byte_size])) do
+      {:ok, bytes}
     end
   end
 

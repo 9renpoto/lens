@@ -1,6 +1,6 @@
 # Extract retained earnings originals
 
-Processing reads each original's selected storage location: PostgreSQL for originals without a selection, or verified RustFS objects. RustFS reads require the recorded endpoint and bucket to match runtime configuration. Configure the [RustFS client](adr/0005-store-pdfs-in-rustfs.md) when processing RustFS originals. Collection integration remains separate under #146.
+Processing retrieves each original from its immutable RustFS reference. The recorded endpoint and bucket must match runtime configuration. Configure the [RustFS client](adr/0005-store-pdfs-in-rustfs.md) before processing retained originals.
 
 Retrieve and verify size and SHA-256 before creating an extraction attempt. Storage failures create no attempt and leave extraction history unchanged. Single-original commands fail with `original UUID unavailable: REASON`; regeneration reports `original_id`, `error: "original_unavailable"` and `reason` for each unavailable original and continues the bounded batch. No storage failure triggers publisher access or fallback to another backend. Storage completion does not automatically start extraction.
 
@@ -127,7 +127,7 @@ only PostgreSQL available; do not use a production database.
 
 再試行は原本取得前に確認した失敗試行を対象とする。試行割り当てで原本行をロックした時点で、同じ試行が最新かつ失敗状態でなくなっていれば、試行を作らず`retry_conflict`を返す。再実行前に現在の履歴を確認する。開始時点から対象不適格なら、引き続き`not_failed`を返す。
 
-処理は各原本で選択された保存先を読む。選択がない原本はPostgreSQL、RustFS原本は検証付きオブジェクト取得を使う。RustFSの読取では記録済みendpoint・bucketと実行時設定の一致が必要である。RustFS原本の処理では[RustFSクライアント](adr/0005-store-pdfs-in-rustfs.md)を設定する。収集への接続は#146の別作業として残る。
+処理は原本に直接記録した不変のRustFS参照から取得する。記録済みendpoint・bucketと実行時設定の一致が必要である。保存原本の処理前に[RustFSクライアント](adr/0005-store-pdfs-in-rustfs.md)を設定する。
 
 抽出試行の作成前に原本を取得し、サイズとSHA-256を検証する。保存障害では試行を作らず、抽出履歴を変えない。単一原本のコマンドは`original UUID unavailable: REASON`で失敗し、再生成は利用不可の原本ごとに`original_id`・`error: "original_unavailable"`・`reason`を返して上限付きバッチを続ける。保存障害による公開元アクセスや別バックエンドへのフォールバックは行わない。保存完了で抽出を自動開始しない。
 

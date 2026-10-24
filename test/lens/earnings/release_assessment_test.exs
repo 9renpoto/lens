@@ -6,7 +6,6 @@ defmodule Lens.Earnings.ReleaseAssessmentTest do
     Acquisition,
     Assessments,
     Extractions,
-    HTTPHistory,
     ReleaseAssessment,
     Sources
   }
@@ -14,7 +13,7 @@ defmodule Lens.Earnings.ReleaseAssessmentTest do
   test "records supported, ambiguous and unrelated retained documents without adopting releases" do
     {:ok, target} =
       Analysis.create_target(%{
-        security_code: "130A",
+        security_code: "issuer-registered",
         market: "TSE",
         display_name: "Example",
         sector: "Test",
@@ -38,10 +37,10 @@ defmodule Lens.Earnings.ReleaseAssessmentTest do
       text =
         Path.join("test/fixtures/earnings/assessment", name <> ".txt")
         |> File.read!()
-        |> String.replace("1234", target.security_code)
+        |> anonymize_issuer(target.security_code)
 
       {:ok, check} =
-        HTTPHistory.record(%{
+        Lens.StorageFixtures.record_http(%{
           check_id: Ecto.UUID.generate(),
           issuer_code: target.security_code,
           url: "https://example.test/#{name}.pdf",
@@ -90,5 +89,17 @@ defmodule Lens.Earnings.ReleaseAssessmentTest do
   test "rejects invalid and unknown candidates" do
     assert {:error, :invalid_candidate} = ReleaseAssessment.record("invalid")
     assert {:error, :invalid_candidate} = ReleaseAssessment.record(Ecto.UUID.generate())
+  end
+
+  defp anonymize_issuer(text, issuer) do
+    case Regex.run(~r/(?<=コード番号 )[^\s]+/u, text) do
+      [first] ->
+        Regex.replace(~r/(?<=コード番号 )[^\s]+/u, text, fn code ->
+          if code == first, do: issuer, else: "issuer-other"
+        end)
+
+      nil ->
+        text
+    end
   end
 end
