@@ -20,8 +20,9 @@ curl --fail-with-body "$BASE_URL/feeds/targets/$TARGET_ID/earnings.rss"
 Subscribe a conforming RSS consumer to that URL within the existing private/local
 access boundary. Configure `LensWeb.Endpoint`'s URL to the address the consumer
 can reach: item links use that configured base URL. A port-forward alone does not
-rewrite the emitted original links. This feature adds no public exposure or new
-authentication mechanism.
+rewrite the emitted original links. In development, the configured URL defaults
+to `http://127.0.0.1:4000` and follows `PORT` when set; use the same origin for
+`BASE_URL`. This feature adds no public exposure or new authentication mechanism.
 
 An existing target with no eligible releases returns an empty RSS channel.
 Invalid or unknown target IDs return HTTP 404. Success returns
@@ -97,6 +98,8 @@ curl --fail-with-body "$BASE_URL/feeds/targets/$TARGET_ID/earnings.rss"
 既存の非公開・ローカルアクセス境界内で、このURLを標準準拠のRSS購読側へ登録する。
 項目リンクには`LensWeb.Endpoint`に設定したベースURLを使うため、購読側から接続可能な
 URLを設定する。ポートフォワードだけでは出力する原本リンクは書き換わらない。
+開発環境の設定URLは既定で`http://127.0.0.1:4000`となり、`PORT`を設定すると
+その値に追従する。`BASE_URL`にも同じオリジンを使う。
 この機能は一般公開や新たな認証機構を追加しない。
 
 既存の対象に適格なリリースがなければ空のRSSチャネルを返す。不正・未知の対象IDは

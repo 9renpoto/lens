@@ -8,8 +8,11 @@ config :lens, Lens.Repo,
   show_sensitive_data_on_connection_error: true,
   pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
 
+port = String.to_integer(System.get_env("PORT", "4000"))
+
 config :lens, LensWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT", "4000"))],
+  url: [scheme: "http", host: "127.0.0.1", port: port],
+  http: [ip: {127, 0, 0, 1}, port: port],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
