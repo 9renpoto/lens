@@ -102,13 +102,7 @@ defmodule Lens.Search.Earnings do
   end
 
   def rebuild(batch_size) do
-    # An older migration invokes Search.rebuild before this table/column exists.
-    %{rows: [[available]]} =
-      Repo.query!(
-        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'earnings_extractions' AND column_name = 'search_text')"
-      )
-
-    if available, do: rebuild_batches(0, batch_size), else: :ok
+    rebuild_batches(0, batch_size)
   end
 
   defp rebuild_batches(last_id, size) do

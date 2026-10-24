@@ -1,6 +1,6 @@
 # Registered earnings candidate collection
 
-`Lens.Earnings.Collector.run/1` performs one sequential, bounded run over enabled database-backed earnings sources. Target `active` does not control source enablement. Configure `LENS_RUSTFS_ENDPOINT`, `LENS_RUSTFS_BUCKET`, `LENS_RUSTFS_ACCESS_KEY_ID` and `LENS_RUSTFS_SECRET_ACCESS_KEY` before running collection; missing or invalid configuration returns `{:error, :not_configured}` or `{:error, :invalid_configuration}` before publisher requests. Existing acquisitions remain readable through their selected storage location. Apply outstanding migrations before starting the collector; follow the [recovery-retirement transition](../deployment.md#recovery-retirement-schema-transition) when upgrading an existing database. Run it manually with:
+`Lens.Earnings.Collector.run/1` performs one sequential, bounded run over enabled database-backed earnings sources. Target `active` does not control source enablement. Configure `LENS_RUSTFS_ENDPOINT`, `LENS_RUSTFS_BUCKET`, `LENS_RUSTFS_ACCESS_KEY_ID` and `LENS_RUSTFS_SECRET_ACCESS_KEY` before running collection; missing or invalid configuration returns `{:error, :not_configured}` or `{:error, :invalid_configuration}` before publisher requests. Existing acquisitions remain readable through their selected storage location. Apply outstanding migrations before starting the collector; follow the [recovery-retirement transition](../deployment.md#database-initialization) when upgrading an existing database. Run it manually with:
 
 ```sh
 mix run -e 'IO.inspect(Lens.Earnings.Collector.run())'
@@ -21,7 +21,7 @@ This retains the candidate acquisition boundary from #125 and verified RustFS st
 
 # 登録済み決算資料候補の収集
 
-`Lens.Earnings.Collector.run/1` は、有効なDB管理の決算取得先を逐次処理する、上限付きの1回の実行を提供する。対象の `active` は取得先の有効状態を制御しない。`LENS_RUSTFS_ENDPOINT`、`LENS_RUSTFS_BUCKET`、`LENS_RUSTFS_ACCESS_KEY_ID`、`LENS_RUSTFS_SECRET_ACCESS_KEY`を設定してから収集を実行する。設定不足・不正設定は公開元通信前に`{:error, :not_configured}`または`{:error, :invalid_configuration}`を返す。既存取得は選択済み保存先から引き続き読める。収集開始前に未適用migrationを適用する。既存DBの更新では[復旧廃止のスキーマ移行](../deployment.md#recovery-retirement-schema-transition)に従う。手動実行は次のとおり。
+`Lens.Earnings.Collector.run/1` は、有効なDB管理の決算取得先を逐次処理する、上限付きの1回の実行を提供する。対象の `active` は取得先の有効状態を制御しない。`LENS_RUSTFS_ENDPOINT`、`LENS_RUSTFS_BUCKET`、`LENS_RUSTFS_ACCESS_KEY_ID`、`LENS_RUSTFS_SECRET_ACCESS_KEY`を設定してから収集を実行する。設定不足・不正設定は公開元通信前に`{:error, :not_configured}`または`{:error, :invalid_configuration}`を返す。既存取得は選択済み保存先から引き続き読める。収集開始前に未適用migrationを適用する。既存DBの更新では[復旧廃止のスキーマ移行](../deployment.md#database-initialization)に従う。手動実行は次のとおり。
 
 ```sh
 mix run -e 'IO.inspect(Lens.Earnings.Collector.run())'

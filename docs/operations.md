@@ -33,11 +33,11 @@ unique value for `SECRET_KEY_BASE` and use a separate strong value for
 openssl rand -base64 48
 ```
 
-Build the release locally, run migrations explicitly, and start the application:
+Build the release locally, prepare the database explicitly, and start the application:
 
 ```sh
 docker compose build app
-docker compose run --rm app /app/bin/lens eval 'Lens.Release.migrate()'
+docker compose run --rm app /app/bin/lens eval 'Lens.Release.prepare()'
 docker compose up -d app
 ```
 

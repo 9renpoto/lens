@@ -4,7 +4,7 @@ Processing reads each original's selected storage location: PostgreSQL for origi
 
 Retrieve and verify size and SHA-256 before creating an extraction attempt. Storage failures create no attempt and leave extraction history unchanged. Single-original commands fail with `original UUID unavailable: REASON`; regeneration reports `original_id`, `error: "original_unavailable"` and `reason` for each unavailable original and continues the bounded batch. No storage failure triggers publisher access or fallback to another backend. Storage completion does not automatically start extraction.
 
-Apply database migrations before processing. Run these commands in a fresh Mix
+Prepare the current database schema before processing. Run these commands in a fresh Mix
 process with the usual PostgreSQL configuration. The task starts only Ecto and
 the repository, and refuses to run if the collection scheduler is already
 running. It does not start the web endpoint or fetch publisher material.
@@ -116,7 +116,7 @@ process bounds and cleanup; `elixir -pa "_build/test/lib/*/ebin" test/pdf_adapte
 checks real PDFs, text validity and adapter lifecycle. The ReportLab generator
 is optional developer tooling; ordinary CI uses the checked-in PDF bytes.
 `test/system/earnings_offline_check.exs` is a scratch-database check run with
-`mix run --no-start`. It migrates an empty test database and verifies the real
+`mix run --no-start`. It initializes an empty test database and verifies the real
 CLI, bytes and acquisition counts. Run it in an internal Docker network with
 only PostgreSQL available; do not use a production database.
 
@@ -131,7 +131,7 @@ only PostgreSQL available; do not use a production database.
 
 抽出試行の作成前に原本を取得し、サイズとSHA-256を検証する。保存障害では試行を作らず、抽出履歴を変えない。単一原本のコマンドは`original UUID unavailable: REASON`で失敗し、再生成は利用不可の原本ごとに`original_id`・`error: "original_unavailable"`・`reason`を返して上限付きバッチを続ける。保存障害による公開元アクセスや別バックエンドへのフォールバックは行わない。保存完了で抽出を自動開始しない。
 
-処理前にDBマイグレーションを適用する。通常のPostgreSQL設定を使い、新しい
+処理前に現行DBスキーマを準備する。通常のPostgreSQL設定を使い、新しい
 Mixプロセスで上記の4コマンドを実行する。タスクはEctoとRepoだけを起動し、
 収集スケジューラが既に動いている場合は実行を拒否する。Web endpointや発行元の取得は起動しない。
 本番環境でRepoのみを使うコマンドには `DATABASE_URL` を指定すればよく、

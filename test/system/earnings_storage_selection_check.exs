@@ -6,8 +6,7 @@ alias Lens.Earnings.{Original, OriginalStorage, OriginalStorageLocation}
 {:ok, _} = Application.ensure_all_started(:ecto_sql)
 {:ok, _} = Application.ensure_all_started(:postgrex)
 {:ok, _} = Repo.start_link(pool: DBConnection.ConnectionPool)
-directory = Application.app_dir(:lens, "priv/repo/migrations")
-Ecto.Migrator.run(Repo, directory, :up, all: true)
+Lens.Release.prepare()
 
 {:ok, writer} =
   Postgrex.start_link(

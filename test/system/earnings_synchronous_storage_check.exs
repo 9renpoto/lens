@@ -6,7 +6,7 @@ config = Application.fetch_env!(:lens, Lens.Repo)
 Application.put_env(:lens, Lens.Repo, Keyword.put(config, :pool, DBConnection.ConnectionPool))
 {:ok, repo} = Lens.Repo.start_link()
 Process.unlink(repo)
-Ecto.Migrator.run(Lens.Repo, Application.app_dir(:lens, "priv/repo/migrations"), :up, all: true)
+Lens.Release.prepare()
 ExUnit.start(seed: 0)
 
 defmodule Lens.SynchronousStorageCheck do
@@ -34,7 +34,7 @@ defmodule Lens.SynchronousStorageCheck do
 
     attrs = %{
       check_id: id,
-      issuer_code: "1234",
+      issuer_code: "issuer-alpha",
       kind: :pdf,
       url: "https://publisher.invalid/" <> id,
       checked_at: DateTime.utc_now(),

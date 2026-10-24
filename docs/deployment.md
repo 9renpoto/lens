@@ -74,35 +74,24 @@ preservation requirements are defined in [ADR 0005](adr/0005-store-pdfs-in-rustf
 Earnings collection is invoked manually; the feed scheduler does not schedule
 it. Follow the [bounded validation procedure](reference/earnings-value-validation.md).
 
-<a id="recovery-retirement-schema-transition"></a>
+<a id="database-initialization"></a>
 
-### Recovery retirement schema transition
+### Database initialization
 
-Stop application writers before applying the forward-only recovery-retirement migration. Inspect the existing database first without reading PDF payloads:
-
-```sql
-SELECT status, count(*), sum(octet_length(bytes)) AS retained_payload_bytes
-FROM earnings_storage_work GROUP BY status;
-```
-
-The migration takes exclusive locks and refuses to drop either recovery table if any work is unfinished or any payload remains. If it refuses, keep writers stopped and arrange a separately authorized, bounded reconciliation of those records. Do not delete or mark unfinished work completed to bypass the guard. Completed acquisitions, HTTP checks, original bytes/locations and extraction/search data remain; no RustFS object is deleted. No schema rollback recreates the retired protocol. Remove the obsolete `LENS_STORAGE_RECOVERY_ENABLED` environment setting; it is no longer read. The `storage-work` HTTP endpoints return 404; use collector errors and acquisition outcomes instead.
-
-## Application commands and health
-
-Apply outstanding migrations before starting the application, using the same
+Prepare the database before starting the application, using the same
 image and `DATABASE_URL`:
 
 ```sh
-/app/bin/lens eval 'Lens.Release.migrate()'
+/app/bin/lens eval 'Lens.Release.prepare()'
 /app/bin/lens start
 ```
 
-Run these as separate commands: let migration finish before starting the
-long-running process. Migration applies outstanding Ecto migrations only and
-is safe to rerun. Do not run concurrent migrations against the same database.
+Run these as separate commands. Preparation initializes an empty database from
+`priv/repo/schema.sql`, or verifies the current schema fingerprint. It rejects
+older schemas without changing their data. Recreate disposable databases explicitly
+when the schema changes; no upgrade or rollback path is provided.
 Use one active application process because each process owns its feed scheduler.
-Migrations are forward-only; changing the application image does not undo a
-database migration.
+Changing the application image does not convert an existing database schema.
 
 | Endpoint | Meaning |
 | --- | --- |
@@ -182,31 +171,21 @@ DB dumpはRustFS保存のPDFバイト列を含まない。
 決算収集は手動で呼び出し、フィードのschedulerは定期実行しない。
 [上限付き検証手順](reference/earnings-value-validation.md)を参照する。
 
-### 復旧廃止のスキーマ移行
+### DB初期化
 
-前方適用のみの復旧廃止migrationの前にアプリのwriterを停止する。まずPDFペイロードを読み出さずに既存DBを確認する。
-
-```sql
-SELECT status, count(*), sum(octet_length(bytes)) AS retained_payload_bytes
-FROM earnings_storage_work GROUP BY status;
-```
-
-migrationは排他ロックを取得し、未完了作業またはペイロードが一つでも残る場合は復旧テーブルの削除を拒否する。拒否された場合はwriterを停止したまま、対象記録の範囲を絞った照合を別途承認して進める。保護を回避するために未完了作業を削除したり完了扱いにしたりしない。完了済み取得・HTTP確認・原本バイト列／保存先・抽出／検索データは保持し、RustFSオブジェクトを削除しない。スキーマの逆移行で廃止したプロトコルを再作成しない。参照しなくなった`LENS_STORAGE_RECOVERY_ENABLED`環境設定を削除する。`storage-work` HTTP endpointは404を返し、代わりにCollectorのエラーと取得結果を確認する。
-
-## アプリのコマンドと稼働確認
-
-同じイメージと`DATABASE_URL`を使い、アプリ起動前に未適用migrationを適用する。
+同じイメージと`DATABASE_URL`を使い、アプリ起動前にDBを準備する。
 
 ```sh
-/app/bin/lens eval 'Lens.Release.migrate()'
+/app/bin/lens eval 'Lens.Release.prepare()'
 /app/bin/lens start
 ```
 
-migrationの終了後に常駐プロセスを起動する、別々のコマンドとして実行する。
-migrationは未適用のEcto migrationだけを適用し、再実行できる。
-同じDBへ同時にmigrationを実行しない。
+準備の終了後に常駐プロセスを起動する、別々のコマンドとして実行する。
+準備では`priv/repo/schema.sql`から空DBを初期化するか、現行スキーマのfingerprintを検証する。
+旧スキーマはデータを変更せず拒否する。スキーマ変更時は破棄可能なDBを明示的に再作成し、
+更新・ロールバック経路は提供しない。
 各プロセスがフィードschedulerを持つため、有効なアプリプロセスは1つとする。
-migrationは前方適用のみで、アプリのイメージ変更ではDB migrationを元に戻せない。
+アプリのイメージ変更では既存DBのスキーマを変換しない。
 
 | Endpoint | 意味 |
 | --- | --- |

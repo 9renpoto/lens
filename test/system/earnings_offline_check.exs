@@ -6,7 +6,7 @@ alias Lens.Repo
 {:ok, _} = Application.ensure_all_started(:ecto_sql)
 {:ok, _} = Application.ensure_all_started(:postgrex)
 {:ok, _} = Repo.start_link()
-Ecto.Migrator.run(Repo, Application.app_dir(:lens, "priv/repo/migrations"), :up, all: true)
+Lens.Release.prepare()
 
 nil = Process.whereis(Lens.Ingestion.Scheduler)
 nil = Process.whereis(LensWeb.Endpoint)
@@ -18,7 +18,7 @@ retain = fn name ->
     Earnings.record_success(%{
       bytes: bytes,
       acquisition_id: "offline-#{name}",
-      issuer_code: "6857",
+      issuer_code: "issuer-alpha",
       acquired_at: ~U[2026-09-27 01:00:00.000000Z],
       url: "https://publisher.invalid/earnings-#{name}.pdf",
       release: %{fiscal_year_end: ~D[2027-03-31], period: "q1", category: name}
