@@ -209,7 +209,14 @@ defmodule LensWeb.ApiSchemas do
       title: "SourceAttributes",
       type: :object,
       properties: %{
-        source_type: %Schema{type: :string, enum: ["rss", "atom", "rsshub"]},
+        feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
+        acquisition_kind: %Schema{
+          type: :string,
+          enum: ["direct", "conversion_service", "rsshub", "unknown"]
+        },
+        publisher_authority: %Schema{type: :string, enum: ["official", "third_party", "unknown"]},
+        original_feed_url: %Schema{type: :string, format: :uri, nullable: true},
+        acquisition_metadata: %Schema{type: :object},
         endpoint_url: %Schema{type: :string, format: :uri},
         title: %Schema{type: :string, maxLength: 1_000},
         enabled: %Schema{type: :boolean},
@@ -248,7 +255,14 @@ defmodule LensWeb.ApiSchemas do
       type: :object,
       properties: %{
         id: %Schema{type: :string, format: :uuid},
-        source_type: %Schema{type: :string, enum: ["rss", "atom", "rsshub"]},
+        feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
+        acquisition_kind: %Schema{
+          type: :string,
+          enum: ["direct", "conversion_service", "rsshub", "unknown"]
+        },
+        publisher_authority: %Schema{type: :string, enum: ["official", "third_party", "unknown"]},
+        original_feed_url: %Schema{type: :string, format: :uri, nullable: true},
+        acquisition_metadata: %Schema{type: :object},
         endpoint_url: %Schema{type: :string, format: :uri},
         title: %Schema{type: :string, nullable: true},
         enabled: %Schema{type: :boolean},
@@ -261,7 +275,9 @@ defmodule LensWeb.ApiSchemas do
       },
       required: [
         :id,
-        :source_type,
+        :feed_format,
+        :acquisition_kind,
+        :publisher_authority,
         :endpoint_url,
         :enabled,
         :poll_interval_seconds,
@@ -477,11 +493,25 @@ defmodule LensWeb.ApiSchemas do
       type: :object,
       properties: %{
         id: %Schema{type: :string, format: :uuid},
-        source_type: %Schema{type: :string, enum: ["rss", "atom", "rsshub"]},
+        feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
+        acquisition_kind: %Schema{
+          type: :string,
+          enum: ["direct", "conversion_service", "rsshub", "unknown"]
+        },
+        publisher_authority: %Schema{type: :string, enum: ["official", "third_party", "unknown"]},
+        original_feed_url: %Schema{type: :string, format: :uri, nullable: true},
+        acquisition_metadata: %Schema{type: :object},
         endpoint_url: %Schema{type: :string, format: :uri},
         observed_at: %Schema{type: :string, format: :"date-time"}
       },
-      required: [:id, :source_type, :endpoint_url, :observed_at]
+      required: [
+        :id,
+        :feed_format,
+        :acquisition_kind,
+        :publisher_authority,
+        :endpoint_url,
+        :observed_at
+      ]
     })
   end
 

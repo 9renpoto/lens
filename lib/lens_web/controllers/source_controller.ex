@@ -97,7 +97,6 @@ defmodule LensWeb.SourceController do
   defp source_json(source) do
     Map.take(source, [
       :id,
-      :source_type,
       :feed_format,
       :acquisition_kind,
       :publisher_authority,

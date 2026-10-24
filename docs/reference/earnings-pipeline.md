@@ -69,18 +69,6 @@ otherwise complete identity. No dates are inferred from URLs or acquisition time
 Unrecognized layouts remain pending for operator review; this conservative
 parser is not a generic Japanese disclosure classifier.
 
-`select_initial/1` accepts candidates containing the mapping result and the
-actual discovered `url`. It selects only identified regular releases, ordered
-by fiscal year-end and then period (`q1` < `q2` < `q3` < `full_year`). It returns
-`{:ok, candidate}`, `:empty`, or `{:pending_confirmation, candidates}` when the
-newest identity has competing candidates. It does not break conflicts by URL or
-fall back to an older release. Repeated identical candidate records collapse;
-different URLs for one identity require review. A mixed-issuer regular-release
-set returns `{:error, :mixed_issuers}`; callers select per company. Pending
-candidates and corrections remain available to the caller but are not initial
-regular-release choices. Selection does not delete historical identities.
-
-
 See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md), [run budgets](earnings-run-budget.md), and [historical fixtures](../../test/fixtures/source_catalog/README.md).
 
 <details>
@@ -147,16 +135,6 @@ HTTP取得は初期URLと各リダイレクト先を、その先へ通信する�
 公表日が不明でも他の識別値が完全なら識別済みにできる。
 URLや取得時刻から日付を推測しない。未対応のレイアウトは運用者の確認待ちとし、
 汎用の日本語開示分類器とは扱わない。
-
-`select_initial/1`には対応付け結果と実際に発見した`url`を持つ候補を渡す。
-識別済みの通常短信だけを、決算期末と期間順（`q1` < `q2` < `q3` < `full_year`）
-で選ぶ。戻り値は`{:ok, candidate}`・`:empty`、または最新識別情報に競合候補がある
-場合の`{:pending_confirmation, candidates}`。URL順で決着させたり旧期へ戻ったり
-しない。同じ候補の繰り返しはまとめるが、同じ識別情報でURLが違えば確認を要求する。
-通常短信候補に複数企業が混在する場合は`{:error, :mixed_issuers}`であり、呼び出し側は
-企業別に選ぶ。確認待ち候補と訂正資料は呼び出し側で保持するが初回通常短信としては
-選ばない。選択によって過去の識別情報を削除しない。
-
 
 [HTTP取得](earnings-http.md)、[HTTP履歴](earnings-http-history.md)、[実行予算](earnings-run-budget.md)、[過去の固定データ](../../test/fixtures/source_catalog/README.md)も参照する。
 

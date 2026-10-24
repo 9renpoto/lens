@@ -107,7 +107,6 @@ conditionally on unchanged plain text to avoid overwriting a concurrent success.
 
 ## Verification
 
-The optional historical runner comparison tool, `test/system/pdf_runner_comparison.exs`, writes its report to `PDF_COMPARISON_REPORT` or the system temporary directory (`lens-pdf-runner-samples.json`). It does not recreate archived planning documents.
 
 Synthetic PDFs and their ReportLab generator live in `test/fixtures/`.
 Build the helper with `cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner`
@@ -199,7 +198,6 @@ CPU上限を設ける。既定は20秒・本文8 MiB。`--timeout-ms`（1〜3000
 
 ## 検証
 
-任意の過去ランナー比較ツール`test/system/pdf_runner_comparison.exs`は、`PDF_COMPARISON_REPORT`またはシステム一時ディレクトリの`lens-pdf-runner-samples.json`へ報告を書き込む。削除した計画文書を再作成しない。
 
 合成PDFとReportLab生成器は `test/fixtures/` にある。
 Linuxのチェックアウト開発では

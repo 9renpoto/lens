@@ -298,7 +298,6 @@ CREATE TABLE public.source_runs (
 
 CREATE TABLE public.sources (
     id uuid NOT NULL,
-    source_type character varying(255) NOT NULL,
     endpoint_url text NOT NULL,
     title character varying(255),
     enabled boolean DEFAULT true NOT NULL,

@@ -17,6 +17,14 @@ stack. The [runtime contract](deployment.md) defines the application interface.
 <details>
 <summary>日本語</summary>
 
+## 取得先の分類
+
+`feed_format`は`rss_2_0`・`atom`・`rss_1_0`・`unknown`、
+`acquisition_kind`は`direct`・`conversion_service`・`rsshub`・`unknown`、
+`publisher_authority`は`official`・`third_party`・`unknown`を指定する。
+`original_feed_url`は任意で、認証情報を含めない。省略した分類は`unknown`とし、
+判明している分類は個別に明示する。取得先と出典の応答はこの独立した分類を返す。
+
 この文書はリポジトリ付属のローカルCompose構成でのアプリ操作を扱う。
 アプリのinterfaceは[実行契約](deployment.md)を参照する。
 
@@ -76,10 +84,9 @@ Allowed values are `rss_2_0`, `atom`, `rss_1_0`, or `unknown` for
 `feed_format`; `direct`, `conversion_service`, `rsshub`, or `unknown` for
 `acquisition_kind`; and `official`, `third_party`, or `unknown` for
 `publisher_authority`. `original_feed_url` is optional and must not contain
-credentials. `source_type` remains accepted and returned for legacy clients;
-when it is the only classification supplied, Lens preserves ambiguity as
-`unknown` except that `atom` identifies the format and `rsshub` identifies the
-acquisition kind.
+credentials. Omitted classifications remain `unknown`; set each classification
+explicitly when it is known. The source and provenance responses return these
+independent classification fields.
 
 New enabled sources are immediately due, so the scheduler performs their first
 fetch without a manual command. To diagnose a failed source, inspect its
@@ -130,6 +137,14 @@ disposable development/test data.
 
 <details>
 <summary>日本語</summary>
+
+## 取得先の分類
+
+`feed_format`は`rss_2_0`・`atom`・`rss_1_0`・`unknown`、
+`acquisition_kind`は`direct`・`conversion_service`・`rsshub`・`unknown`、
+`publisher_authority`は`official`・`third_party`・`unknown`を指定する。
+`original_feed_url`は任意で、認証情報を含めない。省略した分類は`unknown`とし、
+判明している分類は個別に明示する。取得先と出典の応答はこの独立した分類を返す。
 
 ## 保持するデータ
 

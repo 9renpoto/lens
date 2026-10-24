@@ -36,7 +36,11 @@ defmodule Lens.IngestionTest do
 
     test "handles Atom and RSSHub output through the same path" do
       source =
-        source_fixture(source_type: "rsshub", endpoint_url: "http://127.0.0.1:1200/example")
+        source_fixture(
+          feed_format: "unknown",
+          acquisition_kind: "rsshub",
+          endpoint_url: "http://127.0.0.1:1200/example"
+        )
 
       result = Ingestion.ingest(source, transport: transport(200, atom_fixture()))
 
@@ -326,7 +330,8 @@ defmodule Lens.IngestionTest do
 
   defp source_fixture(attrs \\ %{}) do
     defaults = %{
-      source_type: "rss",
+      feed_format: "rss_2_0",
+      acquisition_kind: "direct",
       endpoint_url: "https://feeds.example.com/feed.xml",
       poll_interval_seconds: 300
     }

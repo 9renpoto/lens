@@ -93,7 +93,8 @@ defmodule Lens.Earnings.SearchTest do
 
     {:ok, source} =
       Lens.Content.create_source(%{
-        source_type: "rss",
+        feed_format: "rss_2_0",
+        acquisition_kind: "direct",
         endpoint_url: "https://example.test/mixed.xml",
         poll_interval_seconds: 300
       })

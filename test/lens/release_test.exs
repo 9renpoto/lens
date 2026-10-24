@@ -14,7 +14,8 @@ defmodule Lens.ReleaseTest do
   test "initialization refuses an existing schema without changing retained rows" do
     {:ok, source} =
       Lens.Content.create_source(%{
-        source_type: "rss",
+        feed_format: "rss_2_0",
+        acquisition_kind: "direct",
         endpoint_url: "https://feeds.example.test/current.xml",
         poll_interval_seconds: 300
       })

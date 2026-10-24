@@ -10,7 +10,8 @@ defmodule LensWeb.DashboardControllerTest do
   test "renders a mobile-friendly service metrics dashboard" do
     {:ok, healthy_source} =
       Content.create_source(%{
-        source_type: "rss",
+        feed_format: "rss_2_0",
+        acquisition_kind: "direct",
         endpoint_url: "https://feeds.example.com/healthy.xml",
         poll_interval_seconds: 300,
         title: "Healthy feed"
@@ -18,7 +19,8 @@ defmodule LensWeb.DashboardControllerTest do
 
     {:ok, _attention_source} =
       Content.create_source(%{
-        source_type: "rss",
+        feed_format: "rss_2_0",
+        acquisition_kind: "direct",
         endpoint_url: "https://feeds.example.com/attention.xml",
         poll_interval_seconds: 300,
         enabled: false,

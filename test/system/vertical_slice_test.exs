@@ -58,7 +58,8 @@ defmodule Lens.System.VerticalSliceTest do
       build_conn()
       |> post("/api/sources", %{
         source: %{
-          source_type: source_type,
+          feed_format: if(source_type == "rss", do: "rss_2_0", else: "atom"),
+          acquisition_kind: if(source_type == "rsshub", do: "rsshub", else: "direct"),
           endpoint_url: endpoint_url,
           poll_interval_seconds: 300
         }

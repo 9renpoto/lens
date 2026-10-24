@@ -7,12 +7,34 @@ defmodule LensWeb.SourceControllerTest do
   alias LensWeb.ApiSpec
   @endpoint LensWeb.Endpoint
 
+  test "registration exposes current classifications without a legacy type" do
+    source =
+      build_conn()
+      |> post("/api/sources", %{
+        source: %{
+          endpoint_url: "https://feeds.example.test/current.atom",
+          poll_interval_seconds: 300,
+          feed_format: "atom",
+          acquisition_kind: "direct",
+          publisher_authority: "official"
+        }
+      })
+      |> json_response(201)
+      |> Map.fetch!("source")
+
+    assert source["feed_format"] == "atom"
+    assert source["acquisition_kind"] == "direct"
+    assert source["publisher_authority"] == "official"
+    refute Map.has_key?(source, "source_type")
+  end
+
   test "creates, lists, updates, and disables a source" do
     create_conn =
       build_conn()
       |> post("/api/sources", %{
         source: %{
-          source_type: "rss",
+          feed_format: "rss_2_0",
+          acquisition_kind: "direct",
           endpoint_url: "https://feeds.example.com/source.xml",
           poll_interval_seconds: 300
         }
@@ -74,7 +96,12 @@ defmodule LensWeb.SourceControllerTest do
     conn =
       build_conn()
       |> post("/api/sources", %{
-        source: %{source_type: "rss", endpoint_url: "invalid", poll_interval_seconds: 0}
+        source: %{
+          feed_format: "rss_2_0",
+          acquisition_kind: "direct",
+          endpoint_url: "invalid",
+          poll_interval_seconds: 0
+        }
       })
 
     response = json_response(conn, 422)

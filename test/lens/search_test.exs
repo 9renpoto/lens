@@ -125,7 +125,8 @@ defmodule Lens.SearchTest do
   defp source_fixture do
     {:ok, source} =
       Content.create_source(%{
-        source_type: "rss",
+        feed_format: "rss_2_0",
+        acquisition_kind: "direct",
         endpoint_url: "https://feeds.example.com/#{System.unique_integer([:positive])}.xml",
         poll_interval_seconds: 300
       })
