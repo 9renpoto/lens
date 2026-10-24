@@ -1,6 +1,6 @@
 # Search API
 
-The existing choices and reasons are recorded in [ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md) and [ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). The v0.2 value check uses existing search and original-retrieval APIs in the [earnings-search procedure](reference/earnings-value-validation.md). Release boundaries are tracked in [#68](https://github.com/9renpoto/lens/issues/68), and broader assessment work is tracked separately in [#184](https://github.com/9renpoto/lens/issues/184). [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) defines the disposable-data boundary and when preservation requirements must be revisited; broader verification requires separately scoped work.
+The search decisions and reasons are recorded in [ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md) and [ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md). Use the [earnings-search procedure](reference/earnings-value-validation.md) to compare search results with retained originals. [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) defines the disposable-data boundary and when preservation requirements must be revisited; broader verification requires separately scoped work.
 
 Lens keeps canonical Documents in PostgreSQL. Its full-text vector, normalized
 search text, and GIN indexes are derived from each Document's title and
@@ -58,9 +58,8 @@ queries, so full-width and half-width Latin letters, spaces, and digits match
 each other. This is not Japanese morphological analysis, stemming, translation,
 or semantic search.
 
-The database migration enables PostgreSQL's `pg_trgm` extension and creates the
-derived GIN index. Roll back only after an application version that no longer
-depends on the derived columns is deployed; canonical Documents are unchanged.
+The current schema includes PostgreSQL's `pg_trgm` extension and the derived
+GIN index. Rebuild derived fields without changing canonical Documents.
 
 ## Rebuild derived search data
 
@@ -117,7 +116,7 @@ search completeness or Japanese morphological analysis. Feed matching is unchang
 <details>
 <summary>日本語</summary>
 
-既存方式と理由は[ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md)と[ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)に記載する。v0.2の価値検証では[決算検索の手順](reference/earnings-value-validation.md)に従い、既存の検索・原本取得APIを使う。リリース境界は[#68](https://github.com/9renpoto/lens/issues/68)、より広い判定フローは[#184](https://github.com/9renpoto/lens/issues/184)で別々に管理する。[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)は、破棄可能データの境界と保持要件を再検討する時点を定める。広範な検証は別途範囲を絞った作業として定義する。
+検索方式と理由は[ADR 0008](adr/0008-use-postgresql-for-japanese-substring-search.md)と[ADR 0009](adr/0009-preserve-complete-text-when-search-vectors-overflow.md)に記載する。[決算検索の手順](reference/earnings-value-validation.md)で検索結果と保存原本を照合する。[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)が破棄可能なデータと保持の境界、保持要件を再検討する時点を定める。広範な検証は別途範囲を絞った作業として定義する。
 
 ## 決算本文の検索
 

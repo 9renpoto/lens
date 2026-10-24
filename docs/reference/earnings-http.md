@@ -69,7 +69,7 @@ Per-source concurrent-run exclusion, daily scheduling and capped retry/backoff r
 
 ## Operator storage API (#160 / #73)
 
-The original retrieval route remains behind the deployment's existing private operator-access boundary. This does not add authentication, ingress, public sharing or write/retry operations. Original retrieval uses the existing selected storage location and RustFS runtime configuration. All responses from these actions have `Cache-Control: no-store`.
+The original retrieval route remains behind the deployment's existing private operator-access boundary. This does not add authentication, ingress, public sharing or write/retry operations. Original retrieval uses the immutable RustFS reference stored on the original and RustFS runtime configuration. All responses from these actions have `Cache-Control: no-store`.
 
 | Route | Response | Errors |
 | --- | --- | --- |
@@ -85,7 +85,7 @@ Known-original failures have this strict JSON shape:
 {"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
 ```
 
-The finite reason set is `not_found`, `integrity_error`, `original_unavailable`, `not_configured`, `invalid_configuration`, `destination_mismatch`, `unauthorized`, `timeout`, `transport_error`, `unavailable`, `invalid_reference`, `conflict` and `storage_error`. A missing RustFS object returns 503 with `not_found`; an unknown original ID returns 404 with `{"error":"not_found"}`. Corrupt bytes return 503 with `integrity_error`. Other unlisted/structured provider failures become `storage_error`, without returning provider bodies, credentials or destination URLs. Manual retry will not be exposed; recovery is retired by ADR 0013. API behavior is independent of the deployment environment; release validation is tracked separately in #68.
+The finite reason set is `not_found`, `integrity_error`, `original_unavailable`, `not_configured`, `invalid_configuration`, `destination_mismatch`, `unauthorized`, `timeout`, `transport_error`, `unavailable`, `invalid_reference`, `conflict` and `storage_error`. A missing RustFS object returns 503 with `not_found`; an unknown original ID returns 404 with `{"error":"not_found"}`. Corrupt bytes return 503 with `integrity_error`. Other unlisted/structured provider failures become `storage_error`, without returning provider bodies, credentials or destination URLs. Storage errors follow the synchronous contract in ADR 0013. API behavior is independent of the deployment environment.
 
 <details>
 <summary>日本語</summary>
@@ -151,7 +151,7 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 
 ## 運用者向け保存API（#160・#73）
 
-原本取得ルートは、配備の既存の非公開運用者アクセス境界内に残る。認証・Ingress・外部共有・書込・再試行操作は追加しない。原本取得には既存の選択済み保存先とRustFS実行時設定を使う。これらのactionの全応答に`Cache-Control: no-store`を付ける。
+原本取得ルートは、配備の既存の非公開運用者アクセス境界内に残る。認証・Ingress・外部共有・書込・再試行操作は追加しない。原本取得には原本に記録した不変のRustFS参照と実行時設定を使う。これらのactionの全応答に`Cache-Control: no-store`を付ける。
 
 | ルート | 応答 | エラー |
 | --- | --- | --- |
@@ -167,6 +167,6 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 {"error":"original_unavailable","original_id":"UUID","reason":"integrity_error"}
 ```
 
-理由の有限集合は`not_found`、`integrity_error`、`original_unavailable`、`not_configured`、`invalid_configuration`、`destination_mismatch`、`unauthorized`、`timeout`、`transport_error`、`unavailable`、`invalid_reference`、`conflict`、`storage_error`。RustFSオブジェクト欠落は503と`not_found`、未知の原本IDは404と`{"error":"not_found"}`を返す。破損は503と`integrity_error`。その他の未登録・構造化されたprovider障害は`storage_error`に変換し、provider本文・認証情報・保存URLを返さない。手動再試行は公開せず、ADR 0013に従い復旧を廃止する。APIの挙動は配備環境から独立し、リリース検証は#68で別途追跡する。
+理由の有限集合は`not_found`、`integrity_error`、`original_unavailable`、`not_configured`、`invalid_configuration`、`destination_mismatch`、`unauthorized`、`timeout`、`transport_error`、`unavailable`、`invalid_reference`、`conflict`、`storage_error`。RustFSオブジェクト欠落は503と`not_found`、未知の原本IDは404と`{"error":"not_found"}`を返す。破損は503と`integrity_error`。その他の未登録・構造化されたprovider障害は`storage_error`に変換し、provider本文・認証情報・保存URLを返さない。保存エラーはADR 0013の同期契約に従う。APIの挙動は配備環境から独立する。
 
 </details>

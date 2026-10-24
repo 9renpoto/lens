@@ -206,7 +206,7 @@ Linuxのチェックアウト開発では
 `elixir -pa "_build/test/lib/*/ebin" test/pdf_adapter_check.exs` で実PDF・本文・ライフサイクルを確認する。
 ReportLab生成器は任意の開発用で、通常CIはコミット済みPDFを使用する。
 `test/system/earnings_offline_check.exs` は `mix run --no-start` で実行する使い捨てDB用の検証。
-空のテストDBをマイグレーションし、実CLI・原本バイト列・取得件数を確認する。
+空のテストDBを初期化し、実CLI・原本バイト列・取得件数を確認する。
 PostgreSQLだけがある内部Dockerネットワークで実行し、本番DBは使わない。
 
 </details>

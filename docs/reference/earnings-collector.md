@@ -1,6 +1,6 @@
 # Registered earnings candidate collection
 
-`Lens.Earnings.Collector.run/1` performs one sequential, bounded run over enabled database-backed earnings sources. Target `active` does not control source enablement. Configure `LENS_RUSTFS_ENDPOINT`, `LENS_RUSTFS_BUCKET`, `LENS_RUSTFS_ACCESS_KEY_ID` and `LENS_RUSTFS_SECRET_ACCESS_KEY` before running collection; missing or invalid configuration returns `{:error, :not_configured}` or `{:error, :invalid_configuration}` before publisher requests. Existing acquisitions remain readable through their selected storage location. Apply outstanding migrations before starting the collector; follow the [recovery-retirement transition](../deployment.md#database-initialization) when upgrading an existing database. Run it manually with:
+`Lens.Earnings.Collector.run/1` performs one sequential, bounded run over enabled database-backed earnings sources. Target `active` does not control source enablement. Configure `LENS_RUSTFS_ENDPOINT`, `LENS_RUSTFS_BUCKET`, `LENS_RUSTFS_ACCESS_KEY_ID` and `LENS_RUSTFS_SECRET_ACCESS_KEY` before running collection; missing or invalid configuration returns `{:error, :not_configured}` or `{:error, :invalid_configuration}` before publisher requests. Originals retain one immutable RustFS reference. Prepare the [current database schema](../deployment.md#database-initialization) before starting the collector. Run it manually with:
 
 ```sh
 mix run -e 'IO.inspect(Lens.Earnings.Collector.run())'
@@ -14,14 +14,14 @@ The return value is `{:ok, %{checks: checks, errors: errors, budget: budget, sto
 
 Every persisted check retains source ID, target ID and the registered listing URL in `metadata`. PDF checks also retain the listing check ID, final listing response URL, observed href, resolved document URL, anchor text and headings. Listing checks retain their final response URL. Configuration edits or disablement do not rewrite these snapshots. For an accepted PDF, validate the HTTP observation before object I/O and keep the bytes only in memory until the conditional save and size/SHA-256 verification finish. Then atomically insert the original with its immutable RustFS reference, acquisition and immutable HTTP check. A database commit failure stops the run and can leave an unreferenced immutable RustFS object; do not delete it as cleanup. A later identical conditional write verifies and reuses it. Process death can lose the in-memory observation without creating a completed acquisition. Successful PDF checks reference immutable, byte-deduplicated originals through an acquisition with no release identity. Repeated runs create distinct checks and acquisition attempts while identical bytes reuse an original. Started PDF failures retain their failure acquisition; 304 responses and failures before a request do not fabricate acquisitions.
 
-This retains the candidate acquisition boundary from #125 and verified RustFS storage from #159 with synchronous failure handling under #195. #126 consumes acquisition provenance and records assessments separately; #127 supplies release classification and identity. Collection does not invoke extraction, classification or operator adoption. The v0.2 value-validation pilot manually verifies the selected issuer's current official listing before using a two-operation run; see the [value-validation procedure](earnings-value-validation.md). Automated release-aware selection, daily operation and detailed end-to-end deployment verification are deferred beyond that v0.2 checkpoint.
+Collection does not invoke extraction, classification or operator adoption. Use the [bounded value-validation procedure](earnings-value-validation.md) to inspect collected originals and search results.
 
 <details>
 <summary>日本語</summary>
 
 # 登録済み決算資料候補の収集
 
-`Lens.Earnings.Collector.run/1` は、有効なDB管理の決算取得先を逐次処理する、上限付きの1回の実行を提供する。対象の `active` は取得先の有効状態を制御しない。`LENS_RUSTFS_ENDPOINT`、`LENS_RUSTFS_BUCKET`、`LENS_RUSTFS_ACCESS_KEY_ID`、`LENS_RUSTFS_SECRET_ACCESS_KEY`を設定してから収集を実行する。設定不足・不正設定は公開元通信前に`{:error, :not_configured}`または`{:error, :invalid_configuration}`を返す。既存取得は選択済み保存先から引き続き読める。収集開始前に未適用migrationを適用する。既存DBの更新では[復旧廃止のスキーマ移行](../deployment.md#database-initialization)に従う。手動実行は次のとおり。
+`Lens.Earnings.Collector.run/1` は、有効なDB管理の決算取得先を逐次処理する、上限付きの1回の実行を提供する。対象の `active` は取得先の有効状態を制御しない。`LENS_RUSTFS_ENDPOINT`、`LENS_RUSTFS_BUCKET`、`LENS_RUSTFS_ACCESS_KEY_ID`、`LENS_RUSTFS_SECRET_ACCESS_KEY`を設定してから収集を実行する。設定不足・不正設定は公開元通信前に`{:error, :not_configured}`または`{:error, :invalid_configuration}`を返す。原本は一つの不変のRustFS参照を持つ。収集開始前に[現行DBスキーマ](../deployment.md#database-initialization)を準備する。手動実行は次のとおり。
 
 ```sh
 mix run -e 'IO.inspect(Lens.Earnings.Collector.run())'
@@ -33,8 +33,8 @@ mix run -e 'IO.inspect(Lens.Earnings.Collector.run())'
 
 戻り値は `{:ok, %{checks: checks, errors: errors, budget: budget, stopped: reason}}`。不正な上限は `{:error, :invalid_budget}` を返す。制御された検証では、保存先の一致する`rustfs: client`を指定できる。確認記録は操作順に返す。HTTP失敗は記録し、ほかのリンクや取得先を止めない。発見失敗は `errors`、上限到達は `stopped` に残す。永続化失敗は履歴を保存できないまま取得を続けず、`:persistence_failed` で実行を止める。公開元HTTPの自動再試行は追加しない。保存障害では、安全な`storage_`失敗理由を持つ失敗取得を記録し、当該取得先の`errors`に`{:storage_failed, reason}`を追加して、実行全体を`:storage_failed`で停止する。原本や成功PDF確認は作らない。この結果を永続化できない場合は`:persistence_failed`で停止する。永続ペイロードの準備・保存再試行・取得先除外を実行後に残さない。後の明示的な収集は新しい観測であり、前回ダウンロードの復旧ではない。[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md)を参照する。
 
-各確認記録の `metadata` は取得先ID、対象ID、登録一覧URLを保持する。PDF確認は一覧確認ID、一覧応答の最終URL、観測したhref、解決済み資料URL、リンク文字列、見出しも保持する。一覧確認は応答の最終URLを保持する。設定変更や無効化でこれらの記録を書き換えない。受理PDFでは、オブジェクト通信前にHTTP観測情報を検証し、条件付き保存とサイズ・SHA-256の検証が完了するまでバイト列をメモリ上だけで保持する。その後、原本・保存先・取得・変更不可のHTTP確認を同時に確定する。DBコミット失敗では実行を停止し、RustFSに参照されない変更不可のオブジェクトが残る場合があるが、整理のために削除しない。後の同一内容の条件付き書込では検証して再利用する。プロセス終了では、完了した取得を作らずメモリ上の観測情報を失う可能性がある。成功PDF確認は、短信識別を持たない取得記録から、不変でバイト単位の重複を排除した原本を参照する。再実行は別の確認・取得試行を作るが、同一バイト列は原本を再利用する。リクエスト開始後のPDF失敗は失敗取得記録を保持し、304応答と送信前の失敗は取得記録を捏造しない。
+各確認記録の `metadata` は取得先ID、対象ID、登録一覧URLを保持する。PDF確認は一覧確認ID、一覧応答の最終URL、観測したhref、解決済み資料URL、リンク文字列、見出しも保持する。一覧確認は応答の最終URLを保持する。設定変更や無効化でこれらの記録を書き換えない。受理PDFでは、オブジェクト通信前にHTTP観測情報を検証し、条件付き保存とサイズ・SHA-256の検証が完了するまでバイト列をメモリ上だけで保持する。その後、不変のRustFS参照を持つ原本・取得・変更不可のHTTP確認を同時に確定する。DBコミット失敗では実行を停止し、RustFSに参照されない変更不可のオブジェクトが残る場合があるが、整理のために削除しない。後の同一内容の条件付き書込では検証して再利用する。プロセス終了では、完了した取得を作らずメモリ上の観測情報を失う可能性がある。成功PDF確認は、短信識別を持たない取得記録から、不変でバイト単位の重複を排除した原本を参照する。再実行は別の確認・取得試行を作るが、同一バイト列は原本を再利用する。リクエスト開始後のPDF失敗は失敗取得記録を保持し、304応答と送信前の失敗は取得記録を捏造しない。
 
-これは #125 の候補取得境界と#159の検証済みRustFS保存を維持し、#195の同期的な失敗処理へ切り替える。#126 は取得の出典を利用し、判定を独立して記録する。#127 は短信の分類と識別を提供する。収集は抽出・分類・運用者による採用を呼び出さない。v0.2の価値検証パイロットでは、選定した発行元の公式一覧を手動で確認してから、操作数2の収集を実行する。[価値検証手順](earnings-value-validation.md)を参照。決算回に基づく自動選択、日次運用、詳細なデプロイ検証はv0.2の区切りより後へ延期する。
+収集は抽出・分類・運用者による採用を呼び出さない。[上限付きの価値検証手順](earnings-value-validation.md)で取得原本と検索結果を確認する。
 
 </details>

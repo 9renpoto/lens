@@ -20,8 +20,7 @@ The container runs as the unprivileged `lens` user, listens on
 ## Required services
 
 - PostgreSQL 18 stores canonical records and derived search data.
-- RustFS stores newly collected earnings PDFs. Existing PostgreSQL-backed
-  originals remain readable through their recorded storage location.
+- RustFS stores earnings PDFs. PostgreSQL retains their metadata and acquisition history.
 - Configured feed and earnings sources must be reachable from the application.
 - The unauthenticated HTTP API requires a private access boundary.
 
@@ -44,7 +43,7 @@ runtime secrets rather than committing their values.
 
 ## Earnings PDF storage
 
-[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md) retires interrupted-write recovery for bounded disposable-data validation. The recovery runtime and unfinished-work endpoints are removed. This decision does not change the original-preservation boundary or establish production restore guarantees.
+Use synchronous verified saves under [ADR 0013](adr/0013-retire-interrupted-storage-recovery.md). Each original retains one immutable RustFS reference. The disposable-data scope does not establish production restore guarantees.
 
 Registered-source earnings collection requires a provisioned RustFS bucket and
 the following settings:
@@ -123,8 +122,7 @@ CI成功後にイメージを公開する。バージョン準備とタグ作成
 ## 必要なサービス
 
 - PostgreSQL 18は正となる記録と検索用データを保存する。
-- RustFSは新たに収集する決算PDFを保存する。既存のPostgreSQL保存原本は
-  記録された保存場所を通じて読み取れる。
+- RustFSは決算PDFを保存する。PostgreSQLにはメタデータと取得履歴を保持する。
 - 設定したフィード・決算取得先へアプリから接続できる必要がある。
 - 認証を持たないHTTP APIには非公開のアクセス境界が必要。
 
@@ -146,7 +144,7 @@ CI成功後にイメージを公開する。バージョン準備とタグ作成
 
 ## 決算PDFの保存
 
-[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)に従い、上限付き・破棄可能データの検証では中断書き込みの復旧を廃止する。復旧の実行時機能と未完了作業endpointは削除する。この判断で原本保持の境界は変わらず、本番復元の保証も確立しない。
+[ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)に従い同期的な検証済み保存を使う。各原本は一つの不変のRustFS参照を保持する。破棄可能なデータの範囲では本番復元の保証は成立しない。
 
 登録済み取得先の決算収集には、用意済みのRustFSバケットと次の設定が必要。
 

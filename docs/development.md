@@ -16,6 +16,13 @@ in Compose and CI; a PostgreSQL major upgrade requires a compatibility review.
 See the [runtime contract](deployment.md#earnings-pdf-storage) for RustFS configuration
 when collecting earnings PDFs.
 
+## Database setup
+
+`mix setup` creates an empty database and initializes `priv/repo/schema.sql`, or
+verifies its current fingerprint. When that definition changes, use
+`mix ecto.reset` to drop and recreate the configured disposable database, then
+register the configuration/data you need. No old-schema upgrade is provided.
+
 ## Before implementation
 
 Create a scoped GitHub issue, record and agree on the relevant design decisions
@@ -72,6 +79,13 @@ mix phx.server
 `POOL_SIZE`でローカルの既定値を変更できる。ComposeとCIのPostgreSQL minor imageは
 固定し、major更新には互換性レビューが必要。
 決算PDFを収集する場合のRustFS設定は[実行契約](deployment.md#earnings-pdf-storage)を参照する。
+
+## DBの準備
+
+`mix setup`は空DBを作成し、`priv/repo/schema.sql`から初期化するか、
+現行fingerprintを検証する。定義が変わった場合は`mix ecto.reset`で設定先の
+破棄可能なDBを削除・再作成し、必要な設定・データを登録し直す。
+旧スキーマの更新経路は提供しない。
 
 ## 実装前
 

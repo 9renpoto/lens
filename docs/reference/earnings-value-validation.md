@@ -1,6 +1,6 @@
 # Earnings-search value validation
 
-This procedure supports one reviewable v0.2 slice: register one issuer's
+Use this procedure to validate a bounded earnings-search workflow: register one issuer's
 official earnings listing, make one operator-approved bounded manual
 collection, extract and search the latest ordinary earnings release available
 at collection time, then open the retained original PDF and compare it with the
@@ -60,7 +60,7 @@ curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURC
 `Collector.run/1` visits every enabled registered earnings source across all
 targets. Before the manual run, inspect every target's source list and ensure
 only the intended source is enabled. Configure the RustFS runtime variables required by
-[candidate collection](earnings-collector.md), and apply migrations first.
+[candidate collection](earnings-collector.md), and prepare the current database schema first.
 Verify the live listing before proceeding. Two operations cap this run at the
 listing request and its first PDF link:
 
@@ -126,19 +126,17 @@ release failures; no numeric precision threshold or standardized value-review
 report is required. The acquisition URL, time and stored bytes remain part of
 the existing operational provenance.
 
-The v0.2 reviewable checkpoint is complete when the operator has run this
-single-company flow through search and original comparison and discussed the
-result. The outcome may inform v0.3 scope even when the result is mismatched or
-not useful. Search UI, multiple companies, recurring collection, presentation
-classification, pending-case/operator-decision APIs, and detailed restart,
-failure and backup/restore verification remain follow-up work.
+The operator compares the search result with the retained original and discusses
+whether the result is useful. Record mismatches and workflow gaps in an issue.
+This procedure does not establish recurring collection, presentation assessment,
+operator-decision APIs or production backup/restore guarantees.
 
 <details>
 <summary>日本語</summary>
 
 # 決算検索の価値検証
 
-この手順は、レビュー可能なv0.2の縦切り1件を実施する。発行元1社の公式決算一覧を登録し、運用者が許容した上限付きの手動収集を1回行い、収集時点で最新の通常決算短信を抽出・検索した後、保存した原本PDFを開いて検索結果と照合する。データを明示的に破棄可能とした開発・テスト環境で実施する。[ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md)を参照。
+この手順は上限付きの決算検索フローを検証する。発行元1社の公式決算一覧を登録し、運用者が許容した上限付きの手動収集を1回行い、収集時点で最新の通常決算短信を抽出・検索した後、保存した原本PDFを開いて検索結果と照合する。データを明示的に破棄可能とした開発・テスト環境で実施する。[ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md)を参照。
 
 パイロット前に運用者が発行元を選び、現在の公式一覧と最新の通常決算短信を特定する。
 
@@ -178,7 +176,7 @@ curl -X PATCH http://127.0.0.1:4000/api/targets/TARGET_ID/earnings-sources/SOURC
   -d '{"source":{"enabled":true}}'
 ```
 
-`Collector.run/1`は、全対象に登録された有効な決算取得先すべてを処理する。手動実行前に全対象の取得先一覧を確認し、対象の1件だけが有効であることを確認する。[候補収集](earnings-collector.md)が必要とするRustFSランタイム変数を設定し、先にマイグレーションを適用する。実行前に公式一覧を確認する。操作数を2にすると、一覧取得と先頭PDFリンクの取得までに上限を設定できる。
+`Collector.run/1`は、全対象に登録された有効な決算取得先すべてを処理する。手動実行前に全対象の取得先一覧を確認し、対象の1件だけが有効であることを確認する。[候補収集](earnings-collector.md)が必要とするRustFSランタイム変数を設定し、先に現行DBスキーマを準備する。実行前に公式一覧を確認する。操作数を2にすると、一覧取得と先頭PDFリンクの取得までに上限を設定できる。
 
 ```sh
 mix run -e 'IO.inspect(Lens.Earnings.Collector.run(max_operations: 2))'
@@ -217,6 +215,6 @@ curl -o original.pdf \
 
 抽出本文で確認した`営業利益`など、代表的な日本語の語句を選ぶ。結果の発行元・対象期間・決算期をPDFと比較する。表題の全項目を組み合わせたクエリが一致するとは仮定しない。クエリの意味は[検索の挙動](../search.md)を参照する。取得したPDFを開き、発行元・対象期間・表題・関連内容を検索結果と照合して、有用性や不一致・作業上の不足をレビューで議論する。不一致は観測結果であり、自動的なリリース失敗とはしない。数値の精度基準や定型の価値検証報告は求めない。取得元URL・日時・保存バイト列は既存の運用履歴に保持される。
 
-検索と原本照合まで1社の一連のフローを実行し、その結果を議論できればv0.2のレビュー可能な区切りとする。一致しない場合や有用でない場合も、その結果をv0.3のスコープ判断に使う。検索UI、複数社、定期収集、説明会資料の判定、確認待ち・運用者判断API、詳細な再起動・失敗・バックアップ/復元検証は後続作業とする。
+運用者は検索結果と保存原本を照合し、有用性を議論する。不一致やフローの不足はIssueへ記録する。この手順は定期収集・説明会資料判定・運用者判断API・本番バックアップ／復元の保証を確立しない。
 
 </details>

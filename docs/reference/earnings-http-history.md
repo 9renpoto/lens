@@ -1,7 +1,8 @@
 # Earnings HTTP check history
 
 `Lens.Earnings.HTTPHistory.record/1` stores one immutable check for each actual
-HTTP operation. Supply a stable `check_id`, `issuer_code`, requested `url`,
+HTTP operation. Successful PDFs require a complete verified `storage_reference`.
+Supply a stable `check_id`, `issuer_code`, requested `url`,
 `checked_at`, and the result of `Lens.Earnings.HTTP.fetch/2`. Reuse the check ID
 only when retrying persistence of that same operation. A new HTTP operation
 needs a new ID. Conflicting facts return an error rather than rewriting history.
@@ -18,8 +19,8 @@ Non-UTF-8 response header values containing HTTP obs-text are retained as
 UTF-8 header values use strings. The 32 KiB bound includes the encoded representation;
 header values containing NUL are rejected.
 
-A successful PDF check atomically stores the exact original bytes and an
-acquisition identified by `http:` followed by the check ID. Its digest and byte
+Use `HTTPHistory.store/2` for accepted PDFs: it saves and verifies bytes in RustFS
+before atomically recording the immutable reference and an acquisition identified by `http:` followed by the check ID. Its digest and byte
 size must match the retained original. Identical downloads share an original
 but have separate acquisition histories. Changed bytes preserve both originals.
 Missing release identity retains the original for later confirmation.
@@ -106,7 +107,8 @@ shared pure helpers.
 # 決算資料のHTTP確認履歴
 
 `Lens.Earnings.HTTPHistory.record/1`は、実際のHTTP処理ごとに変更不能な確認履歴を
-保存する。安定した`check_id`、`issuer_code`、要求した`url`、`checked_at`と、
+保存する。成功PDFには完全な検証済み`storage_reference`が必要である。
+安定した`check_id`、`issuer_code`、要求した`url`、`checked_at`と、
 `Lens.Earnings.HTTP.fetch/2`の結果を渡す。同じ処理の保存を再試行するときだけ
 確認IDを再利用する。新しいHTTP処理には新しいIDを使う。記録内容が衝突した
 場合は、履歴を書き換えずエラーを返す。
@@ -123,8 +125,8 @@ UTF-8ではないHTTP obs-textの応答ヘッダー値は、正確なバイト�
 文字列で保存する。32 KiBの上限はエンコード後の表現に適用し、NULを含む
 ヘッダー値は拒否する。
 
-PDF取得成功時は、原本の正確なバイト列と、確認IDに`http:`を付けた取得履歴を
-同一トランザクションで保存する。ダイジェストとバイト数は保存原本と一致する
+受理済みPDFには`HTTPHistory.store/2`を使い、RustFSへ保存してバイト列を検証した後、
+不変の参照と確認IDに`http:`を付けた取得履歴を同一トランザクションで保存する。ダイジェストとバイト数は保存原本と一致する
 必要がある。同一内容の再取得は原本を共有し、取得履歴は個別に残す。内容が
 変わった場合は両方の原本を保持する。資料の同定情報がなくても、後から確認
 できるよう原本を残す。
