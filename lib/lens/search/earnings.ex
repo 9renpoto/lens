@@ -101,6 +101,24 @@ defmodule Lens.Search.Earnings do
     )
   end
 
+  def feed_query(issuer_code) do
+    from(result in subquery(query("", false)),
+      join: release in Release,
+      on: release.id == result.id,
+      join: extraction in Extraction,
+      on: extraction.id == result.extraction_id,
+      where: release.issuer_code == ^issuer_code,
+      order_by: [asc: release.id],
+      select: %{
+        id: release.id,
+        title: result.title,
+        content: extraction.text,
+        original_id: result.original_id,
+        published_at: result.published_at
+      }
+    )
+  end
+
   def rebuild(batch_size) do
     rebuild_batches(0, batch_size)
   end
