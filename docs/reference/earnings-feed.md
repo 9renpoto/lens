@@ -70,11 +70,14 @@ Invalid or unknown target IDs return HTTP 404. Success returns
 With the new Lens code running and the existing retained data available:
 
 ```sh
-mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
+MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
 ```
 
-The checker only reads. It parses RSS with `Lens.Ingestion.Parser` and OTP
-`:xmerl`, compares repeated reads and GUIDs, compares the complete rendered text
+Use the test environment so the checker can load its OTP `:xmerl` parser dependency.
+`--no-start` keeps the local Lens application stopped; `BASE_URL` selects the running
+service being observed. The checker only reads. It parses RSS with
+`Lens.Ingestion.Parser` and OTP `:xmerl`, compares repeated reads and GUIDs, compares
+the complete rendered text
 with the existing release-detail API, verifies that each original link matches the
 selected extraction and opens its retained PDF. It reports counts and pass/fail
 without printing target identities or content. No eligible items is a failure to
@@ -152,9 +155,11 @@ HTTP 404とする。成功時は`application/rss+xml; charset=utf-8`と
 新しいLensコードが動作し、既存の保存済みデータを使える状態で実行する。
 
 ```sh
-mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
+MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
 ```
 
+OTPの`:xmerl`パーサー依存を読み込むため、テスト環境を指定する。`--no-start`により
+ローカルのLensアプリは起動せず、`BASE_URL`で観測対象の稼働サービスを指定する。
 検証スクリプトは読み取りのみを行う。`Lens.Ingestion.Parser`とOTPの`:xmerl`でRSSを
 解析し、反復取得とGUIDを比較し、表示する全文を既存のリリース詳細APIと照合する。
 各原本リンクが選択した抽出結果に対応することを確認し、保存済みPDFを開く。
