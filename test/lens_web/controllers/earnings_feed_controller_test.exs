@@ -3,7 +3,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
 
   import Phoenix.ConnTest
 
-  alias Lens.{Analysis, Earnings}
+  alias Lens.{Analysis, StorageFixtures}
   alias Lens.Earnings.{Acquisition, Extraction, Extractions, Original, Release}
 
   @endpoint LensWeb.Endpoint
@@ -25,7 +25,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
 
   defp retain(target, key, options \\ []) do
     {:ok, retained} =
-      Earnings.record_success(%{
+      StorageFixtures.record_success(%{
         bytes: Keyword.get(options, :bytes, "%PDF-synthetic-#{key}"),
         acquisition_id: key,
         issuer_code: target.security_code,
