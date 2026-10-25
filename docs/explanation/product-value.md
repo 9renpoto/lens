@@ -85,7 +85,7 @@ comparison for one issuer through the [validation procedure](../reference/earnin
 These operations help inspect retained material; they do not by themselves
 establish the discovery value described here.
 
-The RSS publication design exposes the already collected earnings information
+The RSS publication design exposes retained earnings information
 for the selected issuer using existing generated titles, full extracted text and
 retained-original links. [ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)
 records this boundary without manual candidate authoring or editorial selection.
@@ -208,7 +208,7 @@ Lensは[検証手順](../reference/earnings-value-validation.md)を通じて、1
 上限付き手動収集、日本語検索、正確な原本照合を提供する。保存資料を確かめるための
 操作であり、それだけでは今回の発見価値を証明しない。
 
-RSS公開の設計では、すでに収集した検証対象企業の決算情報を、既存の生成済み表題・
+RSS公開の設計では、保存した検証対象企業の決算情報を、既存の生成済み表題・
 抽出本文の全文・保存原本リンクを使って取得可能にする。
 [ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)に、手動候補作成や
 人間による公開対象の選別を含めない境界を記録する。実装済みの出力と読み取り専用の

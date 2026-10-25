@@ -4,12 +4,21 @@ status: accepted
 
 # Publish retained earnings information through RSS
 
-Expose the already collected earnings information for the selected issuer through
+Expose retained earnings information for the selected issuer through
 one local RSS feed so the operator can read the stored result before deciding what
-would make it more useful. Use existing successful extractions and retained
+would make it more useful. Use successful extractions and retained
 originals. The release boundary and implementation work belong in
 [#185](https://github.com/9renpoto/lens/issues/185) and
 [#186](https://github.com/9renpoto/lens/issues/186).
+
+For the release observation, perform one operator-approved bounded manual
+collection and extraction using the current disposable schema, following the
+[validation procedure](../reference/earnings-value-validation.md), then inspect
+that newly retained result through RSS. Reusing records from an older database
+is not a prerequisite. Follow [ADR 0010](0010-defer-backups-for-disposable-development-data.md)
+without adding older-schema upgrade or data-copy tooling. Keep publisher-condition
+review, actual target configuration and observation evidence private. This
+explicit preparation run does not change the read-only feed contract.
 
 Publish one item per confirmed earnings release for the selected issuer that
 has a successful acquisition and an existing successful extraction. Reuse the
@@ -47,9 +56,10 @@ internet exposure or new authentication mechanisms.
 Consumer verification checks that the stored text is readable, the original link
 opens the corresponding retained PDF, and repeated reads preserve item identity.
 Usefulness can be discussed after reading the actual result; it is not a release
-success criterion. Manual candidate authoring or editorial selection, new
-collection or extraction, summaries, interpretations, comparisons, a new reading
-UI and downstream notification/read-state management are outside this boundary.
+success criterion. Manual candidate authoring or editorial selection,
+recurring or expanded collection or extraction, summaries, interpretations,
+comparisons, a new reading UI and downstream notification/read-state management
+are outside this boundary.
 
 ## Replacement of the manual-registration decision
 
@@ -65,11 +75,18 @@ candidate concept remains a separate product hypothesis.
 
 # 保存済みの決算情報をRSSで公開する
 
-すでに収集した検証対象企業の決算情報をローカル単一RSSフィードで取得可能にし、
+保存した検証対象企業の決算情報をローカル単一RSSフィードで取得可能にし、
 運用者が保存済みの結果を読んでから、何を改善すると役立つかを判断できるようにする。
-既存の成功した抽出結果と保存原本を使う。リリース境界と実装作業は
+成功した抽出結果と保存原本を使う。リリース境界と実装作業は
 [#185](https://github.com/9renpoto/lens/issues/185)と
 [#186](https://github.com/9renpoto/lens/issues/186)で管理する。
+
+リリースの観測では、[検証手順](../reference/earnings-value-validation.md)に従い、
+運用者が承認した上限付きの手動収集・抽出を現行の破棄可能なスキーマで1回行い、
+新しく保存した結果をRSSで確認する。旧DBの記録再利用を前提にしない。
+[ADR 0010](0010-defer-backups-for-disposable-development-data.md)に従い、旧スキーマの
+更新・データコピー用ツールを追加しない。発行元条件の確認、実際の対象設定、観測証跡は
+非公開に置く。この明示的な準備実行によって、フィード取得の読み取り専用契約は変えない。
 
 成功した取得記録と既存の成功した抽出結果を持つ、検証対象企業の識別確定済み
 決算リリースごとに項目を作る。既存のリリース単位の成功した抽出本文の選択を再利用し、
@@ -101,8 +118,8 @@ RFC 822日時として表現できる場合だけ出力する。情報がない�
 購読側での検証では、保存済み本文を読めること、原本リンクから対応する保存済みPDFを
 開けること、反復取得で項目識別子を維持することを確認する。有用性は実際の結果を
 読んだ後に議論できるが、リリースの成功条件にはしない。手動候補作成や人間による
-公開対象の選別、新規収集・抽出、要約・解釈・比較、閲覧UIの新設、後続の通知配信・
-既読状態の管理は、この境界に含めない。
+公開対象の選別、定期的または範囲を拡大した収集・抽出、要約・解釈・比較、閲覧UIの新設、
+後続の通知配信・既読状態の管理は、この境界に含めない。
 
 ## 手動登録の判断の置き換え
 
