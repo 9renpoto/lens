@@ -5,9 +5,19 @@ target through RSS 2.0, following [ADR 0014](../adr/0014-publish-retained-earnin
 Feed retrieval reads existing data and does not collect publisher material,
 create candidates, confirm identities or start extraction.
 
+## Prepare the validation result
+
+For the release observation, use a separate disposable database initialized from
+the current schema under [ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md).
+Follow the [bounded collection and extraction procedure](earnings-value-validation.md)
+once for the operator-selected official source, including publisher-condition
+review and disabling the source after the run. Use that newly retained result
+for the RSS checks below. No older-schema data transfer is required. This explicit
+preparation is separate from feed retrieval, which remains read-only.
+
 ## Subscribe
 
-Reuse the existing target ID and successful retained result. Keep actual target
+Use the registered target ID and successful retained result. Keep actual target
 identities, IDs, URLs and verification output in private, untracked operational
 notes. The placeholders below do not identify an operational target.
 
@@ -60,11 +70,14 @@ Invalid or unknown target IDs return HTTP 404. Success returns
 With the new Lens code running and the existing retained data available:
 
 ```sh
-mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
+MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
 ```
 
-The checker only reads. It parses RSS with `Lens.Ingestion.Parser` and OTP
-`:xmerl`, compares repeated reads and GUIDs, compares the complete rendered text
+Use the test environment so the checker can load its OTP `:xmerl` parser dependency.
+`--no-start` keeps the local Lens application stopped; `BASE_URL` selects the running
+service being observed. The checker only reads. It parses RSS with
+`Lens.Ingestion.Parser` and OTP `:xmerl`, compares repeated reads and GUIDs, compares
+the complete rendered text
 with the existing release-detail API, verifies that each original link matches the
 selected extraction and opens its retained PDF. It reports counts and pass/fail
 without printing target identities or content. No eligible items is a failure to
@@ -83,9 +96,17 @@ Lensは[ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)に従い
 フィード取得は既存データを読み取り、発行元からの収集、候補作成、識別確定、
 本文抽出を起動しない。
 
+## 検証結果の準備
+
+リリースの観測には[ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md)に従い、
+現行スキーマで初期化した別の破棄可能なDBを使う。運用者が選定した公式取得先について、
+発行元条件の確認と実行後の取得先無効化を含む[上限付き収集・抽出手順](earnings-value-validation.md)を
+1回行い、新しく保存した結果を以下のRSS検証に使う。旧スキーマからのデータ移管は不要。
+この明示的な準備は、読み取り専用のフィード取得とは分ける。
+
 ## 購読
 
-既存の対象IDと成功した保存済み結果を使う。実際の対象の識別情報、ID、URL、検証出力は
+登録した対象IDと成功した保存済み結果を使う。実際の対象の識別情報、ID、URL、検証出力は
 非公開かつGit追跡対象外の運用メモで管理する。以下のプレースホルダーは実運用対象を
 識別するものではない。
 
@@ -134,9 +155,11 @@ HTTP 404とする。成功時は`application/rss+xml; charset=utf-8`と
 新しいLensコードが動作し、既存の保存済みデータを使える状態で実行する。
 
 ```sh
-mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
+MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
 ```
 
+OTPの`:xmerl`パーサー依存を読み込むため、テスト環境を指定する。`--no-start`により
+ローカルのLensアプリは起動せず、`BASE_URL`で観測対象の稼働サービスを指定する。
 検証スクリプトは読み取りのみを行う。`Lens.Ingestion.Parser`とOTPの`:xmerl`でRSSを
 解析し、反復取得とGUIDを比較し、表示する全文を既存のリリース詳細APIと照合する。
 各原本リンクが選択した抽出結果に対応することを確認し、保存済みPDFを開く。
