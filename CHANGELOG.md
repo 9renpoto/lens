@@ -1,3 +1,26 @@
+## v0.3.0 (2026-10-25)
+<!-- Release notes generated using configuration in .github/release.yml at b784b91fa5e6630aed46f694affb52bcc1d5822b -->
+
+## What's Changed
+### :boom: Type: Breaking Change
+* refactor(db)!: initialize databases from the current schema by @9renpoto in https://github.com/9renpoto/lens/pull/219
+* refactor(storage)!: store RustFS references on originals by @9renpoto in https://github.com/9renpoto/lens/pull/220
+* refactor!: remove legacy source types and abandoned paths by @9renpoto in https://github.com/9renpoto/lens/pull/221
+### :house: Refactoring
+* ci: reduce redundant validation and publication jobs by @9renpoto in https://github.com/9renpoto/lens/pull/202
+* ci: decouple workflow lint with native path filters by @9renpoto in https://github.com/9renpoto/lens/pull/208
+### :memo: Documentation
+* docs: describe current capabilities and RSS publication design by @9renpoto in https://github.com/9renpoto/lens/pull/199
+* docs: protect target privacy and revise earnings RSS scope by @9renpoto in https://github.com/9renpoto/lens/pull/211
+* docs: define current-only storage and database contracts by @9renpoto in https://github.com/9renpoto/lens/pull/218
+* docs: retain current architecture and operating contracts by @9renpoto in https://github.com/9renpoto/lens/pull/222
+* docs: validate earnings RSS with a fresh bounded run by @9renpoto in https://github.com/9renpoto/lens/pull/226
+### :rocket: Type: Feature
+* ci: choose scheduled version increments from release labels by @9renpoto in https://github.com/9renpoto/lens/pull/203
+* feat: publish retained earnings releases as RSS by @9renpoto in https://github.com/9renpoto/lens/pull/212
+
+
+**Full Changelog**: https://github.com/9renpoto/lens/compare/v0.2.0...v0.3.0
 ## v0.2.0 (2026-10-20)
 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
