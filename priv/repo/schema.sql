@@ -474,3 +474,36 @@ CREATE TABLE public.earnings_feed_items (
     fingerprint text NOT NULL,
     PRIMARY KEY (source_id, item_key)
 );
+
+CREATE TABLE public.feed_materials (
+    id uuid PRIMARY KEY,
+    source_id uuid NOT NULL REFERENCES public.sources(id) ON DELETE RESTRICT,
+    item_key text NOT NULL,
+    feed_fingerprint text NOT NULL,
+    kind text NOT NULL CHECK (kind IN ('html', 'pdf')),
+    requested_url text NOT NULL,
+    final_url text NOT NULL,
+    acquired_at timestamp without time zone NOT NULL,
+    http_status integer NOT NULL CHECK (http_status = 200),
+    requests integer NOT NULL CHECK (requests BETWEEN 1 AND 4),
+    byte_size integer NOT NULL CHECK (byte_size > 0 AND byte_size <= 20971520),
+    content_hash text NOT NULL,
+    text text,
+    original_id uuid REFERENCES public.earnings_originals(id) ON DELETE RESTRICT,
+    source_snapshot jsonb NOT NULL,
+    entry_snapshot jsonb NOT NULL,
+    provenance jsonb NOT NULL DEFAULT '{}',
+    CONSTRAINT feed_materials_payload CHECK (
+      (kind = 'html' AND text IS NOT NULL AND length(btrim(text)) > 0 AND original_id IS NULL AND byte_size <= 2097152)
+      OR (kind = 'pdf' AND text IS NULL AND original_id IS NOT NULL))
+);
+
+CREATE INDEX feed_materials_source_item_index ON public.feed_materials (source_id, item_key, acquired_at);
+
+CREATE FUNCTION public.reject_feed_material_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'feed material observations are immutable';
+END;
+$$;
+CREATE TRIGGER feed_materials_immutable BEFORE UPDATE OR DELETE ON public.feed_materials
+    FOR EACH ROW EXECUTE FUNCTION public.reject_feed_material_mutation();

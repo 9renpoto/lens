@@ -6,6 +6,11 @@ identity confirmation, scheduling, or extraction. [Source registration](https://
 
 An explicit `allowed_url?` predicate is required by the transport. Without one, every URL is rejected before a request. The predicate is applied to the initial URL and each redirect destination before that destination is contacted. URLs must use HTTP(S), have a host, and contain no embedded credentials. `SourceCatalog` provides registered listings, not a document route-authorization predicate. The collector explicitly supplies a default policy accepting valid HTTP(S) URLs within 4096 bytes, including external document hosts, without restricting network addresses. Callers can supply a stricter policy. Registration alone is not a transport policy or evidence of publisher permission. See the collector reference for manual execution, policy customization and provenance persistence.
 
+Subscription acquisition uses `kind: :material` for responses that can be HTML or
+PDF. Known HTML response types have a 2 MiB streaming cap; otherwise the transport
+caps bytes at 20 MiB and the material caller classifies and applies the HTML limit.
+See [material acquisition](earnings-materials.md) for retention and source association.
+
 ## Bounds and response handling
 
 - `kind: :pdf` is the default, with a 20 MiB (20,971,520 byte) maximum.
@@ -96,6 +101,10 @@ The finite reason set is `not_found`, `integrity_error`, `original_unavailable`,
 DB書込・識別確定・日次実行・抽出は行わない。[取得先登録](https://9renpoto.github.io/lens/)と[登録候補の収集処理](earnings-collector.md)は利用できる。収集側は取得先の有効状態を確認し、手動の1回の実行で共有の実行上限を適用する。巡回間隔と日次実行は後続作業に残る。運用者は [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md) に従い、取得先を有効にする前に取得条件を確認する。
 
 HTTP取得には明示的な`allowed_url?`判定が必須で、未指定なら通信前に全URLを拒否する。初期URLと各リダイレクト先を通信前に判定する。URLはHTTP(S)、ホストあり、埋め込み認証情報なしを必須とする。`SourceCatalog`は登録一覧を提供するが、資料経路の取得許可判定は提供しない。収集側は4096バイト以内の有効なHTTP(S) URLを外部資料ホストも含めて許可する既定ポリシーを明示的に渡し、ネットワークアドレスは制限しない。呼び出し側はより厳しいポリシーを指定できる。登録だけでは取得ポリシーや発行元の許可の証跡にはならない。手動実行、ポリシーの変更、出典の永続化は収集処理の参照資料を確認する。
+
+購読資料の取得では、HTMLまたはPDFとなる応答に`kind: :material`を使用する。
+HTMLと分かる応答形式は転送中に2 MiB、それ以外は20 MiBで制限し、呼び出し側が分類と
+HTML上限の適用を行う。保持と取得元の対応付けは[資料取得](earnings-materials.md)を参照する。
 
 ## 上限と応答処理
 

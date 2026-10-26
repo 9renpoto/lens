@@ -2,6 +2,29 @@ defmodule Lens.Earnings.HTTPTest do
   use ExUnit.Case, async: true
   alias Lens.Earnings.HTTP
 
+  test "generic HTML material enforces its streaming cap without Content-Length" do
+    url =
+      server(fn socket, _ ->
+        :gen_tcp.send(
+          socket,
+          "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\n\r\n"
+        )
+
+        bytes = String.duplicate("x", 2_097_153)
+
+        :gen_tcp.send(socket, [
+          Integer.to_string(byte_size(bytes), 16),
+          "\r\n",
+          bytes,
+          "\r\n0\r\n\r\n"
+        ])
+      end)
+
+    result = HTTP.fetch(url, kind: :material, allowed_url?: allow(url))
+    assert result.failure_reason == :too_large
+    assert result.bytes == nil
+  end
+
   test "retains exact PDF bytes and conditional request headers" do
     owner = self()
 

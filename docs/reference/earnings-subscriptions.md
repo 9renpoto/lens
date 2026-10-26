@@ -41,10 +41,11 @@ Keep these signals and source references inside the private application boundary
 
 Signals are best-effort handoffs, not a durable work queue. A crash after state
 commit can lose a notification; missing subscribers do not cause replay.
-Fingerprints record discovery, not material-processing success. This stage does
-not acquire HTML/PDF material, extract it or populate search. Acquisition and
-indexing consumers are separate work; reading the existing output RSS does not
-start discovery. No failed-material retry or replay is implemented.
+Fingerprints record discovery, not material-processing success. After detection, the built-in [material acquisition](earnings-materials.md) stage
+uses the source's explicit material policy, retaining derived HTML text/provenance
+and verified PDFs without storing HTML originals. Discovery does not populate
+search. Reading the existing output RSS does not start discovery. No failed-material
+retry or replay is implemented.
 
 `PATCH /api/sources/:id` can change the mode or endpoint. Either change clears
 the baseline, fingerprints and conditional validators transactionally; the next
@@ -96,8 +97,9 @@ entryには項目ID・canonical URL・表題・正規化本文・生のフィー
 
 通知はbest-effortの受け渡しであり、永続的な作業キューではない。状態コミット後のクラッシュで
 通知を失う場合があり、購読する処理が不在でも再配信しない。fingerprintは更新の発見を示し、
-資料処理の成功を示さない。この段階ではHTML・PDFの取得・抽出・検索登録を行わない。
-取得・検索登録を行う受信処理は別の作業とし、既存の出力RSSを読んでも更新検知を開始しない。
+資料処理の成功を示さない。検知後は組み込みの[資料取得](earnings-materials.md)処理が明示的な取得ポリシーを使用し、
+HTML原本を保存せずHTML抽出本文・出典情報と検証済みPDFを保持する。更新検知は検索登録を行わず、
+既存の出力RSSを読んでも更新検知を開始しない。
 失敗資料の再試行・再処理は実装しない。
 
 `PATCH /api/sources/:id`でモードまたはendpointを変更できる。いずれの変更も基準・

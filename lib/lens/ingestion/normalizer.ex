@@ -32,6 +32,21 @@ defmodule Lens.Ingestion.Normalizer do
     ArgumentError -> nil
   end
 
+  @doc "Resolve a navigable source reference while preserving its fragment."
+  @spec reference_url(String.t() | nil, String.t()) :: String.t() | nil
+  def reference_url(nil, _base), do: nil
+
+  def reference_url(value, base) when is_binary(value) and is_binary(base) do
+    resolved = URI.merge(base, String.trim(value))
+
+    case Lens.Content.Identity.normalize_url(URI.to_string(resolved)) do
+      nil -> nil
+      normalized -> URI.to_string(%{URI.parse(normalized) | fragment: resolved.fragment})
+    end
+  rescue
+    _ -> nil
+  end
+
   @spec date(String.t() | nil) :: DateTime.t() | nil
   def date(nil), do: nil
 

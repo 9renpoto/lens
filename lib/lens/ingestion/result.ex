@@ -8,6 +8,8 @@ defmodule Lens.Ingestion.Result do
   @type t :: %__MODULE__{
           outcome: outcome(),
           update_signals: [map()],
+          materials: [Lens.Ingestion.Material.t()],
+          material_errors: [map()],
           status: pos_integer() | nil,
           valid_entries: [map()] | nil,
           invalid_entries: [invalid_entry()] | nil,
@@ -23,6 +25,8 @@ defmodule Lens.Ingestion.Result do
     :invalid_entries,
     :error,
     :retry_after_seconds,
-    update_signals: []
+    update_signals: [],
+    materials: [],
+    material_errors: []
   ]
 end
