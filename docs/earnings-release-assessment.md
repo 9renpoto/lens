@@ -22,7 +22,8 @@ must use the registered candidate boundary or apply their own policy.
 Missing or contradictory release identity and competing document-kind headings
 produce `pending`. Unrelated documents, presentations without a supported release
 heading, and recognized corrections produce `excluded` for this assessor.
-Correction relationships and presentation assessment belong to separate assessors.
+Correction relationships and [presentation assessment](reference/earnings-presentations.md)
+belong to separate assessors.
 Unknown or contradictory publication dates remain `nil`. No financial numbers
 are analyzed, and assessment does not adopt a release or change acquisition facts.
 
@@ -59,7 +60,7 @@ physical deployment verification.
 
 識別情報の不足・矛盾や資料種類の競合見出しは `pending` とする。無関係資料、
 対応する短信見出しがない説明資料、認識できた訂正資料は、この判定器では
-`excluded` とする。訂正関係と説明資料の判定は別の判定器の責務となる。
+`excluded` とする。訂正関係と[説明資料の判定](reference/earnings-presentations.md)は別の判定器の責務となる。
 不明または矛盾する公開日は `nil` を維持する。財務数値の分析、決算資料の採用、
 取得事実の変更は行わない。
 

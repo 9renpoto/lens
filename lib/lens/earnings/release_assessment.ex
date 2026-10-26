@@ -2,7 +2,17 @@ defmodule Lens.Earnings.ReleaseAssessment do
   @moduledoc "Assess registered-source earnings releases from retained extraction evidence."
   import Ecto.Query
   alias Lens.Analysis.Target
-  alias Lens.Earnings.{Acquisition, Assessments, Extractions, HTTPCheck, Identity, Source}
+
+  alias Lens.Earnings.{
+    Acquisition,
+    Assessments,
+    Extractions,
+    HTTPCheck,
+    Identity,
+    PresentationAssessment,
+    Source
+  }
+
   alias Lens.Repo
 
   @doc "Append an assessment using the candidate original's latest successful extraction."
@@ -13,7 +23,8 @@ defmodule Lens.Earnings.ReleaseAssessment do
       result = Identity.from_text(candidate.issuer, extraction.text)
 
       result =
-        if result.fields.category == "earnings_release" and presentation_title?(extraction.text) do
+        if result.fields.category == "earnings_release" and
+             PresentationAssessment.heading?(extraction.text) do
           result |> put_in([:fields, :category], nil) |> Map.put(:status, :pending_confirmation)
         else
           result
@@ -80,12 +91,5 @@ defmodule Lens.Earnings.ReleaseAssessment do
     |> Enum.filter(&Regex.match?(~r/決算短信|コード\s*番号|[0-9]{4}\s*年/u, &1))
     |> Enum.take(16)
     |> Enum.map(&String.slice(&1, 0, 256))
-  end
-
-  defp presentation_title?(text) do
-    Regex.match?(
-      ~r/^[ \t]*[0-9]{4}\s*年\s*[0-9]{1,2}\s*月期\s*(?:第\s*[123]\s*四半期\s*(?:\(中間期\)\s*)?)?決算説明(?:資料|会資料)[ \t]*\r?$/mu,
-      String.normalize(text, :nfkc)
-    )
   end
 end
