@@ -11,6 +11,11 @@ allows collection configuration to change without code changes or deployment.
 
 ## Registration and collection boundary
 
+Automatic earnings subscription discovery follows
+[ADR 0017](0017-build-earnings-search-from-feed-updates.md). The listing-page
+registration and bounded collector below describe the manual acquisition path;
+they do not define a separate automatic subscription update detector.
+
 A source has a fixed target, a listing-page URL and independent enablement.
 Target activity does not control source enablement. New sources default to
 enabled; operators can explicitly disable them. Reject duplicate listing URLs
@@ -49,6 +54,10 @@ guides and task state in GitHub issues.
 二つ目の台帳を作らず、コード変更や配備なしで収集設定を変更できるようにする。
 
 ## 登録と収集の境界
+
+決算購読の自動更新検知には[ADR 0017](0017-build-earnings-search-from-feed-updates.md)を適用する。
+以下の一覧ページ登録と上限付き収集は手動取得の経路を記述し、独立した自動購読の更新検知を
+定義しない。
 
 取得先は固定の対象、一覧ページURL、独立した有効状態を持つ。
 対象のactiveは取得先の有効状態を制御しない。新規取得先は有効を既定とし、
