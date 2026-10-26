@@ -1,5 +1,9 @@
 import Config
 
+if dsn = System.get_env("SENTRY_DSN") do
+  config :sentry, dsn: dsn
+end
+
 rustfs_values = [
   endpoint: System.get_env("LENS_RUSTFS_ENDPOINT"),
   bucket: System.get_env("LENS_RUSTFS_BUCKET"),

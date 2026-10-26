@@ -3,6 +3,10 @@ import Config
 config :lens,
   ecto_repos: [Lens.Repo]
 
+config :sentry,
+  before_send: {Lens.ErrorReporter, :before_send},
+  enable_source_code_context: false
+
 config :lens, LensWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   url: [host: "localhost"],
