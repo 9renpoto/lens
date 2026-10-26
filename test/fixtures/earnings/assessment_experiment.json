@@ -1,0 +1,82 @@
+[
+  {
+    "id": "presentation-standard",
+    "text": "2028年12月期 第2四半期決算説明資料\nコード番号 SYNX",
+    "expected": {
+      "document_kind": "earnings_presentation",
+      "issuer_code": "SYNX",
+      "fiscal_year_end": "2028-12-31",
+      "period": "q2"
+    }
+  },
+  {
+    "id": "presentation-wrapped",
+    "text": "コード番号 SYNX\n2028年12月期\n第2四半期 業績説明会\n説明資料",
+    "expected": {
+      "document_kind": "earnings_presentation",
+      "issuer_code": "SYNX",
+      "fiscal_year_end": "2028-12-31",
+      "period": "q2"
+    }
+  },
+  {
+    "id": "regular",
+    "text": "2028年12月期 第2四半期決算短信\nコード番号 SYNX",
+    "expected": {
+      "document_kind": "earnings_release",
+      "issuer_code": "SYNX",
+      "fiscal_year_end": "2028-12-31",
+      "period": "q2"
+    }
+  },
+  {
+    "id": "correction",
+    "text": "（訂正）2028年12月期 第2四半期決算短信\nコード番号 SYNX\n決算短信の記載を訂正します。",
+    "expected": {
+      "document_kind": "correction",
+      "issuer_code": "SYNX",
+      "fiscal_year_end": "2028-12-31",
+      "period": "q2"
+    }
+  },
+  {
+    "id": "unknown-period",
+    "text": "決算説明資料\nコード番号 SYNX\n対象期間は記載していません。",
+    "expected": {
+      "document_kind": "earnings_presentation",
+      "issuer_code": "SYNX",
+      "fiscal_year_end": null,
+      "period": null
+    }
+  },
+  {
+    "id": "conflicting-issuer",
+    "text": "2028年12月期 第2四半期決算説明会資料\nコード番号 SYNX\nコード番号 SYNY",
+    "expected": {
+      "document_kind": "earnings_presentation",
+      "issuer_code": null,
+      "fiscal_year_end": "2028-12-31",
+      "period": "q2"
+    }
+  },
+  {
+    "id": "unrelated",
+    "text": "事業紹介\nコード番号 SYNX\n製品の特徴をご紹介します。",
+    "expected": {
+      "document_kind": "other",
+      "issuer_code": "SYNX",
+      "fiscal_year_end": null,
+      "period": null
+    }
+  },
+  {
+    "id": "reference-only",
+    "text": "2028年12月期 第2四半期決算短信\nコード番号 SYNX\n詳しくは決算説明資料をご参照ください。",
+    "expected": {
+      "document_kind": "earnings_release",
+      "issuer_code": "SYNX",
+      "fiscal_year_end": "2028-12-31",
+      "period": "q2"
+    }
+  }
+]
