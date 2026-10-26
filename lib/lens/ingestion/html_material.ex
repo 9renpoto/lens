@@ -11,13 +11,7 @@ defmodule Lens.Ingestion.HTMLMaterial do
          {:ok, selected, locator} <- select(tree, url, entry, metadata) do
       selected = Floki.filter_out(selected, @discard)
 
-      text =
-        selected
-        |> Floki.text(sep: "\n")
-        |> String.split("\n", trim: true)
-        |> Enum.map(&String.trim/1)
-        |> Enum.reject(&(&1 == ""))
-        |> Enum.join("\n\n")
+      text = selected |> Floki.raw_html() |> Normalizer.text()
 
       base =
         case Floki.find(tree, "base[href]") |> Floki.attribute("href") do
@@ -44,7 +38,7 @@ defmodule Lens.Ingestion.HTMLMaterial do
         length(anchors) > 200 ->
           {:error, :too_many_anchors}
 
-        text == "" ->
+        is_nil(text) ->
           {:error, :empty_output}
 
         length(links) > 200 ->
@@ -175,6 +169,8 @@ defmodule Lens.Ingestion.HTMLMaterial do
   defp visit({_, _, children}, state, base), do: walk(children, state, base)
   defp visit(_, state, _), do: state
 
-  defp plain(node),
-    do: node |> Floki.text(sep: " ") |> String.split() |> Enum.join(" ") |> String.slice(0, 1000)
+  defp plain(node) do
+    text = node |> List.wrap() |> Floki.raw_html() |> Normalizer.text()
+    (text || "") |> String.split() |> Enum.join(" ") |> String.slice(0, 1000)
+  end
 end

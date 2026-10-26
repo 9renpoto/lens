@@ -403,6 +403,27 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert [%{text: "Current.", provenance: %{"fragment" => "current"}}] = result.materials
   end
 
+  test "inline elements preserve Japanese words and source link labels" do
+    url =
+      server(fn _ ->
+        html(
+          "<article><h1>Results</h1><p>売上<span>高</span>は増加しました。</p><a href='/detail'>出典<span>詳細</span></a></article>"
+        )
+      end)
+
+    result = Materials.acquire(signal(source(url), url))
+    assert result.errors == []
+    assert [%{text: text, provenance: %{"links" => [link]}}] = result.materials
+    assert text =~ "売上高は増加しました。"
+    assert link["anchor_text"] == "出典詳細"
+  end
+
+  test "inline heading elements still match the feed title" do
+    url = server(fn _ -> html("<article><h1>Res<span>ults</span></h1><p>Body.</p></article>") end)
+    assert [%{text: text}] = Materials.acquire(signal(source(url), url)).materials
+    assert text =~ "Results"
+  end
+
   defp source(url) do
     {:ok, source} =
       Content.create_source(%{
