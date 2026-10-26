@@ -1,5 +1,16 @@
 # Feed ingestion
 
+The document-ingestion behavior below applies to the default `document` mode.
+For `earnings_updates` mode, see [earnings subscription discovery](reference/earnings-subscriptions.md).
+
+<details>
+<summary>日本語</summary>
+
+以下の文書取り込みの挙動は既定の`document`モードに適用する。
+`earnings_updates`モードは[決算購読の更新検知](reference/earnings-subscriptions.md)を参照する。
+
+</details>
+
 Use the following command to ingest one configured source without running a scheduler:
 
 ```sh

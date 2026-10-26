@@ -297,6 +297,8 @@ CREATE TABLE public.source_runs (
 );
 
 CREATE TABLE public.sources (
+    ingestion_mode text DEFAULT 'document' NOT NULL CHECK (ingestion_mode IN ('document', 'earnings_updates')),
+    feed_baselined_at timestamp without time zone,
     id uuid NOT NULL,
     endpoint_url text NOT NULL,
     title character varying(255),
@@ -465,3 +467,10 @@ ALTER TABLE ONLY public.observations
 
 ALTER TABLE ONLY public.source_runs
     ADD CONSTRAINT source_runs_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.sources(id) ON DELETE CASCADE;
+
+CREATE TABLE public.earnings_feed_items (
+    source_id uuid NOT NULL REFERENCES public.sources(id) ON DELETE CASCADE,
+    item_key text NOT NULL,
+    fingerprint text NOT NULL,
+    PRIMARY KEY (source_id, item_key)
+);

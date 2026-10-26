@@ -7,6 +7,7 @@ defmodule Lens.Ingestion.Result do
 
   @type t :: %__MODULE__{
           outcome: outcome(),
+          update_signals: [map()],
           status: pos_integer() | nil,
           valid_entries: [map()] | nil,
           invalid_entries: [invalid_entry()] | nil,
@@ -15,5 +16,13 @@ defmodule Lens.Ingestion.Result do
         }
 
   @enforce_keys [:outcome]
-  defstruct [:outcome, :status, :valid_entries, :invalid_entries, :error, :retry_after_seconds]
+  defstruct [
+    :outcome,
+    :status,
+    :valid_entries,
+    :invalid_entries,
+    :error,
+    :retry_after_seconds,
+    update_signals: []
+  ]
 end
