@@ -11,7 +11,7 @@ defmodule Lens.Ingestion.HTMLMaterial do
          {:ok, selected, locator} <- select(tree, url, entry, metadata) do
       selected = Floki.filter_out(selected, @discard)
 
-      text = selected |> Floki.raw_html() |> Normalizer.text()
+      text = material_text(selected)
 
       base =
         case Floki.find(tree, "base[href]") |> Floki.attribute("href") do
@@ -70,7 +70,7 @@ defmodule Lens.Ingestion.HTMLMaterial do
   end
 
   defp select(tree, url, entry, metadata) do
-    fragment = URI.parse(Map.get(entry, :entry_url) || url).fragment || URI.parse(url).fragment
+    fragment = URI.parse(url).fragment || URI.parse(Map.get(entry, :entry_url) || url).fragment
     selector = metadata["html_selector"]
 
     cond do
@@ -170,7 +170,14 @@ defmodule Lens.Ingestion.HTMLMaterial do
   defp visit(_, state, _), do: state
 
   defp plain(node) do
-    text = node |> List.wrap() |> Floki.raw_html() |> Normalizer.text()
+    text = node |> List.wrap() |> material_text()
     (text || "") |> String.split() |> Enum.join(" ") |> String.slice(0, 1000)
+  end
+
+  defp material_text(nodes) do
+    nodes
+    |> Floki.raw_html()
+    |> String.replace(~r/<\/(?:td|th)>/, " ")
+    |> Normalizer.text()
   end
 end

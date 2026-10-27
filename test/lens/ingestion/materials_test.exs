@@ -403,6 +403,57 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert [%{text: "Current.", provenance: %{"fragment" => "current"}}] = result.materials
   end
 
+  test "an explicit redirect fragment overrides the original entry fragment" do
+    url =
+      server(fn
+        "/start" ->
+          {302, [{"Location", "/listing#current"}], ""}
+
+        "/listing" ->
+          html(
+            "<section id='old'><p>Historical.</p></section><section id='current'><p>Current.</p></section>"
+          )
+      end)
+
+    result = Materials.acquire(signal(source(url), url <> "/start#old"))
+    assert result.errors == []
+    assert [%{text: "Current.", provenance: %{"fragment" => "current"}}] = result.materials
+  end
+
+  test "the entry fragment remains the fallback when a redirect has none" do
+    url =
+      server(fn
+        "/start" ->
+          {302, [{"Location", "/listing"}], ""}
+
+        "/listing" ->
+          html("<section id='current'><p>Current.</p></section><p>Historical.</p>")
+      end)
+
+    result = Materials.acquire(signal(source(url), url <> "/start#current"))
+    assert result.errors == []
+    assert [%{text: "Current.", provenance: %{"fragment" => "current"}}] = result.materials
+  end
+
+  test "table cells keep financial figures separate in retained text and source quotes" do
+    url =
+      server(fn _ ->
+        html(
+          "<article><h1>Results</h1><table id='figures'><tr><th>Revenue</th><th>Profit</th></tr><tr><td>100</td><td>200</td></tr><tr><td>売上<span>高</span></td><td>300</td></tr></table></article>"
+        )
+      end)
+
+    result = Materials.acquire(signal(source(url), url))
+    assert result.errors == []
+    assert [%{text: text, provenance: %{"anchors" => [anchor]}} = material] = result.materials
+    assert text =~ ~r/Revenue\s+Profit/
+    assert text =~ ~r/100\s+200/
+    assert text =~ ~r/売上高\s+300/
+    refute text =~ "100200"
+    assert anchor["quote"] =~ "100 200"
+    assert Repo.get!(Material, material.id).text == text
+  end
+
   test "inline elements preserve Japanese words and source link labels" do
     url =
       server(fn _ ->
