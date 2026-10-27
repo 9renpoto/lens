@@ -7,6 +7,30 @@ defmodule LensWeb.SourceControllerTest do
   alias LensWeb.ApiSpec
   @endpoint LensWeb.Endpoint
 
+  test "registers explicit earnings update mode and rejects invalid modes" do
+    attrs = %{
+      endpoint_url: "https://feeds.example.test/earnings.xml",
+      poll_interval_seconds: 300,
+      ingestion_mode: "earnings_updates"
+    }
+
+    response = build_conn() |> post("/api/sources", %{source: attrs}) |> json_response(201)
+    assert response["source"]["ingestion_mode"] == "earnings_updates"
+    assert response["source"]["feed_baselined_at"] == nil
+    assert_response_schema(response, "SourceResponse", ApiSpec.spec())
+
+    id = response["source"]["id"]
+
+    for mode <- [nil, "invalid"] do
+      response =
+        build_conn()
+        |> patch("/api/sources/#{id}", %{source: %{ingestion_mode: mode}})
+        |> json_response(422)
+
+      assert response["errors"]["ingestion_mode"]
+    end
+  end
+
   test "registration exposes current classifications without a legacy type" do
     source =
       build_conn()

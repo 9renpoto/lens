@@ -3,7 +3,8 @@ defmodule Lens.Ingestion do
 
   alias Lens.Content
   alias Lens.Content.Source
-  alias Lens.Ingestion.{Fetcher, Parser, Result}
+  alias Lens.Ingestion.{EarningsUpdates, Fetcher, Parser, Result}
+  alias Lens.ErrorReporter
 
   @default_max_entries 1_000
 
@@ -20,11 +21,49 @@ defmodule Lens.Ingestion do
   end
 
   def ingest(%Source{} = source, options) do
+    source = Content.get_source!(source.id)
+    safely_ingest(source, options)
+  end
+
+  defp safely_ingest(source, options) do
+    do_ingest(source, options)
+  rescue
+    error ->
+      if source.ingestion_mode == "earnings_updates" do
+        try do
+          update_failure(source, error, DateTime.utc_now())
+        rescue
+          _ -> ErrorReporter.report(:discovery, error)
+        end
+
+        %Result{
+          outcome: :failure,
+          error: "earnings discovery failed",
+          valid_entries: [],
+          invalid_entries: []
+        }
+      else
+        reraise error, __STACKTRACE__
+      end
+  end
+
+  defp do_ingest(source, options) do
     attempted_at = DateTime.utc_now()
     started_at = System.monotonic_time()
 
     result =
-      case Fetcher.fetch(source, options) do
+      case Fetcher.fetch(request_source(source), options) do
+        {:not_modified, _headers}
+        when source.ingestion_mode == "earnings_updates" and is_nil(source.feed_baselined_at) ->
+          update_failure(source, "baseline requires a complete feed", attempted_at)
+
+          %Result{
+            outcome: :failure,
+            error: "baseline requires a complete feed",
+            valid_entries: [],
+            invalid_entries: []
+          }
+
         {:not_modified, headers} ->
           update_success(source, headers, attempted_at)
           %Result{outcome: :not_modified, status: 304, valid_entries: [], invalid_entries: []}
@@ -59,15 +98,7 @@ defmodule Lens.Ingestion do
     with {:ok, entries} <- Parser.parse(response.body, source.endpoint_url),
          {:ok, entries} <-
            limit_entries(entries, Keyword.get(options, :max_entries, @default_max_entries)) do
-      {valid_entries, invalid_entries} = persist_entries(source, entries, response, attempted_at)
-      update_success(source, response.headers, attempted_at)
-
-      %Result{
-        outcome: :success,
-        status: response.status,
-        valid_entries: valid_entries,
-        invalid_entries: invalid_entries
-      }
+      persist_response(source, entries, response, attempted_at)
     else
       {:error, error} ->
         update_failure(source, error, attempted_at)
@@ -80,6 +111,54 @@ defmodule Lens.Ingestion do
           error: error
         }
     end
+  end
+
+  defp persist_response(
+         %Source{ingestion_mode: "earnings_updates"} = source,
+         entries,
+         response,
+         attempted_at
+       ) do
+    case EarningsUpdates.observe(source, entries, response.headers, attempted_at) do
+      {:ok, %{signals: signals, invalid_entries: invalid}} ->
+        Enum.each(signals, fn signal ->
+          Phoenix.PubSub.broadcast(
+            Lens.PubSub,
+            "earnings_feed_updates",
+            {:earnings_feed_update, signal}
+          )
+        end)
+
+        %Result{
+          outcome: :success,
+          status: response.status,
+          valid_entries: [],
+          invalid_entries: invalid,
+          update_signals: signals
+        }
+
+      {:error, error} ->
+        update_failure(source, error, attempted_at)
+
+        %Result{
+          outcome: :failure,
+          error: "earnings discovery failed",
+          valid_entries: [],
+          invalid_entries: []
+        }
+    end
+  end
+
+  defp persist_response(source, entries, response, attempted_at) do
+    {valid_entries, invalid_entries} = persist_entries(source, entries, response, attempted_at)
+    update_success(source, response.headers, attempted_at)
+
+    %Result{
+      outcome: :success,
+      status: response.status,
+      valid_entries: valid_entries,
+      invalid_entries: invalid_entries
+    }
   end
 
   defp persist_entries(source, entries, response, observed_at) do
@@ -133,13 +212,21 @@ defmodule Lens.Ingestion do
 
   defp update_failure(source, error, attempted_at) do
     source = Content.get_source!(source.id)
+    if source.ingestion_mode == "earnings_updates", do: ErrorReporter.report(:discovery, error)
 
     Content.update_source(source, %{
       last_attempt_at: attempted_at,
-      last_error: error,
+      last_error: if(source.ingestion_mode == "earnings_updates", do: nil, else: error),
       failure_count: source.failure_count + 1
     })
   end
+
+  defp request_source(
+         %Source{ingestion_mode: "earnings_updates", feed_baselined_at: nil} = source
+       ),
+       do: %{source | etag: nil, last_modified: nil}
+
+  defp request_source(source), do: source
 
   defp errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {message, _options} -> message end)

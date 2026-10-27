@@ -24,6 +24,8 @@ defmodule Lens.Content.Source do
         }
 
   schema "sources" do
+    field(:ingestion_mode, :string, default: "document")
+    field(:feed_baselined_at, :utc_datetime_usec)
     field(:feed_format, :string, default: "unknown")
     field(:acquisition_kind, :string, default: "unknown")
     field(:publisher_authority, :string, default: "unknown")
@@ -50,6 +52,7 @@ defmodule Lens.Content.Source do
   def changeset(source, attrs) do
     source
     |> cast(attrs, [
+      :ingestion_mode,
       :feed_format,
       :acquisition_kind,
       :publisher_authority,
@@ -69,12 +72,14 @@ defmodule Lens.Content.Source do
       :metadata
     ])
     |> validate_required([
+      :ingestion_mode,
       :feed_format,
       :acquisition_kind,
       :publisher_authority,
       :endpoint_url,
       :poll_interval_seconds
     ])
+    |> validate_inclusion(:ingestion_mode, ~w(document earnings_updates))
     |> validate_inclusion(:feed_format, @feed_formats)
     |> validate_inclusion(:acquisition_kind, @acquisition_kinds)
     |> validate_inclusion(:publisher_authority, @publisher_authorities)

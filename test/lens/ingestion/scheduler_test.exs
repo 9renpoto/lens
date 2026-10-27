@@ -5,6 +5,44 @@ defmodule Lens.Ingestion.SchedulerTest do
   alias Lens.Content
   alias Lens.Ingestion.Result
 
+  test "scheduled earnings subscriptions publish new signals without indexing feed content" do
+    {:ok, source} =
+      Content.create_source(%{
+        endpoint_url: "https://feeds.example.test/earnings.xml",
+        poll_interval_seconds: 60,
+        ingestion_mode: "earnings_updates"
+      })
+
+    transport = fn body -> fn _ -> {:ok, %{status: 200, headers: %{}, body: body}} end end
+    Lens.Ingestion.ingest(source, transport: transport.("<rss><channel/></rss>"))
+    Phoenix.PubSub.subscribe(Lens.PubSub, "earnings_feed_updates")
+    parent = self()
+
+    state = %{
+      concurrency: 1,
+      running: 0,
+      tick_ms: 60_000,
+      ingest: fn id ->
+        result =
+          Lens.Ingestion.ingest(id,
+            transport:
+              transport.(
+                "<rss><channel><item><guid>new</guid><link>https://example.test/release</link><title>Release</title></item></channel></rss>"
+              )
+          )
+
+        send(parent, {:ingested, result.outcome})
+        result
+      end
+    }
+
+    assert {:noreply, %{running: 1}} = Scheduler.handle_info(:poll, state)
+    assert_receive {:earnings_feed_update, %{change: :new}}, 1000
+    assert_receive {:ingested, :success}, 1000
+    assert eventually(fn -> source_run_count(source.id) == 0 end)
+    assert Repo.aggregate(Lens.Content.Document, :count) == 0
+  end
+
   test "disabling the initial poll queues no ingestion before suspension" do
     assert {:ok, %{running: 0}} = Scheduler.init(initial_poll: false)
     refute_receive :poll, 50

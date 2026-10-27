@@ -10,7 +10,12 @@ defmodule Lens.Ingestion.Parser do
           title: String.t() | nil,
           content: String.t() | nil,
           author: String.t() | nil,
-          published_at: DateTime.t() | nil
+          published_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil,
+          raw_content: String.t() | nil,
+          attachments: [map()],
+          body_links: [String.t()],
+          feed_fingerprint: String.t()
         }
 
   @spec parse(binary(), String.t()) :: {:ok, [entry()]} | {:error, String.t()}
@@ -41,16 +46,28 @@ defmodule Lens.Ingestion.Parser do
 
   defp entries(root, :rss, endpoint_url) do
     channel = first_child(root, "channel") || root
-    base_url = text(first_child(channel, "link")) || endpoint_url
+    channel_base = element_base(channel, element_base(root, endpoint_url))
+
+    base_url =
+      if local_attribute(root, "base") || local_attribute(channel, "base"),
+        do: channel_base,
+        else:
+          Normalizer.resolve_url(text(first_child(channel, "link")), channel_base) || channel_base
 
     channel
     |> children("item")
-    |> Enum.map(&rss_entry(&1, base_url))
+    |> Enum.map(&rss_entry(&1, element_base(&1, base_url)))
   end
 
   defp entries(root, :atom, endpoint_url) do
-    base_url = atom_link(root) || endpoint_url
-    Enum.map(children(root, "entry"), &atom_entry(&1, base_url))
+    root_base = element_base(root, endpoint_url)
+
+    base_url =
+      if local_attribute(root, "base"),
+        do: root_base,
+        else: Normalizer.resolve_url(atom_link(root), root_base) || root_base
+
+    Enum.map(children(root, "entry"), &atom_entry(&1, element_base(&1, base_url)))
   end
 
   defp entries(root, :rdf, endpoint_url) do
@@ -83,6 +100,7 @@ defmodule Lens.Ingestion.Parser do
       author: Normalizer.text(text(first_present(item, ["creator", "author"]))),
       published_at: Normalizer.date(text(first_present(item, ["pubDate", "date"])))
     }
+    |> with_references(item, base_url)
   end
 
   defp atom_entry(entry, base_url) do
@@ -100,6 +118,7 @@ defmodule Lens.Ingestion.Parser do
       author: Normalizer.text(author),
       published_at: Normalizer.date(text(first_present(entry, ["published", "updated"])))
     }
+    |> with_references(entry, base_url)
   end
 
   defp rdf_entry(item, base_url) do
@@ -118,6 +137,53 @@ defmodule Lens.Ingestion.Parser do
       author: Normalizer.text(text(first_present(item, ["creator", "author"]))),
       published_at: Normalizer.date(text(first_present(item, ["date", "pubDate"])))
     }
+    |> with_references(item, base_url)
+  end
+
+  defp with_references(entry, element, base_url) do
+    body = first_present(element, ["encoded", "content", "description", "summary"])
+    raw = raw_content(body)
+
+    links =
+      case Floki.parse_fragment(raw || "") do
+        {:ok, html} -> html |> Floki.find("a[href]") |> Floki.attribute("href")
+        _ -> []
+      end
+
+    attachments =
+      Enum.flat_map(children(element, "enclosure") ++ children(element, "link"), fn {tag, attrs,
+                                                                                     _} = link ->
+        if local_name(tag) == "enclosure" or attribute(attrs, "rel") == "enclosure" do
+          url =
+            Normalizer.resolve_url(
+              attribute(attrs, "url") || attribute(attrs, "href"),
+              element_base(link, base_url)
+            )
+
+          if url, do: [%{url: url, type: attribute(attrs, "type")}], else: []
+        else
+          []
+        end
+      end)
+
+    Map.merge(entry, %{
+      updated_at: Normalizer.date(text(first_child(element, "updated"))),
+      raw_content: raw,
+      attachments: Enum.uniq(attachments),
+      body_links:
+        links
+        |> Enum.map(&Normalizer.resolve_url(&1, element_base(body, base_url)))
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq(),
+      feed_fingerprint:
+        :crypto.hash(:sha256, :erlang.term_to_binary(element)) |> Base.encode16(case: :lower)
+    })
+  end
+
+  defp raw_content(nil), do: nil
+
+  defp raw_content({_, _, content}) do
+    if Enum.all?(content, &is_binary/1), do: Enum.join(content), else: Floki.raw_html(content)
   end
 
   defp atom_link(element) do
@@ -162,6 +228,8 @@ defmodule Lens.Ingestion.Parser do
     Enum.any?(attributes, fn {_, value} -> value == @rss_1_0_namespace end) and
       first_child(root, "channel") != nil
   end
+
+  defp element_base(nil, fallback), do: fallback
 
   defp element_base({_, attributes, _}, fallback) do
     case local_attribute(attributes, "base") do

@@ -63,9 +63,42 @@ defmodule Lens.Content do
 
   @spec update_source(Source.t(), attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def update_source(%Source{} = source, attrs) do
-    source
-    |> Source.changeset(clear_validators_for_changed_endpoint(source, attrs))
-    |> Repo.update()
+    Repo.transaction(fn ->
+      current = Repo.one!(from(s in Source, where: s.id == ^source.id, lock: "FOR UPDATE"))
+      reset? = source_identity_changed?(current, attrs)
+      changeset = Source.changeset(current, attrs)
+
+      changeset =
+        if reset? do
+          Ecto.Changeset.change(changeset,
+            feed_baselined_at: nil,
+            etag: nil,
+            last_modified: nil,
+            last_success_at: nil,
+            last_error: nil,
+            failure_count: 0,
+            next_fetch_at: DateTime.utc_now()
+          )
+        else
+          changeset
+        end
+
+      case Repo.update(changeset) do
+        {:ok, updated} ->
+          if reset?,
+            do:
+              Repo.delete_all(
+                from(i in "earnings_feed_items",
+                  where: i.source_id == ^Ecto.UUID.dump!(source.id)
+                )
+              )
+
+          updated
+
+        {:error, changeset} ->
+          Repo.rollback(changeset)
+      end
+    end)
   end
 
   @spec change_source(Source.t(), attributes()) :: %Ecto.Changeset{}
@@ -305,21 +338,11 @@ defmodule Lens.Content do
     end
   end
 
-  defp clear_validators_for_changed_endpoint(source, attrs) do
-    endpoint_url = Map.get(attrs, :endpoint_url, Map.get(attrs, "endpoint_url"))
-
-    if is_binary(endpoint_url) and endpoint_url != source.endpoint_url do
-      Map.merge(Map.new(attrs), %{
-        etag: nil,
-        last_modified: nil,
-        last_success_at: nil,
-        last_error: nil,
-        failure_count: 0,
-        next_fetch_at: DateTime.utc_now()
-      })
-    else
-      attrs
-    end
+  defp source_identity_changed?(source, attrs) do
+    Enum.any?([:endpoint_url, :ingestion_mode], fn key ->
+      value = Map.get(attrs, key, Map.get(attrs, Atom.to_string(key)))
+      not is_nil(value) and value != Map.get(source, key)
+    end)
   end
 
   defp schedule_initial_fetch(attrs) do

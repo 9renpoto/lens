@@ -209,6 +209,7 @@ defmodule LensWeb.ApiSchemas do
       title: "SourceAttributes",
       type: :object,
       properties: %{
+        ingestion_mode: %Schema{type: :string, enum: ["document", "earnings_updates"]},
         feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
         acquisition_kind: %Schema{
           type: :string,
@@ -255,6 +256,7 @@ defmodule LensWeb.ApiSchemas do
       type: :object,
       properties: %{
         id: %Schema{type: :string, format: :uuid},
+        ingestion_mode: %Schema{type: :string, enum: ["document", "earnings_updates"]},
         feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
         acquisition_kind: %Schema{
           type: :string,
@@ -268,6 +270,7 @@ defmodule LensWeb.ApiSchemas do
         enabled: %Schema{type: :boolean},
         poll_interval_seconds: %Schema{type: :integer, minimum: 1},
         next_fetch_at: %Schema{type: :string, format: :"date-time"},
+        feed_baselined_at: %Schema{type: :string, format: :"date-time", nullable: true},
         last_attempt_at: %Schema{type: :string, format: :"date-time", nullable: true},
         last_success_at: %Schema{type: :string, format: :"date-time", nullable: true},
         last_error: %Schema{type: :string, nullable: true},
