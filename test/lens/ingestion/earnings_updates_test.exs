@@ -142,6 +142,55 @@ defmodule Lens.Ingestion.EarningsUpdatesTest do
     assert [%{change: :new}] = ingest(healthy, [item("new")]).update_signals
   end
 
+  test "RSS references preserve an explicit root or channel XML Base over the channel link" do
+    for {root_base, channel_base, expected_base} <- [
+          {"https://materials.example.test/releases/", nil,
+           "https://materials.example.test/releases/"},
+          {nil, "https://materials.example.test/releases/",
+           "https://materials.example.test/releases/"},
+          {"https://materials.example.test/", "releases/",
+           "https://materials.example.test/releases/"}
+        ] do
+      root_attribute = if root_base, do: ~s( xml:base="#{root_base}"), else: ""
+      channel_attribute = if channel_base, do: ~s( xml:base="#{channel_base}"), else: ""
+
+      xml = """
+      <rss#{root_attribute}><channel#{channel_attribute}>
+        <link>https://publisher.example.test/</link>
+        <item><guid>one</guid><link>release</link>
+          <enclosure url="report.pdf" type="application/pdf"/>
+          <description>&lt;a href="details.pdf"&gt;Details&lt;/a&gt;</description>
+        </item>
+      </channel></rss>
+      """
+
+      assert {:ok, [entry]} = Parser.parse(xml, "https://feeds.example.test/feed.xml")
+      assert entry.canonical_url == expected_base <> "release"
+      assert entry.attachments == [%{url: expected_base <> "report.pdf", type: "application/pdf"}]
+      assert entry.body_links == [expected_base <> "details.pdf"]
+    end
+  end
+
+  test "RSS references fall back to the channel link when XML Base is absent" do
+    xml = """
+    <rss><channel><link>https://publisher.example.test/releases/</link>
+      <item><guid>one</guid><link>release</link>
+        <enclosure url="report.pdf" type="application/pdf"/>
+        <description>&lt;a href="details.pdf"&gt;Details&lt;/a&gt;</description>
+      </item>
+    </channel></rss>
+    """
+
+    assert {:ok, [entry]} = Parser.parse(xml, "https://feeds.example.test/feed.xml")
+    assert entry.canonical_url == "https://publisher.example.test/releases/release"
+
+    assert entry.attachments == [
+             %{url: "https://publisher.example.test/releases/report.pdf", type: "application/pdf"}
+           ]
+
+    assert entry.body_links == ["https://publisher.example.test/releases/details.pdf"]
+  end
+
   test "RSS body links and Atom enclosures survive normalization without fetching material" do
     xml = """
     <feed xmlns="http://www.w3.org/2005/Atom" xml:base="https://example.test/root/">

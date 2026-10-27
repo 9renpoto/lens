@@ -49,7 +49,10 @@ defmodule Lens.Ingestion.Parser do
     channel_base = element_base(channel, element_base(root, endpoint_url))
 
     base_url =
-      Normalizer.resolve_url(text(first_child(channel, "link")), channel_base) || channel_base
+      if local_attribute(root, "base") || local_attribute(channel, "base"),
+        do: channel_base,
+        else:
+          Normalizer.resolve_url(text(first_child(channel, "link")), channel_base) || channel_base
 
     channel
     |> children("item")
