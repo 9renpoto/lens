@@ -11,13 +11,13 @@ An operator-selected source of earnings updates and references to the associated
 An indication that earnings information has been published or changed. It is distinct from the source material needed for analysis.
 
 **Source material**:
-The page body or attached files from which information needed for analysis is extracted.
+The publisher page or attached files from which information needed for analysis is extracted. A source reference identifies where that material was found.
 
 **Subscription baseline**:
 The items present when a subscription is first successfully observed, distinguished from subsequent new or changed items.
 
 **Material revision**:
-A retained version of source material, related to earlier or later versions of the same material.
+A retained version of derived HTML text and source references, or a PDF original and its extraction results, related to earlier or later versions of the same material.
 
 **Recovery point**:
 A consistent state of retained originals and their acquisition and extraction history that can be recovered together.
@@ -41,13 +41,13 @@ The two backups that jointly represent one recovery point. Neither alone is suff
 決算情報の公開や変更を示す情報。分析に必要な取得元資料とは区別する。
 
 **Source material（取得元資料）**:
-分析に必要な情報を抽出する対象となる、ページ本文または添付ファイル。
+分析に必要な情報を抽出する対象となる公開元ページまたは添付ファイル。出典参照は、その資料の取得元を示す。
 
 **Subscription baseline（購読開始時の基準）**:
 購読を初めて正常に確認した時点に存在する項目の集合。以後の新着・変更項目と区別する。
 
 **Material revision（資料の改訂版）**:
-同じ資料の前後の版と関連付けられた、取得元資料の保存版。
+同じ資料の前後の版と関連付けられた、HTML抽出本文・出典参照、またはPDF原本・抽出結果の保存版。
 
 **Recovery point（復旧時点）**:
 保持原本とその取得・抽出履歴を一緒に復旧できる、整合した状態。

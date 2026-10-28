@@ -31,6 +31,22 @@ defmodule Lens.Earnings do
 
   def record_success(_), do: {:error, :invalid_bytes}
 
+  @doc "Register a verified PDF storage reference independently of issuer or release identity."
+  def retain_original(bytes, reference) when is_binary(bytes) do
+    if byte_size(bytes) in 1..@max_original_bytes and String.starts_with?(bytes, "%PDF-") do
+      with :ok <- validate_storage_reference(reference, bytes) do
+        Repo.transaction(fn ->
+          case upsert_original(bytes, reference.sha256, reference) do
+            {:ok, original} -> original
+            {:error, reason} -> Repo.rollback(reason)
+          end
+        end)
+      end
+    else
+      {:error, :invalid_bytes}
+    end
+  end
+
   @doc "Validate acquisition provenance and optional release identity without persistence."
   def validate_success(attrs) do
     with {:ok, base} <- validated_common(attrs),

@@ -31,12 +31,16 @@ association is an error rather than permission to broaden acquisition.
 
 ## Material and search boundary
 
-Support HTML bodies and PDFs. Preserve source material, extraction results and
-their provenance so a feed item, its associated material and its indexed text
-remain distinguishable. Retain earlier originals and extraction results when a
-feed-visible correction or replacement is processed, and record their revision
-relationship. Prefer the current successfully indexed revision in ordinary
-search and allow explicit access to earlier revisions. Failed processing must
+Support HTML bodies and PDFs. For HTML, derive text during acquisition and retain
+that text, its hash, acquisition time and source references: requested/final URLs,
+link anchor text, fragments, headings and short quotes. Discard HTML response bytes;
+do not retain or render HTML originals, fetch page assets or execute JavaScript.
+Source links are navigation references and may stop resolving after publisher edits.
+For PDFs, retain immutable originals in RustFS under ADR 0005. Keep feed signals,
+derived HTML text, PDF originals and indexed results distinguishable. Retain earlier
+derived text/provenance and PDF originals when processing a feed-visible correction
+or replacement, and record their revision relationship. Prefer the current
+successfully indexed revision in ordinary search and allow explicit access to earlier revisions. Failed processing must
 not erase an earlier usable revision or present incomplete replacement data as
 a completed update.
 
@@ -112,10 +116,14 @@ PDFをすべて取得しない。対応が曖昧な場合は取得範囲を広�
 
 ## 資料と検索の境界
 
-HTML本文とPDFに対応する。取得元資料、抽出結果と来歴を保持し、フィード項目、対応資料、
-検索登録した本文を区別できるようにする。フィードで検知できた訂正・差し替えを処理した際は、
-以前の原本と抽出結果を保持し、改訂の関係を記録する。通常検索では検索登録に成功した現行版を
-優先し、以前の版も明示的に参照できるようにする。処理失敗によって以前の利用可能な版を消したり、
+HTML本文とPDFに対応する。HTMLは取得時に本文を抽出し、その本文・ハッシュ・取得日時と、
+取得前後のURL・リンクのアンカーテキスト・fragment・見出し・短い引用を出典情報として保持する。
+HTML応答のバイト列は破棄し、原本保持・レンダリング・ページの付属資源取得・JavaScript実行は
+行わない。出典リンクは移動のための参照であり、公開元の編集後には参照できなくなる場合がある。
+PDFはADR 0005に従いRustFSに不変の原本を保持する。フィードの更新情報・HTML抽出本文・
+PDF原本・検索登録結果を区別する。フィードで検知できた訂正・差し替えを処理した際は、
+以前の抽出本文・出典情報・PDF原本を保持し、改訂の関係を記録する。
+通常検索では検索登録に成功した現行版を優先し、以前の版も明示的に参照できるようにする。処理失敗によって以前の利用可能な版を消したり、
 未完了の差し替えを更新完了として扱ったりしない。
 
 成功とは、対応する対象形式の資料を取得し、空でない本文を抽出して検索登録できたことを指す。

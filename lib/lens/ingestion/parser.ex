@@ -11,6 +11,7 @@ defmodule Lens.Ingestion.Parser do
           content: String.t() | nil,
           author: String.t() | nil,
           published_at: DateTime.t() | nil,
+          entry_url: String.t() | nil,
           updated_at: DateTime.t() | nil,
           raw_content: String.t() | nil,
           attachments: [map()],
@@ -155,7 +156,7 @@ defmodule Lens.Ingestion.Parser do
                                                                                      _} = link ->
         if local_name(tag) == "enclosure" or attribute(attrs, "rel") == "enclosure" do
           url =
-            Normalizer.resolve_url(
+            Normalizer.reference_url(
               attribute(attrs, "url") || attribute(attrs, "href"),
               element_base(link, base_url)
             )
@@ -167,12 +168,17 @@ defmodule Lens.Ingestion.Parser do
       end)
 
     Map.merge(entry, %{
+      entry_url:
+        Normalizer.reference_url(
+          atom_link(element) || text(first_child(element, "link")),
+          base_url
+        ),
       updated_at: Normalizer.date(text(first_child(element, "updated"))),
       raw_content: raw,
       attachments: Enum.uniq(attachments),
       body_links:
         links
-        |> Enum.map(&Normalizer.resolve_url(&1, element_base(body, base_url)))
+        |> Enum.map(&Normalizer.reference_url(&1, element_base(body, base_url)))
         |> Enum.reject(&is_nil/1)
         |> Enum.uniq(),
       feed_fingerprint:

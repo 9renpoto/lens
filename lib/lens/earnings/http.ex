@@ -18,7 +18,7 @@ defmodule Lens.Earnings.HTTP do
     requested_deadline = Keyword.get(options, :deadline)
 
     cond do
-      kind not in [:pdf, :listing] or not is_integer(limit) or limit < 1 or
+      kind not in [:pdf, :listing, :material] or not is_integer(limit) or limit < 1 or
         limit > ResponseFacts.size_cap(kind) or
         not is_integer(timeout) or timeout not in 1..30_000 or
         not is_integer(redirects) or redirects not in 0..3 or not is_function(policy, 1) or
@@ -198,6 +198,15 @@ defmodule Lens.Earnings.HTTP do
   end
 
   defp stream_response({:ok, resp}, url, config, deadline, count, owner, ref) do
+    content_type = headers(resp.headers)["content-type"] || ""
+
+    config =
+      if resp.status == 200 and config.kind == :material and
+           (String.starts_with?(String.downcase(content_type), "text/html") or
+              String.starts_with?(String.downcase(content_type), "application/xhtml+xml")),
+         do: %{config | limit: min(config.limit, ResponseFacts.size_cap(:listing))},
+         else: config
+
     cond do
       resp.status != 200 ->
         Req.cancel_async_response(resp)

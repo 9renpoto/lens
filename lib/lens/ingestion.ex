@@ -3,7 +3,7 @@ defmodule Lens.Ingestion do
 
   alias Lens.Content
   alias Lens.Content.Source
-  alias Lens.Ingestion.{EarningsUpdates, Fetcher, Parser, Result}
+  alias Lens.Ingestion.{EarningsUpdates, Fetcher, Materials, Parser, Result}
   alias Lens.ErrorReporter
 
   @default_max_entries 1_000
@@ -98,7 +98,7 @@ defmodule Lens.Ingestion do
     with {:ok, entries} <- Parser.parse(response.body, source.endpoint_url),
          {:ok, entries} <-
            limit_entries(entries, Keyword.get(options, :max_entries, @default_max_entries)) do
-      persist_response(source, entries, response, attempted_at)
+      persist_response(source, entries, response, attempted_at, options)
     else
       {:error, error} ->
         update_failure(source, error, attempted_at)
@@ -117,7 +117,8 @@ defmodule Lens.Ingestion do
          %Source{ingestion_mode: "earnings_updates"} = source,
          entries,
          response,
-         attempted_at
+         attempted_at,
+         options
        ) do
     case EarningsUpdates.observe(source, entries, response.headers, attempted_at) do
       {:ok, %{signals: signals, invalid_entries: invalid}} ->
@@ -129,12 +130,24 @@ defmodule Lens.Ingestion do
           )
         end)
 
+        acquired = Materials.acquire_many(signals, Keyword.get(options, :materials, []))
+
+        Enum.each(acquired.materials, fn material ->
+          Phoenix.PubSub.broadcast(
+            Lens.PubSub,
+            "earnings_materials",
+            {:earnings_material_acquired, material}
+          )
+        end)
+
         %Result{
           outcome: :success,
           status: response.status,
           valid_entries: [],
           invalid_entries: invalid,
-          update_signals: signals
+          update_signals: signals,
+          materials: acquired.materials,
+          material_errors: acquired.errors
         }
 
       {:error, error} ->
@@ -149,7 +162,7 @@ defmodule Lens.Ingestion do
     end
   end
 
-  defp persist_response(source, entries, response, attempted_at) do
+  defp persist_response(source, entries, response, attempted_at, _options) do
     {valid_entries, invalid_entries} = persist_entries(source, entries, response, attempted_at)
     update_success(source, response.headers, attempted_at)
 
