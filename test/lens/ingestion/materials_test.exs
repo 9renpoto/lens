@@ -1,6 +1,9 @@
 defmodule Lens.Ingestion.MaterialsTest do
   use Lens.DataCase
 
+  import Phoenix.ConnTest
+  @endpoint LensWeb.Endpoint
+
   alias Lens.Content
   alias Lens.Earnings.{Acquisition, Original, Release, RustFS}
   alias Lens.Ingestion.{Material, Materials}
@@ -14,6 +17,14 @@ defmodule Lens.Ingestion.MaterialsTest do
       send(self(), {:sentry_envelope, IO.iodata_to_binary(body)})
       {:ok, 200, [], "{}"}
     end
+  end
+
+  defmodule TextExtractor do
+    def extract(_, _), do: {:ok, %{text: "架空の PDF 利益", version: "fixture"}}
+  end
+
+  defmodule EmptyExtractor do
+    def extract(_, _), do: {:ok, %{text: "  ", version: "fixture"}}
   end
 
   setup do
@@ -187,6 +198,129 @@ defmodule Lens.Ingestion.MaterialsTest do
              Materials.acquire(signal(source, url <> "/sheet.xlsx")).errors
 
     assert [%{kind: "html"}] = Materials.acquire(signal(source, url <> "/healthy")).materials
+  end
+
+  test "indexes acquired HTML text with its material provenance" do
+    url = server(fn _ -> html("<article><h1>Results</h1><p>検索対象の架空売上高</p></article>") end)
+    source = source(url)
+
+    feed = fn items ->
+      fn _ ->
+        {:ok, %{status: 200, headers: %{}, body: "<rss><channel>#{items}</channel></rss>"}}
+      end
+    end
+
+    Lens.Ingestion.ingest(source, transport: feed.(""))
+    item = "<item><guid>new</guid><title>Results</title><link>#{url}/release</link></item>"
+    assert %{materials: [material]} = Lens.Ingestion.ingest(source, transport: feed.(item))
+    assert {:ok, results} = Lens.Search.search("架空売上高")
+    assert Enum.any?(results, &(&1.id == material.id and &1.canonical_url == material.final_url))
+  end
+
+  test "indexing failure reaches Sentry and does not block another material" do
+    Sentry.Test.Config.put(
+      dsn: "https://public@example.test/1",
+      send_result: :sync,
+      dedup_events: false,
+      client: ErrorTransport
+    )
+
+    url = server(fn _ -> html("<article><h1>Results</h1><p>安全な資料本文</p></article>") end)
+    source = source(url)
+    [first] = Materials.acquire(signal(source, url <> "/first")).materials
+    [second] = Materials.acquire(signal(source, url <> "/second")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([first])
+
+    assert [%{stage: :indexing, reason: :persistence_failed}] =
+             Lens.Ingestion.MaterialIndex.index_many([first, second])
+
+    assert_receive {:sentry_envelope, body}
+    assert body =~ "indexing"
+    refute body =~ url
+    refute body =~ "安全な資料本文"
+    assert {:ok, results} = Lens.Search.search("安全な資料本文")
+    assert length(results) == 2
+    assert :ok = Lens.Search.rebuild(batch_size: 1)
+    assert {:ok, results} = Lens.Search.search("安全な資料本文")
+    assert length(results) == 2
+  end
+
+  test "material provenance is available from its search result" do
+    url = server(fn _ -> html("<article><h1>Results</h1><p>出典対応の本文</p></article>") end)
+    [material] = Materials.acquire(signal(source(url), url <> "/release")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([material])
+    assert {:ok, [result]} = Lens.Search.search("出典対応の本文")
+    response = build_conn() |> get(result.provenance_url) |> json_response(200)
+    assert response["material"]["id"] == material.id
+    assert response["material"]["final_url"] == material.final_url
+    assert response["material"]["content_hash"] == material.content_hash
+    assert response["material"]["text"] =~ "出典対応の本文"
+  end
+
+  test "indexes retained PDF text without inventing a release" do
+    url = server(fn _ -> pdf() end)
+    source = source(url)
+
+    feed = fn items ->
+      fn _ ->
+        {:ok, %{status: 200, headers: %{}, body: "<rss><channel>#{items}</channel></rss>"}}
+      end
+    end
+
+    Lens.Ingestion.ingest(source, transport: feed.(""))
+    item = "<item><guid>pdf</guid><title>Results</title><link>#{url}/report.pdf</link></item>"
+
+    assert %{materials: [material], material_errors: []} =
+             Lens.Ingestion.ingest(source,
+               transport: feed.(item),
+               materials: [rustfs: storage(), extractor: TextExtractor]
+             )
+
+    assert {:ok, [result]} = Lens.Search.search("PDF 利益")
+    assert result.id == material.id
+    assert result.original_id == material.original_id
+    assert Repo.aggregate(Release, :count) == 0
+  end
+
+  test "empty PDF extraction reports an error and does not prevent independent HTML indexing" do
+    Sentry.Test.Config.put(
+      dsn: "https://public@example.test/1",
+      send_result: :sync,
+      dedup_events: false,
+      client: ErrorTransport
+    )
+
+    url =
+      server(fn
+        "/report.pdf" -> pdf()
+        _ -> html("<article><h1>Results</h1><p>独立した検索可能本文</p></article>")
+      end)
+
+    source = source(url)
+
+    feed = fn items ->
+      fn _ ->
+        {:ok, %{status: 200, headers: %{}, body: "<rss><channel>#{items}</channel></rss>"}}
+      end
+    end
+
+    Lens.Ingestion.ingest(source, transport: feed.(""))
+
+    items =
+      "<item><guid>pdf</guid><link>#{url}/report.pdf</link></item><item><guid>html</guid><title>Results</title><link>#{url}/html</link></item>"
+
+    result =
+      Lens.Ingestion.ingest(source,
+        transport: feed.(items),
+        materials: [rustfs: storage(), extractor: EmptyExtractor]
+      )
+
+    assert [%{stage: :extraction, reason: :invalid_text}] = result.material_errors
+    assert_receive {:sentry_envelope, body}
+    assert body =~ "extraction"
+    refute body =~ url
+    refute body =~ "独立した検索可能本文"
+    assert {:ok, [_]} = Lens.Search.search("独立した検索可能本文")
   end
 
   test "scheduled ingestion acquires only later items and preserves RSS fragments" do

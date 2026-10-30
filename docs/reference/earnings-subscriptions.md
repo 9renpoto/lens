@@ -43,9 +43,14 @@ Signals are best-effort handoffs, not a durable work queue. A crash after state
 commit can lose a notification; missing subscribers do not cause replay.
 Fingerprints record discovery, not material-processing success. After detection, the built-in [material acquisition](earnings-materials.md) stage
 uses the source's explicit material policy, retaining derived HTML text/provenance
-and verified PDFs without storing HTML originals. Discovery does not populate
-search. Reading the existing output RSS does not start discovery. No failed-material
-retry or replay is implemented.
+and verified PDFs without storing HTML originals. Non-empty derived HTML and PDF
+text is indexed as `feed_material` search results without inferring a release
+identity. `provenance_url` points to `GET /api/feed-materials/:id`, which returns
+extracted text, material references and the retained PDF original ID when present. Each successful
+material is currently returned separately; revision selection is tracked in #237.
+Failures are reported through Sentry and do not stop independent materials. Reading
+the existing output RSS does not start discovery. No failed-material retry or
+replay is implemented.
 
 `PATCH /api/sources/:id` can change the mode or endpoint. Either change clears
 the baseline, fingerprints and conditional validators transactionally; the next
@@ -56,8 +61,9 @@ Discovery failures use the [sanitized Sentry interface](ingestion-errors.md).
 Expected failures and exceptions return a failure result without blocking other
 sources. Failure counts and attempt times support scheduling, while earnings
 mode keeps `last_error` empty rather than storing error details in PostgreSQL.
-The current schema includes discovery state; recreate disposable databases when
-the fingerprint differs, following [development setup](../development.md).
+The current schema includes discovery state and material extraction indexes;
+recreate disposable databases when the fingerprint differs, following
+[development setup](../development.md).
 
 <details>
 <summary>日本語</summary>
@@ -98,8 +104,11 @@ entryには項目ID・canonical URL・表題・正規化本文・生のフィー
 通知はbest-effortの受け渡しであり、永続的な作業キューではない。状態コミット後のクラッシュで
 通知を失う場合があり、購読する処理が不在でも再配信しない。fingerprintは更新の発見を示し、
 資料処理の成功を示さない。検知後は組み込みの[資料取得](earnings-materials.md)処理が明示的な取得ポリシーを使用し、
-HTML原本を保存せずHTML抽出本文・出典情報と検証済みPDFを保持する。更新検知は検索登録を行わず、
-既存の出力RSSを読んでも更新検知を開始しない。
+HTML原本を保存せずHTML抽出本文・出典情報と検証済みPDFを保持する。空でないHTML・PDFの
+抽出本文は、リリースの識別を推測せず`feed_material`として検索登録する。`provenance_url`の
+`GET /api/feed-materials/:id`は抽出本文・資料参照と、存在する場合は保持済みPDF原本IDを返す。
+現在は成功した資料ごとに検索結果を返し、改訂版の選択は#237で扱う。失敗はSentryに報告し、
+独立した他の資料の処理を妨げない。既存の出力RSSを読んでも更新検知を開始しない。
 失敗資料の再試行・再処理は実装しない。
 
 `PATCH /api/sources/:id`でモードまたはendpointを変更できる。いずれの変更も基準・
@@ -110,7 +119,7 @@ APIの`feed_baselined_at`は読み取り専用とする。
 更新検知の失敗は[匿名化済みSentryインターフェース](ingestion-errors.md)へ報告する。
 想定済みの失敗と例外は、他の取得先を妨げず失敗結果を返す。失敗回数・試行日時はスケジュールに
 使用し、決算モードの`last_error`は空のままとしてPostgreSQLへエラー詳細を保存しない。
-現行スキーマは検知状態を含むため、fingerprintが異なる破棄可能DBは
+現行スキーマは検知状態と資料抽出の検索インデックスを含むため、fingerprintが異なる破棄可能DBは
 [開発手順](../development.md)に従って再作成する。
 
 </details>

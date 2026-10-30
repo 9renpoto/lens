@@ -2,6 +2,7 @@ defmodule LensWeb.SearchController do
   use LensWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
+  import Ecto.Query
   alias Lens.{Content, Search}
 
   alias LensWeb.ApiSchemas.{
@@ -47,6 +48,43 @@ defmodule LensWeb.SearchController do
       not_found: {"Document not found", "application/json", ErrorResponse},
       unprocessable_entity: {"Invalid pagination parameters", "application/json", ErrorResponse}
     ]
+
+  operation :show_material,
+    summary: "Get feed material provenance",
+    parameters: [id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]],
+    responses: [
+      ok: {"Material provenance", "application/json", %Schema{type: :object}},
+      not_found: {"Material not found", "application/json", ErrorResponse}
+    ]
+
+  def show_material(conn, %{"id" => id}) do
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         %Lens.Ingestion.Material{} = material <- Lens.Repo.get(Lens.Ingestion.Material, id) do
+      text =
+        Lens.Repo.one(
+          from(e in "feed_material_extractions",
+            where: e.material_id == ^Ecto.UUID.dump!(id),
+            select: e.text
+          )
+        )
+
+      json(conn, %{
+        material: %{
+          text: text,
+          id: material.id,
+          kind: material.kind,
+          original_id: material.original_id,
+          acquired_at: material.acquired_at,
+          content_hash: material.content_hash,
+          requested_url: sanitize_url(material.requested_url),
+          final_url: sanitize_url(material.final_url),
+          provenance: sanitize_material_provenance(material.provenance)
+        }
+      })
+    else
+      _ -> not_found(conn)
+    end
+  end
 
   def index(conn, %{"q" => query} = params) do
     with {:ok, options} <- pagination(params),
@@ -195,6 +233,22 @@ defmodule LensWeb.SearchController do
       fragment
     end
   end
+
+  defp sanitize_material_provenance(value) when is_map(value) do
+    Map.new(value, fn {key, item} ->
+      {key,
+       if(key == "url" and is_binary(item),
+         do: sanitize_url(item),
+         else: sanitize_material_provenance(item)
+       )}
+    end)
+    |> sanitize_metadata()
+  end
+
+  defp sanitize_material_provenance(value) when is_list(value),
+    do: Enum.map(value, &sanitize_material_provenance/1)
+
+  defp sanitize_material_provenance(value), do: value
 
   defp sanitize_metadata(map) when is_map(map) do
     Map.new(map, fn {key, value} ->
