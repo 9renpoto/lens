@@ -507,3 +507,22 @@ END;
 $$;
 CREATE TRIGGER feed_materials_immutable BEFORE UPDATE OR DELETE ON public.feed_materials
     FOR EACH ROW EXECUTE FUNCTION public.reject_feed_material_mutation();
+
+
+CREATE TABLE public.feed_material_extractions (
+    material_id uuid PRIMARY KEY REFERENCES public.feed_materials(id) ON DELETE RESTRICT,
+    text text NOT NULL CHECK (length(btrim(text)) > 0),
+    search_text text NOT NULL,
+    search_vector tsvector GENERATED ALWAYS AS (public.earnings_search_vector(text)) STORED
+);
+CREATE INDEX feed_material_extractions_search_vector_index ON public.feed_material_extractions USING gin (search_vector);
+CREATE INDEX feed_material_extractions_search_text_index ON public.feed_material_extractions USING gin (search_text public.gin_trgm_ops);
+
+CREATE TABLE public.feed_material_revisions (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    material_id uuid NOT NULL UNIQUE REFERENCES public.feed_material_extractions(material_id) ON DELETE RESTRICT,
+    identity_key text NOT NULL,
+    content_hash text NOT NULL,
+    previous_material_id uuid REFERENCES public.feed_material_extractions(material_id) ON DELETE RESTRICT
+);
+CREATE INDEX feed_material_revisions_identity_index ON public.feed_material_revisions (identity_key, id DESC);

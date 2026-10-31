@@ -325,7 +325,10 @@ defmodule LensWeb.ApiSchemas do
         published_at: %Schema{type: :string, format: :"date-time", nullable: true},
         excerpt: %Schema{type: :string, maxLength: 300},
         provenance_url: %Schema{type: :string},
-        resource_type: %Schema{type: :string, enum: ["document", "earnings_release"]},
+        resource_type: %Schema{
+          type: :string,
+          enum: ["document", "earnings_release", "feed_material"]
+        },
         original_id: %Schema{type: :string, format: :uuid, nullable: true},
         extraction_id: %Schema{type: :integer, nullable: true},
         stale: %Schema{type: :boolean},

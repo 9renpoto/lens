@@ -132,6 +132,12 @@ defmodule Lens.Ingestion do
 
         acquired = Materials.acquire_many(signals, Keyword.get(options, :materials, []))
 
+        indexing_errors =
+          Lens.Ingestion.MaterialIndex.index_many(
+            acquired.materials,
+            Keyword.get(options, :materials, [])
+          )
+
         Enum.each(acquired.materials, fn material ->
           Phoenix.PubSub.broadcast(
             Lens.PubSub,
@@ -147,7 +153,7 @@ defmodule Lens.Ingestion do
           invalid_entries: invalid,
           update_signals: signals,
           materials: acquired.materials,
-          material_errors: acquired.errors
+          material_errors: acquired.errors ++ indexing_errors
         }
 
       {:error, error} ->

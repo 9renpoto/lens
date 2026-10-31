@@ -68,7 +68,10 @@ defmodule Lens.Search do
         )
 
       earnings = Lens.Search.Earnings.query(normalized_query)
-      combined = union_all(documents, ^earnings)
+
+      combined =
+        union_all(documents, ^earnings)
+        |> union_all(^Lens.Ingestion.MaterialIndex.query(normalized_query))
 
       page =
         from(result in subquery(combined),
@@ -83,7 +86,13 @@ defmodule Lens.Search do
         )
 
       coverage =
-        from(result in subquery(Lens.Search.Earnings.query("", false)),
+        from(
+          result in subquery(
+            union_all(
+              Lens.Search.Earnings.query("", false),
+              ^Lens.Ingestion.MaterialIndex.query("", false)
+            )
+          ),
           where: result.search_mode == "substring",
           select: %{full_text_complete: count(result.id) == 0}
         )
@@ -108,9 +117,11 @@ defmodule Lens.Search do
       results =
         Enum.map(documents, fn doc ->
           path =
-            if doc.resource_type == "document",
-              do: "/api/documents/#{doc.id}/provenance",
-              else: "/api/earnings/releases/#{doc.id}"
+            case doc.resource_type do
+              "document" -> "/api/documents/#{doc.id}/provenance"
+              "feed_material" -> "/api/feed-materials/#{doc.id}"
+              _ -> "/api/earnings/releases/#{doc.id}"
+            end
 
           doc |> Map.drop([:rank, :title_match]) |> Map.put(:provenance_url, path)
         end)
@@ -130,7 +141,8 @@ defmodule Lens.Search do
 
     if is_integer(batch_size) and batch_size > 0 do
       :ok = rebuild_batches(nil, batch_size)
-      Lens.Search.Earnings.rebuild(batch_size)
+      :ok = Lens.Search.Earnings.rebuild(batch_size)
+      Lens.Ingestion.MaterialIndex.rebuild(batch_size)
     else
       {:error, :invalid_batch_size}
     end

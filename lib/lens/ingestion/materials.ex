@@ -231,7 +231,14 @@ defmodule Lens.Ingestion.Materials do
           :endpoint_url,
           :original_feed_url
         ])
-        |> json_map(),
+        |> json_map()
+        |> Map.put(
+          "material_identity_policy",
+          Map.take(source.acquisition_metadata || %{}, [
+            "material_identity_ignore_query_params",
+            "material_identity_ignore_fragment"
+          ])
+        ),
       entry_snapshot:
         Map.take(signal.entry, [
           :source_entry_id,
