@@ -46,9 +46,12 @@ uses the source's explicit material policy, retaining derived HTML text/provenan
 and verified PDFs without storing HTML originals. Non-empty derived HTML and PDF
 text is indexed as `feed_material` search results without inferring a release
 identity. `provenance_url` points to `GET /api/feed-materials/:id`, which returns
-extracted text, material references and the retained PDF original ID when present. Each successful
-material is currently returned separately; revision selection is tracked in #237.
-Failures are reported through Sentry and do not stop independent materials. Reading
+extracted text, material references and the retained PDF original ID when present.
+Each material URL contributes its latest successfully indexed revision. The material
+response contains the previous revision ID, whose text and references remain
+accessible through the same API. A changed URL is a separate material and both
+remain searchable. Failures are reported through Sentry and do not stop independent
+materials. Reading
 the existing output RSS does not start discovery. No failed-material retry or
 replay is implemented.
 
@@ -107,7 +110,9 @@ entryには項目ID・canonical URL・表題・正規化本文・生のフィー
 HTML原本を保存せずHTML抽出本文・出典情報と検証済みPDFを保持する。空でないHTML・PDFの
 抽出本文は、リリースの識別を推測せず`feed_material`として検索登録する。`provenance_url`の
 `GET /api/feed-materials/:id`は抽出本文・資料参照と、存在する場合は保持済みPDF原本IDを返す。
-現在は成功した資料ごとに検索結果を返し、改訂版の選択は#237で扱う。失敗はSentryに報告し、
+資料URLごとに検索登録に成功した最新の改訂版を検索結果へ返す。資料の応答は以前の改訂版のIDを
+持ち、同じAPIでその本文と出典も参照できる。URLが変わった資料は別資料とし、両方を検索可能にする。
+失敗はSentryに報告し、
 独立した他の資料の処理を妨げない。既存の出力RSSを読んでも更新検知を開始しない。
 失敗資料の再試行・再処理は実装しない。
 

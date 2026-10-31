@@ -68,8 +68,19 @@ defmodule LensWeb.SearchController do
           )
         )
 
+      previous =
+        Lens.Repo.one(
+          from(r in "feed_material_revisions",
+            where: r.material_id == ^Ecto.UUID.dump!(id),
+            select: r.previous_material_id
+          )
+        )
+
+      previous = if previous, do: Ecto.UUID.load!(previous), else: nil
+
       json(conn, %{
         material: %{
+          previous_revision_id: previous,
           text: text,
           id: material.id,
           kind: material.kind,

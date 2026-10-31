@@ -42,7 +42,13 @@ derived text/provenance and PDF originals when processing a feed-visible correct
 or replacement, and record their revision relationship. Prefer the current
 successfully indexed revision in ordinary search and allow explicit access to earlier revisions. Failed processing must
 not erase an earlier usable revision or present incomplete replacement data as
-a completed update.
+a completed update. Associate revisions only when their material URLs are the
+same. Treat a changed material URL as a distinct material rather than inferring
+a replacement from its position or the number of attachments. Keep both
+materials in ordinary search even if the old URL disappears from the feed.
+HTML material identity is URL-based. Compare the complete URL, including its query and fragment,
+unless an explicit source-specific rule excludes parts known not to distinguish
+materials; never discard these parts universally.
 
 Success means that the corresponding supported material is acquired, yields
 non-empty extracted text and is registered in search. It does not certify that
@@ -124,7 +130,10 @@ PDFはADR 0005に従いRustFSに不変の原本を保持する。フィードの
 PDF原本・検索登録結果を区別する。フィードで検知できた訂正・差し替えを処理した際は、
 以前の抽出本文・出典情報・PDF原本を保持し、改訂の関係を記録する。
 通常検索では検索登録に成功した現行版を優先し、以前の版も明示的に参照できるようにする。処理失敗によって以前の利用可能な版を消したり、
-未完了の差し替えを更新完了として扱ったりしない。
+未完了の差し替えを更新完了として扱ったりしない。資料URLが同じ場合に限り改訂版として
+関連付ける。資料URLが変わった場合は、添付の順序や件数から差し替えと推測せず、別資料として
+扱い、旧URLがフィードから消えた場合も両方を通常検索に残す。HTML資料はURLで識別する。クエリーとfragmentを含むURL全体を比較し、資料を区別しないと
+確認した部分のみを取得先ごとの明示的な規則で除外する。これらの部分を一律に捨てない。
 
 成功とは、対応する対象形式の資料を取得し、空でない本文を抽出して検索登録できたことを指す。
 特定の分析に財務数値・表・説明が十分であることは保証しない。フィードの表題・要約だけの

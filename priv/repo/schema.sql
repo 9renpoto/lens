@@ -517,3 +517,12 @@ CREATE TABLE public.feed_material_extractions (
 );
 CREATE INDEX feed_material_extractions_search_vector_index ON public.feed_material_extractions USING gin (search_vector);
 CREATE INDEX feed_material_extractions_search_text_index ON public.feed_material_extractions USING gin (search_text public.gin_trgm_ops);
+
+CREATE TABLE public.feed_material_revisions (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    material_id uuid NOT NULL UNIQUE REFERENCES public.feed_material_extractions(material_id) ON DELETE RESTRICT,
+    identity_key text NOT NULL,
+    content_hash text NOT NULL,
+    previous_material_id uuid REFERENCES public.feed_material_extractions(material_id) ON DELETE RESTRICT
+);
+CREATE INDEX feed_material_revisions_identity_index ON public.feed_material_revisions (identity_key, id DESC);

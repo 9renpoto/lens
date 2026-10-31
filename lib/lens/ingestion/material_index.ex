@@ -65,14 +65,95 @@ defmodule Lens.Ingestion.MaterialIndex do
                ],
                log: false
              )
+
+             key = identity_key(material)
+
+             Repo.query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [key],
+               log: false
+             )
+
+             previous =
+               Repo.one(
+                 from(r in "feed_material_revisions",
+                   where: r.identity_key == ^key,
+                   order_by: [desc: r.id],
+                   limit: 1,
+                   select: %{material_id: r.material_id, content_hash: r.content_hash}
+                 )
+               )
+
+             revision_hash = revision_hash(material)
+
+             if is_nil(previous) or previous.content_hash != revision_hash do
+               Repo.insert_all(
+                 "feed_material_revisions",
+                 [
+                   %{
+                     material_id: Ecto.UUID.dump!(material.id),
+                     identity_key: key,
+                     content_hash: revision_hash,
+                     previous_material_id: if(previous, do: previous.material_id, else: nil)
+                   }
+                 ],
+                 log: false
+               )
+             end
+
+             :ok
            end,
            mode: :savepoint
          ) do
-      {:ok, {1, _}} -> :ok
+      {:ok, :ok} -> :ok
       _ -> {:error, :indexing, :persistence_failed}
     end
   rescue
     _ -> {:error, :indexing, :persistence_failed}
+  end
+
+  defp revision_hash(%Material{kind: "html"} = material) do
+    :crypto.hash(
+      :sha256,
+      :erlang.term_to_binary({material.content_hash, material.provenance}, [:deterministic])
+    )
+    |> Base.encode16(case: :lower)
+  end
+
+  defp revision_hash(material), do: material.content_hash
+
+  defp identity_key(material) do
+    metadata = Map.get(material.source_snapshot, "material_identity_policy", %{})
+    uri = URI.parse(material.requested_url)
+    ignored = metadata["material_identity_ignore_query_params"] || []
+    ignore_fragment = metadata["material_identity_ignore_fragment"] || false
+
+    unless is_list(ignored) and Enum.all?(ignored, &(is_binary(&1) and &1 != "")) and
+             is_boolean(ignore_fragment),
+           do: raise(ArgumentError, "invalid material identity policy")
+
+    query =
+      if is_binary(uri.query) and ignored != [] do
+        parts = String.split(uri.query, "&")
+
+        kept =
+          Enum.reject(parts, fn part ->
+            key = part |> String.split("=", parts: 2) |> hd() |> URI.decode_www_form()
+            key in ignored
+          end)
+
+        if kept == [], do: nil, else: Enum.join(kept, "&")
+      else
+        uri.query
+      end
+
+    normalized =
+      URI.to_string(%{
+        uri
+        | query: query,
+          fragment: if(ignore_fragment, do: nil, else: uri.fragment)
+      })
+
+    :crypto.hash(:sha256, :erlang.term_to_binary({material.kind, normalized}))
+    |> Base.encode16(case: :lower)
   end
 
   def rebuild(batch_size), do: rebuild_batches(nil, batch_size)
@@ -107,7 +188,16 @@ defmodule Lens.Ingestion.MaterialIndex do
   end
 
   def query(normalized_query, match? \\ true) do
+    latest =
+      from(r in "feed_material_revisions",
+        distinct: r.identity_key,
+        order_by: [asc: r.identity_key, desc: r.id],
+        select: %{material_id: r.material_id}
+      )
+
     from(e in "feed_material_extractions",
+      join: r in subquery(latest),
+      on: r.material_id == e.material_id,
       join: m in Material,
       on: m.id == e.material_id,
       where:

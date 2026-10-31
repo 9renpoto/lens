@@ -6,7 +6,7 @@ material. Discovery success and material acquisition success are separate:
 `Result.materials` holds successful observations and `Result.material_errors`
 holds transient failures. Failures are reported through the
 [Sentry interface](ingestion-errors.md), without a database error inbox or replay.
-Search indexing and PDF text extraction do not run at this stage.
+Successfully acquired materials are subsequently extracted and indexed.
 
 ## Configure before enabling
 
@@ -44,6 +44,13 @@ requires one `article`, one matching `h1`, and at most one distinct PDF link;
 multiple historical PDFs are ambiguous. Ambiguous pages are not retained or
 crawled. Explicit feed PDF references can still succeed independently.
 
+Material identity uses the requested URL including query and fragment. Only when
+reviewed for that source, `material_identity_ignore_query_params` may list query
+parameter names to exclude and `material_identity_ignore_fragment` may be set to
+`true`. These options affect identity comparison only, not fetching or provenance.
+Changing the policy does not rewrite existing revision relationships or replay
+observations. Configure it before enabling the source to avoid splitting history.
+
 After configuration review, enable the source. Changing a policy does not replay
 previously failed items. The first successful feed read still establishes a
 baseline without acquiring existing entries.
@@ -69,8 +76,8 @@ assessment contract. The subscription observation supplies the acquisition facts
 Successful observations are append-only `feed_materials` rows. HTML rows hold
 text and no original reference; PDF rows hold an original reference and no byte
 copy or extracted text. No source response headers or raw feed HTML are copied
-into snapshots. These records support later indexing and revision work and do
-not establish semantic completeness or backup guarantees.
+into snapshots. These records support indexing and revision history and do not establish semantic
+completeness or backup guarantees.
 
 ## Bounds and handoff
 
@@ -105,7 +112,7 @@ when the current schema fingerprint changes, following [setup](../development.md
 初回基準と変更のない項目は取得しない。更新検知の成功と資料取得の成功を区別し、
 `Result.materials`へ成功した観測、`Result.material_errors`へ一時的な失敗を返す。
 失敗は[Sentryインターフェース](ingestion-errors.md)へ報告し、DBのエラー管理一覧や再処理は
-導入しない。この段階では検索登録とPDF本文抽出は行わない。
+導入しない。取得に成功した資料は後続処理で本文を抽出し、検索登録する。
 
 ## 有効化前の設定
 
@@ -123,6 +130,12 @@ HTMLだけの取得には保存クライアントは不要。
 単一の`article`、表題と一致する単一の`h1`、異なるPDFリンクが最大一つという条件を必須とする。
 過去分の複数PDFがあれば曖昧とする。曖昧なページは保持・巡回せず、フィードに明示された
 PDF参照は独立して取得できる。
+
+資料の識別には取得前URLのクエリーとfragmentを含む全体を使用する。その取得先について確認した
+場合に限り、`material_identity_ignore_query_params`で除外するクエリーパラメータ名を指定し、
+`material_identity_ignore_fragment`を`true`にできる。これらは識別比較だけに影響し、取得や
+出典情報には影響しない。設定の変更は既存の改訂関係を書き換えず、観測も再処理しない。
+履歴の分断を避けるため取得先を有効にする前に設定する。
 
 設定確認後に有効化する。ポリシー変更で過去の失敗項目を再処理しない。
 最初の正常なフィード取得では引き続き基準だけを作り、既存項目を取得しない。
@@ -144,7 +157,7 @@ URLでも、PDF応答を直接取得できる。RustFSへバイト列を保存�
 
 成功した観測は追記専用の`feed_materials`行となる。HTML行は本文を保持して原本参照を持たず、
 PDF行は原本参照を保持してバイト列のコピーや抽出本文を持たない。応答ヘッダーと生のフィードHTMLは
-snapshotへコピーしない。これらは後続の検索登録・改訂管理に使用し、内容の完全性やバックアップを
+snapshotへコピーしない。これらは検索登録・改訂管理に使用し、内容の完全性やバックアップを
 保証しない。
 
 ## 上限と受け渡し

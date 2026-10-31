@@ -257,6 +257,253 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert response["material"]["text"] =~ "出典対応の本文"
   end
 
+  test "same material URL advances current search and exposes its earlier revision" do
+    {:ok, body} = Agent.start_link(fn -> "旧版固有本文" end)
+
+    url =
+      server(fn _ ->
+        html("<article><h1>Results</h1><p>#{Agent.get(body, & &1)}</p></article>")
+      end)
+
+    source = source(url)
+    [old] = Materials.acquire(signal(source, url <> "/release")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([old])
+    Agent.update(body, fn _ -> "新版固有本文" end)
+    [new] = Materials.acquire(signal(source, url <> "/release")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([new])
+    assert {:ok, []} = Lens.Search.search("旧版固有本文")
+    assert {:ok, [result]} = Lens.Search.search("新版固有本文")
+    assert result.id == new.id
+    response = build_conn() |> get(result.provenance_url) |> json_response(200)
+    assert response["material"]["previous_revision_id"] == old.id
+    old_response = build_conn() |> get("/api/feed-materials/#{old.id}") |> json_response(200)
+    assert old_response["material"]["text"] =~ "旧版固有本文"
+  end
+
+  test "unchanged material is not a new revision and different URLs remain searchable" do
+    url = server(fn path -> html("<article><h1>Results</h1><p>共通資料 #{path}</p></article>") end)
+    source = source(url)
+    [first] = Materials.acquire(signal(source, url <> "/first")).materials
+    [duplicate] = Materials.acquire(signal(source, url <> "/first")).materials
+    [other] = Materials.acquire(signal(source, url <> "/other")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([first, duplicate, other])
+    assert {:ok, results} = Lens.Search.search("共通資料")
+    assert Enum.sort(Enum.map(results, & &1.id)) == Enum.sort([first.id, other.id])
+  end
+
+  test "URL query and fragment distinguish HTML material unless explicitly excluded" do
+    url = server(fn path -> html("<article><h1>Results</h1><p>異なる資料 #{path}</p></article>") end)
+    source = source(url)
+    [a] = Materials.acquire(signal(source, url <> "/default?view=one")).materials
+    [b] = Materials.acquire(signal(source, url <> "/default?view=two")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([a, b])
+    assert {:ok, results} = Lens.Search.search("異なる資料")
+    assert Enum.sort(Enum.map(results, & &1.id)) == Enum.sort([a.id, b.id])
+
+    {:ok, source} =
+      Content.update_source(source, %{
+        acquisition_metadata: %{
+          "material_origins" => [url],
+          "material_identity_ignore_query_params" => ["tracking"]
+        }
+      })
+
+    [c] = Materials.acquire(signal(source, url <> "/configured?tracking=one")).materials
+    [d] = Materials.acquire(signal(source, url <> "/configured?tracking=two")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([c, d])
+    assert {:ok, results} = Lens.Search.search("異なる資料")
+    assert Enum.sort(Enum.map(results, & &1.id)) == Enum.sort([a.id, b.id, d.id])
+  end
+
+  test "feed-visible updates advance a revision and failed acquisition preserves it" do
+    {:ok, state} = Agent.start_link(fn -> :old end)
+
+    url =
+      server(fn _ ->
+        case Agent.get(state, & &1) do
+          :old -> html("<article><h1>Results</h1><p>旧版発見本文</p></article>")
+          :new -> html("<article><h1>Results</h1><p>新版発見本文</p></article>")
+          :failed -> {503, [], ""}
+        end
+      end)
+
+    source = source(url)
+
+    feed = fn version ->
+      item =
+        if version == 0,
+          do: "",
+          else:
+            "<item><guid>one</guid><title>Results</title><link>#{url}/release</link><description>#{version}</description></item>"
+
+      fn _ ->
+        {:ok, %{status: 200, headers: %{}, body: "<rss><channel>#{item}</channel></rss>"}}
+      end
+    end
+
+    Lens.Ingestion.ingest(source, transport: feed.(0))
+    assert %{materials: [first]} = Lens.Ingestion.ingest(source, transport: feed.(1))
+    assert %{materials: []} = Lens.Ingestion.ingest(source, transport: feed.(1))
+    Agent.update(state, fn _ -> :new end)
+
+    assert %{materials: [second], material_errors: []} =
+             Lens.Ingestion.ingest(source, transport: feed.(2))
+
+    assert {:ok, []} = Lens.Search.search("旧版発見本文")
+    assert {:ok, [result]} = Lens.Search.search("新版発見本文")
+    assert result.id == second.id
+
+    assert (build_conn()
+            |> get(result.provenance_url)
+            |> json_response(200))["material"]["previous_revision_id"] == first.id
+
+    Agent.update(state, fn _ -> :failed end)
+
+    assert %{material_errors: [%{stage: :acquisition}]} =
+             Lens.Ingestion.ingest(source, transport: feed.(3))
+
+    assert {:ok, [result]} = Lens.Search.search("新版発見本文")
+    assert result.id == second.id
+  end
+
+  test "fragment identity remains distinct unless the source excludes fragments" do
+    url =
+      server(fn _ -> html("<section id='a'>範囲一の本文</section><section id='b'>範囲二の本文</section>") end)
+
+    source = source(url)
+    [first] = Materials.acquire(signal(source, url <> "/default#a")).materials
+    [second] = Materials.acquire(signal(source, url <> "/default#b")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([first, second])
+    assert {:ok, [result]} = Lens.Search.search("範囲一の本文")
+    assert result.id == first.id
+
+    {:ok, source} =
+      Content.update_source(source, %{
+        acquisition_metadata: %{
+          "material_origins" => [url],
+          "material_identity_ignore_fragment" => true
+        }
+      })
+
+    [old] = Materials.acquire(signal(source, url <> "/configured#a")).materials
+    [new] = Materials.acquire(signal(source, url <> "/configured#b")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([old, new])
+    assert {:ok, results} = Lens.Search.search("範囲一の本文")
+    refute Enum.any?(results, &(&1.id == old.id))
+    assert {:ok, results} = Lens.Search.search("範囲二の本文")
+    assert Enum.any?(results, &(&1.id == new.id))
+  end
+
+  test "an empty query remains distinct when no query parameters are excluded" do
+    url = server(fn _ -> html("<article><h1>Results</h1><p>空クエリー資料</p></article>") end)
+    source = source(url)
+    [plain] = Materials.acquire(signal(source, url <> "/query")).materials
+    [empty] = Materials.acquire(signal(source, url <> "/query?")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([plain, empty])
+    assert {:ok, results} = Lens.Search.search("空クエリー資料")
+    assert Enum.sort(Enum.map(results, & &1.id)) == Enum.sort([plain.id, empty.id])
+  end
+
+  test "each observation keeps the identity policy in effect when it was acquired" do
+    url = server(fn path -> html("<article><h1>Results</h1><p>規則変更 #{path}</p></article>") end)
+    source = source(url)
+    [old] = Materials.acquire(signal(source, url <> "/policy?token=one")).materials
+
+    {:ok, source} =
+      Content.update_source(source, %{
+        acquisition_metadata: %{
+          "material_origins" => [url],
+          "material_identity_ignore_query_params" => ["token"]
+        }
+      })
+
+    [new] = Materials.acquire(signal(source, url <> "/policy?token=two")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([old, new])
+    assert {:ok, results} = Lens.Search.search("規則変更")
+    assert Enum.sort(Enum.map(results, & &1.id)) == Enum.sort([old.id, new.id])
+  end
+
+  test "HTML source reference changes create a new revision even when text is unchanged" do
+    {:ok, link} = Agent.start_link(fn -> "/source-one" end)
+
+    url =
+      server(fn _ ->
+        html(
+          "<article><h1>Results</h1><p>出典本文</p><a href='#{Agent.get(link, & &1)}'>Reference</a></article>"
+        )
+      end)
+
+    source = source(url)
+    [old] = Materials.acquire(signal(source, url <> "/release")).materials
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([old])
+    Agent.update(link, fn _ -> "/source-two" end)
+    [new] = Materials.acquire(signal(source, url <> "/release")).materials
+    assert old.content_hash == new.content_hash
+    assert [] == Lens.Ingestion.MaterialIndex.index_many([new])
+    assert {:ok, [result]} = Lens.Search.search("出典本文")
+    assert result.id == new.id
+    response = build_conn() |> get(result.provenance_url) |> json_response(200)
+    assert response["material"]["previous_revision_id"] == old.id
+  end
+
+  test "replaced PDF retains its original and links to the previous version" do
+    {:ok, bytes} = Agent.start_link(fn -> @pdf end)
+    url = server(fn _ -> {200, [{"Content-Type", "application/pdf"}], Agent.get(bytes, & &1)} end)
+    source = source(url)
+    [old] = Materials.acquire(signal(source, url <> "/report.pdf"), rustfs: storage()).materials
+
+    assert [] ==
+             Lens.Ingestion.MaterialIndex.index_many([old],
+               rustfs: storage(),
+               extractor: TextExtractor
+             )
+
+    replacement = "%PDF-1.7\nreplacement report"
+    Agent.update(bytes, fn _ -> replacement end)
+
+    [new] =
+      Materials.acquire(signal(source, url <> "/report.pdf"), rustfs: storage(replacement)).materials
+
+    assert [] ==
+             Lens.Ingestion.MaterialIndex.index_many([new],
+               rustfs: storage(replacement),
+               extractor: TextExtractor
+             )
+
+    refute old.original_id == new.original_id
+    assert Repo.get!(Original, old.original_id).sha256 == digest(@pdf)
+    assert {:ok, [result]} = Lens.Search.search("PDF 利益")
+    assert result.id == new.id
+    response = build_conn() |> get(result.provenance_url) |> json_response(200)
+    assert response["material"]["previous_revision_id"] == old.id
+    historical = build_conn() |> get("/api/feed-materials/#{old.id}") |> json_response(200)
+    assert historical["material"]["original_id"] == old.original_id
+  end
+
+  test "failed PDF replacement preserves the last successful searchable revision" do
+    url = server(fn _ -> pdf() end)
+    source = source(url)
+    [first] = Materials.acquire(signal(source, url <> "/report.pdf"), rustfs: storage()).materials
+
+    assert [] ==
+             Lens.Ingestion.MaterialIndex.index_many([first],
+               rustfs: storage(),
+               extractor: TextExtractor
+             )
+
+    [failed] =
+      Materials.acquire(signal(source, url <> "/report.pdf"), rustfs: storage()).materials
+
+    assert [%{stage: :extraction}] =
+             Lens.Ingestion.MaterialIndex.index_many([failed],
+               rustfs: storage(),
+               extractor: EmptyExtractor
+             )
+
+    assert {:ok, [result]} = Lens.Search.search("PDF 利益")
+    assert result.id == first.id
+  end
+
   test "indexes retained PDF text without inventing a release" do
     url = server(fn _ -> pdf() end)
     source = source(url)
