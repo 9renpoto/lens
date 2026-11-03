@@ -23,7 +23,7 @@ RUN cc -std=c11 -O2 -Wall -Wextra -Werror priv/pdf_runner.c -o priv/pdf_runner \
     && mix compile \
     && mix release
 
-FROM debian:bookworm-20261005-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+FROM debian:bookworm-20261020-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y ca-certificates curl libncurses5 libstdc++6 openssl poppler-utils poppler-data \
