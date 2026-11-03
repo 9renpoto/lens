@@ -1,3 +1,22 @@
+## v0.4.0 (2026-11-03)
+<!-- Release notes generated using configuration in .github/release.yml at 3233b61aea6f26534e9a6d8553c8ae8aa41d2644 -->
+
+## What's Changed
+### :memo: Documentation
+* docs: define feed-driven earnings ingestion by @9renpoto in https://github.com/9renpoto/lens/pull/239
+### :rocket: Type: Feature
+* feat: compare configurable assessment models through Ollama by @9renpoto in https://github.com/9renpoto/lens/pull/231
+* feat: add sanitized Sentry ingestion error reporting by @9renpoto in https://github.com/9renpoto/lens/pull/240
+* feat: detect new and changed earnings feed items by @9renpoto in https://github.com/9renpoto/lens/pull/241
+* feat: acquire earnings material with source references by @9renpoto in https://github.com/9renpoto/lens/pull/243
+* Index acquired earnings feed materials by @9renpoto in https://github.com/9renpoto/lens/pull/248
+* Preserve feed material revisions by @9renpoto in https://github.com/9renpoto/lens/pull/249
+### Other Changes
+* build(deps): bump zizmorcore/zizmor-action from 0.6.2 to 0.7.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/244
+* build(deps): bump reviewdog/action-actionlint from 1.80.0 to 1.80.4 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/246
+
+
+**Full Changelog**: https://github.com/9renpoto/lens/compare/v0.3.0...v0.4.0
 ## v0.3.0 (2026-10-25)
 <!-- Release notes generated using configuration in .github/release.yml at b784b91fa5e6630aed46f694affb52bcc1d5822b -->
 
