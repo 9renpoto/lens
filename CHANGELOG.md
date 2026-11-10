@@ -1,3 +1,36 @@
+## v0.4.0 (2026-11-10)
+<!-- Release notes generated using configuration in .github/release.yml at 5a01854c5bd49e89100ad5a265fc6a00ee0da002 -->
+
+## What's Changed
+### :memo: Documentation
+* docs: define feed-driven earnings ingestion by @9renpoto in https://github.com/9renpoto/lens/pull/239
+### :rocket: Type: Feature
+* feat: compare configurable assessment models through Ollama by @9renpoto in https://github.com/9renpoto/lens/pull/231
+* feat: add sanitized Sentry ingestion error reporting by @9renpoto in https://github.com/9renpoto/lens/pull/240
+* feat: detect new and changed earnings feed items by @9renpoto in https://github.com/9renpoto/lens/pull/241
+* feat: acquire earnings material with source references by @9renpoto in https://github.com/9renpoto/lens/pull/243
+* Index acquired earnings feed materials by @9renpoto in https://github.com/9renpoto/lens/pull/248
+* Preserve feed material revisions by @9renpoto in https://github.com/9renpoto/lens/pull/249
+### Other Changes
+* build(deps): bump zizmorcore/zizmor-action from 0.6.2 to 0.7.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/244
+* build(deps): bump reviewdog/action-actionlint from 1.80.0 to 1.80.4 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/246
+* build(deps): bump debian from bookworm-20261005-slim to bookworm-20261020-slim by @dependabot[bot] in https://github.com/9renpoto/lens/pull/257
+* build(deps): bump reviewdog/action-actionlint from 1.80.4 to 1.80.6 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/255
+* build(deps): bump docker/login-action from 4.6.0 to 4.7.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/256
+* build(deps): bump bandit from 1.12.5 to 1.14.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/253
+* build(deps): bump zizmorcore/zizmor-action from 0.7.1 to 0.8.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/251
+* build(deps-dev): bump castore from 1.0.21 to 1.0.22 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/252
+* build(deps): bump phoenix from 1.8.15 to 1.8.16 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/254
+* build(deps): bump zizmorcore/zizmor-action from 0.8.0 to 0.8.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/258
+* build(deps): bump crate-ci/typos from 1.51.1 to 1.52.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/262
+* build(deps): bump sentry from 14.0.0 to 14.0.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/263
+* build(deps): bump debian from bookworm-20261020-slim to bookworm-20261027-slim by @dependabot[bot] in https://github.com/9renpoto/lens/pull/264
+* build(deps): bump floki from 0.38.4 to 0.38.5 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/261
+* build(deps): bump reviewdog/action-actionlint from 1.80.6 to 1.81.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/260
+* build(deps): bump saxy from 1.6.1 to 1.7.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/259
+
+
+**Full Changelog**: https://github.com/9renpoto/lens/compare/v0.3.0...v0.4.0
 ## v0.3.0 (2026-10-25)
 <!-- Release notes generated using configuration in .github/release.yml at b784b91fa5e6630aed46f694affb52bcc1d5822b -->
 
