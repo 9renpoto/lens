@@ -16,6 +16,53 @@ Every persisted check retains source ID, target ID and the registered listing UR
 
 Collection does not invoke extraction, classification or operator adoption. Use the [bounded value-validation procedure](earnings-value-validation.md) to inspect collected originals and search results.
 
+## Acquire a verified new PDF for notification RSS
+
+Use a separate current-schema database and RustFS bucket for verification. The
+person specifying the source verifies the listing, the publisher's conditions,
+the PDF URL, and the release's publication time. Keep actual identifiers, URLs,
+and evidence in private operational records. Pass the enabled registered source
+ID and the complete resolved PDF URL from its listing, including any query
+string, as positional arguments. Use the reviewed final URLs for both
+requests. Record the start time in UTC. This invocation starts only the database
+and HTTP dependencies and leaves scheduled ingestion idle.
+
+```sh
+mix lens.earnings.collect SOURCE_ID 'https://publisher.invalid/selected.pdf?edition=2'
+```
+
+The run requires exactly one matching anchor. A missing or ambiguous match,
+an unreadable listing, an exhausted budget, or an unsuccessful HTTP request
+stops the run. Redirects also stop the run. Review the destination before updating
+the registered listing or specifying a different PDF URL present in the listing.
+The command validates the source ID and URL format before collecting. It reports
+the recorded check IDs and outcomes, and exits with an error if collection stops.
+Callers using `Collector.run_selected/3` can also supply an `allowed_url?` policy
+for both requests. Inspect the result privately. Proceed only with a successful
+PDF check for the selected URL. After interruption, inspect `earnings_http_checks`
+for the source ID in `metadata` and the run's time window. Use the PDF check's
+`acquisition_id` to find its row in `earnings_acquisitions`. If there is no PDF
+check, inspect acquisitions by issuer, exact URL, and time for any storage
+failure. Continue from a successful record only after verifying its original.
+If a database commit fails after an object write, follow the storage guidance above.
+
+Use the successful PDF check's acquisition row ID to find the original ID and
+the provenance acquisition ID, as in the [value-validation procedure](earnings-value-validation.md).
+Retrieve the exact retained original and verify it against the selected release.
+Run `mix lens.earnings.extract --original ORIGINAL_ID`, then review the extracted
+text and use `Lens.Earnings.confirm_identity/2` with the provenance acquisition
+ID and the identity supported by the PDF. Stop if the original is unavailable,
+extraction fails, or identity is uncertain. Read the [notification RSS](earnings-feed.md)
+and verify the item, full text, original link, and GUID across repeated reads.
+
+A collection rerun requests the PDF again and records a new acquisition attempt.
+Identical bytes reuse the retained original. Confirming the same release identity
+in the same database reuses its UUID and RSS GUID. Resume interrupted downstream
+steps from a successful acquisition when its original and provenance can be
+verified. Preserve release records and consumer history. Synthetic verification
+covers the isolated procedure. Production delivery and the next poll's no-resend
+check require separate operational acceptance.
+
 <details>
 <summary>日本語</summary>
 
@@ -36,5 +83,44 @@ mix run -e 'IO.inspect(Lens.Earnings.Collector.run())'
 各確認記録の `metadata` は取得先ID、対象ID、登録一覧URLを保持する。PDF確認は一覧確認ID、一覧応答の最終URL、観測したhref、解決済み資料URL、リンク文字列、見出しも保持する。一覧確認は応答の最終URLを保持する。設定変更や無効化でこれらの記録を書き換えない。受理PDFでは、オブジェクト通信前にHTTP観測情報を検証し、条件付き保存とサイズ・SHA-256の検証が完了するまでバイト列をメモリ上だけで保持する。その後、不変のRustFS参照を持つ原本・取得・変更不可のHTTP確認を同時に確定する。DBコミット失敗では実行を停止し、RustFSに参照されない変更不可のオブジェクトが残る場合があるが、整理のために削除しない。後の同一内容の条件付き書込では検証して再利用する。プロセス終了では、完了した取得を作らずメモリ上の観測情報を失う可能性がある。成功PDF確認は、短信識別を持たない取得記録から、不変でバイト単位の重複を排除した原本を参照する。再実行は別の確認・取得試行を作るが、同一バイト列は原本を再利用する。リクエスト開始後のPDF失敗は失敗取得記録を保持し、304応答と送信前の失敗は取得記録を捏造しない。
 
 収集は抽出・分類・運用者による採用を呼び出さない。[上限付きの価値検証手順](earnings-value-validation.md)で取得原本と検索結果を確認する。
+
+## 確認済みの新着 PDF を通知用 RSS に載せる
+
+検証には現行スキーマの独立した DB と RustFS バケットを使う。取得先を指定する人が、
+一覧、公開元の条件、PDF の URL、リリースの公開時期を確認する。実際の識別子・URL・
+証跡は非公開の運用記録に置く。有効な登録済み取得先 ID と、その一覧に掲載された
+解決済み PDF の完全な URL をクエリ文字列も含めて位置引数として渡す。両方のリクエストに
+確認済みの最終 URL を使い、開始時刻を UTC で記録する。この実行では DB と HTTP の依存アプリ
+だけを起動し、定期取り込みは開始しない。
+
+```sh
+mix lens.earnings.collect SOURCE_ID 'https://publisher.invalid/selected.pdf?edition=2'
+```
+
+リンクが1つだけ一致することを要求する。一致なし、曖昧な一致、一覧を読み取れない場合、
+実行上限への到達、HTTP リクエストの失敗で停止する。リダイレクトでも停止する。
+遷移先を確認してから登録一覧を更新するか、一覧に掲載された別の PDF URL を指定する。
+コマンドは収集前に取得先 ID と URL の形式を検証し、保存した確認記録の ID と結果を返す。
+収集が停止した場合はエラーで終了する。`Collector.run_selected/3` を使う呼び出し側は、
+両方のリクエストに適用する `allowed_url?` ポリシーも指定できる。結果は非公開で確認し、
+指定 URL の PDF 取得成功を確認してから先へ進む。中断後は
+`earnings_http_checks` を `metadata` の取得先 ID と実行時間帯で調べる。PDF 確認記録の
+`acquisition_id` で `earnings_acquisitions` の行を確認する。PDF 確認記録がない場合は、
+取得履歴を発行元、完全な URL、実行時間帯で調べ、保存失敗の有無を確認する。取得成功記録から
+再開する前に保存原本を検証する。オブジェクト保存後に DB のコミットが失敗した場合は上記の
+保存障害時の手順に従う。
+
+[価値検証手順](earnings-value-validation.md) と同様に、成功した PDF 確認記録の取得行 ID
+から保存原本 ID と出典用取得 ID を確認する。保存原本を取得して対象リリースと照合する。
+`mix lens.earnings.extract --original ORIGINAL_ID` で抽出して本文を確認し、出典用取得 ID と
+PDF が裏付ける識別情報を `Lens.Earnings.confirm_identity/2` に渡す。原本を取得できない
+場合、抽出が失敗した場合、識別が確定できない場合は停止する。[通知用 RSS](earnings-feed.md)
+を読み、対象項目、全文、原本リンク、繰り返し読み取ったときの GUID を確認する。
+
+収集を再実行すると PDF を再要求し、新しい取得試行を記録する。バイト列が同じなら保存原本を
+再利用する。同じ DB で同じリリース識別を確定すると UUID と RSS GUID を再利用する。
+後続手順が中断した場合、保存原本と出典を確認できる取得成功記録から再開する。リリース記録と
+通知側の履歴を保持する。合成データによる検証は隔離環境での手順を確認する。本番配信と
+次回巡回での再送なしは別途運用受け入れで確認する。
 
 </details>

@@ -12,24 +12,58 @@ defmodule Lens.Earnings.Collector do
   def run(options \\ []) do
     with {:ok, budget} <- RunBudget.new(options),
          {:ok, client} <- storage_client(options) do
-      state = %{budget: budget, checks: [], errors: [], stopped: nil}
-      policy = Keyword.get(options, :allowed_url?, &HTTPCheck.valid_url?/1)
+      http = [allowed_url?: Keyword.get(options, :allowed_url?, &HTTPCheck.valid_url?/1)]
 
       state =
-        Enum.reduce_while(SourceCatalog.all(enabled_only: true), state, fn source, state ->
-          state = collect(source, state, policy, client)
+        Enum.reduce_while(SourceCatalog.all(enabled_only: true), new_run(budget), fn source,
+                                                                                     state ->
+          state = collect(source, state, http, client, :prefix)
 
           if state.stopped, do: {:halt, state}, else: {:cont, state}
         end)
 
-      {:ok, %{state | checks: Enum.reverse(state.checks), errors: Enum.reverse(state.errors)}}
+      finish(state)
     end
   end
 
-  defp collect(source, state, policy, client) do
+  @doc "Acquire one exact PDF URL from a single enabled registered source."
+  def run_selected(source_id, pdf_url, options \\ []) do
+    with {:ok, source} <- enabled_source(source_id),
+         true <- HTTPCheck.valid_url?(pdf_url),
+         {:ok, budget} <- RunBudget.new(options),
+         {:ok, client} <- storage_client(options) do
+      http = [
+        allowed_url?: Keyword.get(options, :allowed_url?, &HTTPCheck.valid_url?/1),
+        max_redirects: 0
+      ]
+
+      source
+      |> collect(new_run(budget), http, client, {:selected, pdf_url})
+      |> finish()
+    else
+      false -> {:error, :invalid_selected_pdf_url}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp enabled_source(id) do
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         [source] <- SourceCatalog.all(enabled_only: true, source_id: id) do
+      {:ok, source}
+    else
+      _ -> {:error, :enabled_source_not_found}
+    end
+  end
+
+  defp new_run(budget), do: %{budget: budget, checks: [], errors: [], stopped: nil}
+
+  defp finish(state),
+    do: {:ok, %{state | checks: Enum.reverse(state.checks), errors: Enum.reverse(state.errors)}}
+
+  defp collect(source, state, http, client, mode) do
     metadata = Map.take(source, [:target_id, :listing_url]) |> Map.put(:source_id, source.id)
 
-    case fetch(source, source.listing_url, :listing, metadata, state, policy, client) do
+    case fetch(source, source.listing_url, :listing, metadata, state, http, client) do
       {:ok, %{outcome: :success} = result, state} ->
         metadata =
           Map.merge(metadata, %{
@@ -39,45 +73,60 @@ defmodule Lens.Earnings.Collector do
 
         remaining_operations = state.budget.max_operations - state.budget.operations
 
-        case discover(result, remaining_operations) do
+        case discover(result, remaining_operations, mode) do
           {:ok, links} ->
-            Enum.reduce_while(links, state, fn link, state ->
-              link =
-                Map.update!(link, :headings, fn headings ->
-                  Enum.map(headings, fn {level, text} -> %{level: level, text: text} end)
-                end)
-
-              metadata = Map.merge(Map.drop(link, [:comparison_url]), metadata)
-
-              case fetch(source, link.url, :pdf, metadata, state, policy, client) do
-                {:ok, _, state} -> {:cont, state}
-                {:error, state} -> {:halt, state}
-              end
-            end)
+            collect_links(links, source, metadata, state, http, client, mode)
 
           {:error, :operation_budget_exhausted} ->
             %{state | stopped: :operation_budget_exhausted}
 
           {:error, reason} ->
-            %{state | errors: [%{source_id: source.id, reason: reason} | state.errors]}
+            state = %{state | errors: [%{source_id: source.id, reason: reason} | state.errors]}
+            stop_selected(state, mode, reason)
         end
 
       {:ok, _, state} ->
-        state
+        stop_selected(state, mode, :selected_listing_fetch_failed)
 
       {:error, state} ->
         state
     end
   end
 
-  defp discover(_, remaining_operations) when remaining_operations <= 0,
+  defp collect_links(links, source, metadata, state, http, client, mode) do
+    Enum.reduce_while(links, state, fn link, state ->
+      link =
+        Map.update!(link, :headings, fn headings ->
+          Enum.map(headings, fn {level, text} -> %{level: level, text: text} end)
+        end)
+
+      metadata = Map.merge(Map.drop(link, [:comparison_url]), metadata)
+
+      case fetch(source, link.url, :pdf, metadata, state, http, client) do
+        {:ok, %{outcome: :success}, state} -> {:cont, state}
+        {:ok, _, state} -> {:cont, stop_selected(state, mode, :selected_pdf_fetch_failed)}
+        {:error, state} -> {:halt, state}
+      end
+    end)
+  end
+
+  defp stop_selected(state, :prefix, _), do: state
+  defp stop_selected(state, {:selected, _}, reason), do: %{state | stopped: reason}
+
+  defp discover(_, remaining_operations, _) when remaining_operations <= 0,
     do: {:error, :operation_budget_exhausted}
 
-  defp discover(result, remaining_operations),
+  defp discover(result, remaining_operations, :prefix),
     do: Discovery.links(result.final_url, result.bytes, max_links: remaining_operations)
 
-  defp fetch(source, url, kind, metadata, state, policy, client) do
-    case RunBudget.fetch(state.budget, url, kind: kind, allowed_url?: policy) do
+  defp discover(result, _, {:selected, pdf_url}) do
+    with {:ok, link} <- Discovery.select(result.final_url, result.bytes, pdf_url) do
+      {:ok, [link]}
+    end
+  end
+
+  defp fetch(source, url, kind, metadata, state, http, client) do
+    case RunBudget.fetch(state.budget, url, Keyword.put(http, :kind, kind)) do
       {:ok, result, budget} ->
         attrs = %{
           check_id: Ecto.UUID.generate(),
