@@ -61,7 +61,11 @@ defmodule Lens.Ingestion.Materials do
           do: error(state, :association, :missing_material_reference),
           else: state
 
-      state = run(state, source, signal, policy, options)
+      state =
+        state
+        |> run(source, signal, policy, options)
+        |> check_required_html(source.acquisition_metadata["html_selector"])
+
       %{materials: Enum.reverse(state.materials), errors: Enum.reverse(state.errors)}
     else
       false -> failure(:acquisition, :invalid_acquisition_configuration)
@@ -72,6 +76,22 @@ defmodule Lens.Ingestion.Materials do
       ErrorReporter.report(:acquisition, error)
       %{materials: [], errors: [%{stage: :acquisition, reason: :processing_failed}]}
   end
+
+  defp check_required_html(%{errors: []} = state, selector)
+       when is_binary(selector) and selector != "" do
+    selected? =
+      Enum.any?(state.materials, fn
+        %{kind: "html", provenance: %{"selector" => ^selector} = provenance} ->
+          is_nil(provenance["association"])
+
+        _ ->
+          false
+      end)
+
+    if selected?, do: state, else: error(state, :association, :required_html_not_acquired)
+  end
+
+  defp check_required_html(state, _), do: state
 
   defp run(%{pending: []} = state, _, _, _, _), do: state
 
@@ -246,6 +266,7 @@ defmodule Lens.Ingestion.Materials do
           :entry_url,
           :canonical_url,
           :published_at,
+          :publisher_published_at,
           :updated_at
         ])
         |> json_map()

@@ -1,34 +1,85 @@
 defmodule Lens.Earnings.Feed do
-  @moduledoc "RSS publication of existing selected earnings text."
+  @moduledoc "Read-only RSS publication of acquired updates and retained earnings releases."
 
+  import Ecto.Query
   import Saxy.XML, only: [element: 3, characters: 1]
 
-  def entries(issuer_code) do
-    issuer_code |> Lens.Search.Earnings.feed_query() |> Lens.Repo.all()
+  alias Lens.Ingestion.Material
+  alias Lens.Repo
+  alias Lens.Search.Earnings
+
+  def entries(base_url), do: release_entries(base_url) ++ update_entries()
+
+  defp release_entries(base_url) do
+    Earnings.feed_query()
+    |> Repo.all()
+    |> Enum.map(fn release ->
+      %{
+        guid: "urn:uuid:" <> release.id,
+        title: release.title,
+        content: release.content,
+        link: base_url <> "/api/earnings/originals/" <> release.original_id,
+        published_at: release.published_at
+      }
+    end)
   end
+
+  defp update_entries do
+    from(material in Material,
+      join: extraction in "feed_material_extractions",
+      on: extraction.material_id == material.id,
+      where: material.kind == "html",
+      # Configured selectors record a selector without the title-matching fallback marker.
+      where:
+        fragment(
+          "?->>'selector' IS NOT NULL AND ?->>'association' IS NULL",
+          material.provenance,
+          material.provenance
+        ),
+      order_by: [asc: material.acquired_at, asc: material.id],
+      select: {material.id, material.entry_snapshot, extraction.text, material.final_url}
+    )
+    |> Repo.all()
+    |> Enum.map(fn {id, entry, text, link} ->
+      %{
+        guid: "lens:feed-update:" <> id,
+        title: entry["title"],
+        content: text,
+        link: link,
+        published_at: publication_time(entry["publisher_published_at"])
+      }
+    end)
+  end
+
+  defp publication_time(date) when is_binary(date) do
+    case DateTime.from_iso8601(date) do
+      {:ok, time, _offset} -> time
+      _ -> nil
+    end
+  end
+
+  defp publication_time(_), do: nil
 
   def render(entries, base_url) do
     channel = [
       text_element("title", "Lens retained earnings"),
       text_element("link", base_url <> "/dashboard"),
-      text_element(
-        "description",
-        "Existing extracted earnings text; item titles are generated labels."
-      )
+      text_element("description", "Acquired earnings updates and confirmed releases.")
     ]
 
     element("rss", [{"version", "2.0"}], [
-      element("channel", [], channel ++ Enum.map(entries, &item(&1, base_url)))
+      element("channel", [], channel ++ Enum.map(entries, &item/1))
     ])
     |> Saxy.encode!(version: "1.0", encoding: :utf8)
   end
 
-  defp item(entry, base_url) do
+  defp item(entry) do
+    title = if is_binary(entry.title), do: [text_element("title", entry.title)], else: []
+
     children = [
-      element("guid", [{"isPermaLink", "false"}], characters("urn:uuid:" <> entry.id)),
-      text_element("title", entry.title),
+      element("guid", [{"isPermaLink", "false"}], characters(entry.guid)),
       text_element("description", "<pre>" <> html_text(entry.content) <> "</pre>"),
-      text_element("link", base_url <> "/api/earnings/originals/" <> entry.original_id)
+      text_element("link", entry.link)
     ]
 
     date =
@@ -47,7 +98,7 @@ defmodule Lens.Earnings.Feed do
           []
       end
 
-    element("item", [], children ++ date)
+    element("item", [], title ++ children ++ date)
   end
 
   defp text_element(name, text) do

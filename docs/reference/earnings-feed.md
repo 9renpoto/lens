@@ -1,171 +1,111 @@
-# Retained earnings RSS
+# Service RSS feed
 
-Lens exposes the already retained earnings information for one selected registered
-target through RSS 2.0, following [ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md).
-Feed retrieval reads existing data and does not collect publisher material,
-create candidates, confirm identities or start extraction.
-
-## Prepare the validation result
-
-For the release observation, use a separate disposable database initialized from
-the current schema under [ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md).
-Follow the [bounded collection and extraction procedure](earnings-value-validation.md)
-once for the operator-selected official source, including publisher-condition
-review and disabling the source after the run. Use that newly retained result
-for the RSS checks below. No older-schema data transfer is required. This explicit
-preparation is separate from feed retrieval, which remains read-only.
+Lens serves one read-only RSS 2.0 feed for acquired information and confirmed
+earnings releases under [ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md).
 
 ## Subscribe
 
-Use the registered target ID and successful retained result. Keep actual target
-identities, IDs, URLs and verification output in private, untracked operational
-notes. The placeholders below do not identify an operational target.
+Register the service URL with an RSS consumer inside the existing private access
+boundary. Use the Lens base URL that the consumer can reach. Configure the
+application endpoint URL accordingly because Lens uses it in links to retained
+originals.
 
 ```sh
 BASE_URL=http://127.0.0.1:4000
-TARGET_ID=EXISTING_TARGET_UUID
-curl --fail-with-body "$BASE_URL/feeds/targets/$TARGET_ID/earnings.rss"
+curl --fail-with-body "$BASE_URL/feeds/earnings.rss"
 ```
 
-Subscribe a conforming RSS consumer to that URL within the existing private/local
-access boundary. Configure `LensWeb.Endpoint`'s URL to the address the consumer
-can reach: item links use that configured base URL. A port-forward alone does not
-rewrite the emitted original links. In development, the configured URL defaults
-to `http://127.0.0.1:4000` and follows `PORT` when set; use the same origin for
-`BASE_URL`. This feature adds no public exposure or new authentication mechanism.
+The endpoint returns `application/rss+xml; charset=utf-8` and `Cache-Control: no-store`.
+A service with no eligible data returns a valid empty channel. Reading the feed
+only reads retained data. The consumer handles polling, notifications, and read
+state.
 
-An existing target with no eligible releases returns an empty RSS channel.
-Invalid or unknown target IDs return HTTP 404. Success returns
-`application/rss+xml; charset=utf-8` with `Cache-Control: no-store`.
+The service URL replaces the target-specific RSS URL. Register a new subscription
+at the service URL. The feed contract provides no subscription or notification
+history migration.
 
-## Item contract
+## Publication
 
-- One item per confirmed release for the target's issuer with a successful
-  acquisition and an existing successful extraction. Repeated acquisitions do
-  not duplicate items. Unconfirmed originals and other issuers are excluded.
-- Reuse the existing per-release text selection: the latest successful extraction
-  from the most recently first-acquired original that has successful text. If a
-  newer original has no successful text, the existing earlier successful text
-  remains selected. The original link always matches the selected extraction.
-- `title` is the existing generated display label, not the publisher's original
-  title. The channel description identifies these titles as generated labels.
-- `description` contains the full stored extracted text as escaped HTML inside
-  `<pre>`. Markup from the extracted text remains text. Page-break characters are
-  entity-encoded so the RSS remains valid XML. There is no excerpt truncation or
-  feed window in this prototype.
-- `link` opens `/api/earnings/originals/ORIGINAL_ID`, which reads the retained PDF
-  without contacting the publisher.
-- `guid` is `urn:uuid:RELEASE_ID` with `isPermaLink="false"`. Shared originals can
-  produce distinct release items. A changed selection within the same release
-  updates the text and original link under the same GUID, without guaranteeing a
-  new-item notification. Repeated reads preserve identity and use stable release-ID
-  ordering.
-- `pubDate` is emitted only for complete existing publication timestamps, including
-  time and timezone. The current selection has no complete publication timestamp,
-  so it is omitted; a date-only `published_on` is not converted to midnight, and
-  acquisition time is not substituted.
+- **Input updates.** Configure a feed source as described in [material acquisition](earnings-materials.md).
+  Supply an `html_selector` for the intended HTML body. A new or changed input
+  item publishes after the configured selector matches one element and yields
+  non-empty extracted text. The item contains the input title, extracted text,
+  and source URL. Missing or ambiguous evidence leaves that version out of the
+  feed. Each successful update gets its own GUID, including a changed input
+  whose extracted text is identical. Earlier successful updates remain readable.
+- **Confirmed releases.** A confirmed release with a successful acquisition and
+  extraction appears with its generated title, selected full text, corresponding
+  retained PDF link, and existing release GUID. A newer selected extraction can
+  update the item under the same GUID.
+- All GUIDs are opaque and stable across repeated reads. Lens sets `pubDate`
+  when a complete publisher publication timestamp is available. The feed
+  preserves extracted text using RSS and HTML escaping.
 
-## Verify the existing result
+Keep live source configurations, identifiers, and verification output in private
+operational records.
 
-With the new Lens code running and the existing retained data available:
+## Check a populated feed
+
+Run the read-only checker from the source checkout:
 
 ```sh
-MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
+MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL"
 ```
 
-Use the test environment so the checker can load its OTP `:xmerl` parser dependency.
-`--no-start` keeps the local Lens application stopped; `BASE_URL` selects the running
-service being observed. The checker only reads. It parses RSS with
-`Lens.Ingestion.Parser` and OTP `:xmerl`, compares repeated reads and GUIDs, compares
-the complete rendered text
-with the existing release-detail API, verifies that each original link matches the
-selected extraction and opens its retained PDF. It reports counts and pass/fail
-without printing target identities or content. No eligible items is a failure to
-complete this observation; report the missing data instead of silently collecting
-or creating substitutes. A passing local check demonstrates readable retained
-output and usable original links; production rollout and usefulness are separate
-observations.
+The checker verifies RSS parsing, unique GUIDs, and stable repeated reads. It
+checks retained text through the relevant Lens detail API and verifies retained
+PDF links for release items.
 
 <details>
 <summary>日本語</summary>
 
-# 保存済み決算情報のRSS
+# サービス共通 RSS
 
-Lensは[ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md)に従い、
-選択した登録済み対象1件の保存済み決算情報をRSS 2.0で取得可能にする。
-フィード取得は既存データを読み取り、発行元からの収集、候補作成、識別確定、
-本文抽出を起動しない。
-
-## 検証結果の準備
-
-リリースの観測には[ADR 0010](../adr/0010-defer-backups-for-disposable-development-data.md)に従い、
-現行スキーマで初期化した別の破棄可能なDBを使う。運用者が選定した公式取得先について、
-発行元条件の確認と実行後の取得先無効化を含む[上限付き収集・抽出手順](earnings-value-validation.md)を
-1回行い、新しく保存した結果を以下のRSS検証に使う。旧スキーマからのデータ移管は不要。
-この明示的な準備は、読み取り専用のフィード取得とは分ける。
+[ADR 0014](../adr/0014-publish-retained-earnings-through-rss.md) に従い、Lens は
+取得した情報と識別確定済みの決算リリースを1つの読み取り専用 RSS 2.0 フィードで提供する。
 
 ## 購読
 
-登録した対象IDと成功した保存済み結果を使う。実際の対象の識別情報、ID、URL、検証出力は
-非公開かつGit追跡対象外の運用メモで管理する。以下のプレースホルダーは実運用対象を
-識別するものではない。
+既存の非公開アクセス境界内で、サービス URL を RSS 購読側に登録する。購読側から
+到達できる Lens のベース URL を使う。保存原本へのリンクにはアプリのエンドポイント URL が
+使われるため、購読側から到達できるように設定する。
 
 ```sh
 BASE_URL=http://127.0.0.1:4000
-TARGET_ID=EXISTING_TARGET_UUID
-curl --fail-with-body "$BASE_URL/feeds/targets/$TARGET_ID/earnings.rss"
+curl --fail-with-body "$BASE_URL/feeds/earnings.rss"
 ```
 
-既存の非公開・ローカルアクセス境界内で、このURLを標準準拠のRSS購読側へ登録する。
-項目リンクには`LensWeb.Endpoint`に設定したベースURLを使うため、購読側から接続可能な
-URLを設定する。ポートフォワードだけでは出力する原本リンクは書き換わらない。
-開発環境の設定URLは既定で`http://127.0.0.1:4000`となり、`PORT`を設定すると
-その値に追従する。`BASE_URL`にも同じオリジンを使う。
-この機能は一般公開や新たな認証機構を追加しない。
+応答は `application/rss+xml; charset=utf-8` と `Cache-Control: no-store` を返す。
+対象データがない場合も、有効な空チャネルを返す。フィード取得では保存済みデータを読み、
+定期確認、通知、既読状態は購読側が管理する。
 
-既存の対象に適格なリリースがなければ空のRSSチャネルを返す。不正・未知の対象IDは
-HTTP 404とする。成功時は`application/rss+xml; charset=utf-8`と
-`Cache-Control: no-store`を返す。
+サービス URL は対象別 RSS URL を置き換える。サービス URL で新規に購読する。
+購読設定や通知履歴の移行処理は提供しない。
 
-## 項目の契約
+## 掲載
 
-- 対象の発行元に紐付く、成功した取得記録と既存の成功した抽出結果を持つ識別確定済み
-  リリースごとに1項目とする。再取得で項目を重複させず、識別未確定の原本や別発行元は
-  含めない。
-- 既存のリリース単位の本文選択を使う。成功した本文を持つ原本のうち最初の取得が最も
-  新しいものから、最新の成功した抽出結果を選ぶ。新しい原本に成功した本文がなければ、
-  既存の以前の成功した本文を選択し続ける。原本リンクは選択した抽出結果に必ず対応する。
-- `title`は既存の生成済み表示名であり、発行元の原題ではない。チャネルの説明にも
-  表題が生成済み表示名であることを記載する。
-- `description`は`<pre>`内にHTMLエスケープした保存済み抽出本文の全文を含める。
-  抽出本文中のマークアップはテキストとして扱う。改ページ文字は文字参照として出力し、
-  RSSを正しいXMLに保つ。このプロトタイプでは抜粋への切り詰めや取得期間の制限は設けない。
-- `link`は発行元へ接続せず保存済みPDFを読み取る
-  `/api/earnings/originals/ORIGINAL_ID`を開く。
-- `guid`は`urn:uuid:RELEASE_ID`、`isPermaLink="false"`とする。原本を共有する
-  別リリースは別項目にできる。同じリリース内の選択変更では同じGUIDのまま本文と原本
-  リンクを更新し、新着通知は保証しない。反復取得で識別子を維持し、リリースIDで安定した
-  順序を使う。
-- `pubDate`は時刻・タイムゾーンを含む既存の完全な公表日時がある場合だけ出力する。
-  現在の選択には完全な公表日時がないため省略する。日付のみの`published_on`を午前0時へ
-  変換せず、取得日時も代用しない。
+- **入力更新**。[資料取得の手順](earnings-materials.md) に従ってフィード取得先を設定し、
+  目的の HTML 本文に `html_selector` を指定する。新着または変更された入力項目は、指定の
+  セレクタが1要素に一致し、空でない本文を抽出できた場合に掲載する。項目には入力の表題、
+  抽出本文、出典 URL を含める。根拠がないか曖昧な版は掲載しない。抽出本文が同じでも入力に
+  変更があれば、成功した更新ごとに GUID を割り当てる。以前の成功版も引き続き読める。
+- **確定済みリリース**。取得・抽出に成功した識別確定済みリリースは、生成済み表題、
+  選択した抽出本文の全文、対応する保存 PDF のリンク、既存のリリース GUID とともに掲載する。
+  新しい抽出結果が選ばれると、同じ GUID のまま項目の内容を更新できる。
+- GUID は識別子として扱い、繰り返し読み取っても維持する。発行元の公表日時が揃う場合は
+  `pubDate` を設定する。RSS と HTML のエスケープで抽出本文を保持する。
 
-## 既存の結果の検証
+実ソースの設定、識別子、検証結果は非公開の運用記録に置く。
 
-新しいLensコードが動作し、既存の保存済みデータを使える状態で実行する。
+## 項目があるフィードを確認する
+
+ソースのチェックアウトから、読み取り専用の確認スクリプトを実行する。
 
 ```sh
-MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL" "$TARGET_ID"
+MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL"
 ```
 
-OTPの`:xmerl`パーサー依存を読み込むため、テスト環境を指定する。`--no-start`により
-ローカルのLensアプリは起動せず、`BASE_URL`で観測対象の稼働サービスを指定する。
-検証スクリプトは読み取りのみを行う。`Lens.Ingestion.Parser`とOTPの`:xmerl`でRSSを
-解析し、反復取得とGUIDを比較し、表示する全文を既存のリリース詳細APIと照合する。
-各原本リンクが選択した抽出結果に対応することを確認し、保存済みPDFを開く。
-対象の識別情報や内容を出力せず、件数と成否だけを報告する。適格な項目がなければ
-この観測を完了できないため、不足を報告し、黙って追加収集や代替データの作成を行わない。
-ローカル検証の成功は保存済み出力を読めることと原本リンクを使えることを示し、
-本番への反映や有用性は別の観測として扱う。
+スクリプトは RSS のパース、GUID の一意性、繰り返し読み取った際の安定性を確認する。
+対応する Lens の詳細 API で保存本文を照合し、リリース項目の保存 PDF リンクを検証する。
 
 </details>

@@ -31,7 +31,7 @@ The feed-source API accepts `ingestion_mode` (`document` or `earnings_updates`) 
 
 ## Retained earnings RSS
 
-`GET /feeds/targets/:target_id/earnings.rss` publishes the existing selected earnings text for a registered target. See the [RSS reference](reference/earnings-feed.md) for eligibility, release GUIDs, original links and the read-only local consumer check.
+`GET /feeds/earnings.rss` publishes eligible input updates and confirmed earnings releases through the service feed. See the [RSS reference](reference/earnings-feed.md) for eligibility, GUIDs, links and the read-only consumer check.
 
 ## Generate locally
 
@@ -92,7 +92,7 @@ GitHub Actions経由で公開するようGitHub Pagesを設定すると、リフ
 
 ## 保存済み決算情報のRSS
 
-`GET /feeds/targets/:target_id/earnings.rss`で、登録済み対象の既存の選択済み決算本文を公開する。対象条件、リリースGUID、原本リンク、読み取り専用のローカル購読側検証は[RSS参照資料](reference/earnings-feed.md)を参照する。
+`GET /feeds/earnings.rss` で、掲載条件を満たした入力更新と確定済み決算リリースをサービス共通フィードから取得できる。掲載条件、GUID、リンク、読み取り専用の購読側検証は [RSS 参照資料](reference/earnings-feed.md) を参照する。
 
 ## ローカルでの生成
 

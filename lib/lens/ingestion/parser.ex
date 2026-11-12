@@ -11,6 +11,7 @@ defmodule Lens.Ingestion.Parser do
           content: String.t() | nil,
           author: String.t() | nil,
           published_at: DateTime.t() | nil,
+          publisher_published_at: DateTime.t() | nil,
           entry_url: String.t() | nil,
           updated_at: DateTime.t() | nil,
           raw_content: String.t() | nil,
@@ -174,6 +175,8 @@ defmodule Lens.Ingestion.Parser do
           base_url
         ),
       updated_at: Normalizer.date(text(first_child(element, "updated"))),
+      publisher_published_at:
+        Normalizer.publisher_date(text(first_present(element, ["pubDate", "published", "date"]))),
       raw_content: raw,
       attachments: Enum.uniq(attachments),
       body_links:

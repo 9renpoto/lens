@@ -59,6 +59,41 @@ defmodule Lens.Ingestion.Normalizer do
     end
   end
 
+  @doc "Parse a publisher date only when its time zone is explicit."
+  def publisher_date(nil), do: nil
+
+  def publisher_date(value) when is_binary(value) do
+    value = String.trim(value)
+
+    case DateTime.from_iso8601(value) do
+      {:ok, date, _offset} -> date
+      _ -> publisher_rss_date(value)
+    end
+  end
+
+  defp publisher_rss_date(value) do
+    with [_, date, zone] <-
+           Regex.run(~r/\A(.+ \d{2}:\d{2}:\d{2}) (GMT|UT|UTC|[+-]\d{4})\z/, value),
+         %DateTime{} = datetime <- parse_http_date(date <> " GMT"),
+         offset when is_integer(offset) <- publisher_offset(zone) do
+      DateTime.add(datetime, -offset, :second)
+    else
+      _ -> nil
+    end
+  end
+
+  defp publisher_offset(zone) when zone in ["GMT", "UT", "UTC"], do: 0
+
+  defp publisher_offset(<<sign, hours::binary-size(2), minutes::binary-size(2)>>) do
+    hours = String.to_integer(hours)
+    minutes = String.to_integer(minutes)
+
+    if hours < 24 and minutes < 60 do
+      offset = hours * 3600 + minutes * 60
+      if sign == ?-, do: -offset, else: offset
+    end
+  end
+
   defp parse_http_date(value) do
     case :httpd_util.convert_request_date(String.to_charlist(value)) do
       {{year, month, day}, {hour, minute, second}} ->
