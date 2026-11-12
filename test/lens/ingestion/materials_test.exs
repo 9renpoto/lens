@@ -856,13 +856,152 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert text =~ "Results"
   end
 
-  defp source(url) do
+  test "publishes each successful input update with a stable GUID beside retained releases" do
+    url =
+      server(fn
+        "/failed" -> html("<aside>Unrelated text.</aside>")
+        _ -> html("<article><p>Recorded evidence.</p></article>")
+      end)
+
+    source = source(url, %{"html_selector" => "article"})
+
+    {:ok, retained} =
+      Lens.StorageFixtures.record_success(%{
+        bytes: @pdf,
+        acquisition_id: "confirmed-release",
+        issuer_code: "synthetic-issuer",
+        acquired_at: DateTime.utc_now(),
+        url: "https://publisher.invalid/retained.pdf",
+        release: %{fiscal_year_end: ~D[2030-03-31], period: "q1", category: "earnings_release"}
+      })
+
+    {:ok, extraction} = Lens.Earnings.Extractions.begin(retained.original.id, "fixture", "1")
+    {:ok, _} = Lens.Earnings.Extractions.succeed(extraction.id, "Retained release evidence")
+    release_guid = "urn:uuid:" <> retained.release.id
+
+    assert %{materials: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(feed_item("baseline", url <> "/baseline"))
+             )
+
+    assert {_, [%{source_entry_id: ^release_guid}]} = output_rss()
+
+    item = feed_item("new", url <> "/article", "Tue, 01 Jan 2030 09:02:03 +0900")
+
+    assert %{materials: [first], material_errors: []} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(item))
+
+    {first_xml, first_entries} = output_rss()
+    assert length(first_entries) == 2
+    assert first_xml =~ "<pubDate>Tue, 01 Jan 2030 00:02:03 GMT</pubDate>"
+    first_update = Enum.find(first_entries, &(&1.source_entry_id != release_guid))
+    assert first_update.title == "Results"
+    assert first_update.content == "Recorded evidence."
+    assert first_update.canonical_url == url <> "/article"
+
+    assert %{"material" => %{"text" => "Recorded evidence.", "final_url" => link}} =
+             build_conn()
+             |> get("/api/feed-materials/#{first.id}")
+             |> json_response(200)
+
+    assert link == first_update.canonical_url
+
+    assert %{materials: []} = Lens.Ingestion.ingest(source, transport: rss_transport(item))
+    assert {^first_xml, _} = output_rss()
+
+    changed = feed_item("new", url <> "/article", "Tue, 01 Jan 2030 09:02:03")
+
+    assert %{materials: [_], material_errors: []} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(changed))
+
+    {changed_xml, changed_entries} = output_rss()
+    assert length(changed_entries) == 3
+    assert Enum.count(changed_entries, &(&1.canonical_url == first_update.canonical_url)) == 2
+    assert first_update.source_entry_id in Enum.map(changed_entries, & &1.source_entry_id)
+    assert length(Enum.uniq_by(changed_entries, & &1.source_entry_id)) == 3
+    assert length(Regex.scan(~r/<pubDate>/, changed_xml)) == 1
+    assert {^changed_xml, _} = output_rss()
+
+    failed = feed_item("new", url <> "/failed")
+
+    assert %{materials: [], material_errors: [_]} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(failed))
+
+    assert {^changed_xml, _} = output_rss()
+  end
+
+  test "omits failed required HTML and material acquired through the fallback scope" do
+    url =
+      server(fn
+        "/missing" ->
+          html("<main>Unrelated text.</main>")
+
+        "/ambiguous" ->
+          html("<article>One</article><article>Two</article>")
+
+        "/empty" ->
+          html("<article><script>Discarded</script></article>")
+
+        "/fragment" ->
+          html("<article>Intended body.</article><aside id='other'>Other body.</aside>")
+
+        "/fallback" ->
+          html("<article><h1>Results</h1><p>Fallback evidence.</p></article>")
+      end)
+
+    source = source(url, %{"html_selector" => "article"})
+    Lens.Ingestion.ingest(source, transport: rss_transport(""))
+
+    for path <- ["/missing", "/ambiguous", "/empty"] do
+      assert %{materials: [], material_errors: [_]} =
+               Lens.Ingestion.ingest(source,
+                 transport: rss_transport(feed_item(path, url <> path))
+               )
+    end
+
+    fragment = feed_item("fragment", url <> "/fragment#other")
+
+    assert %{materials: [_], material_errors: [%{stage: :association}]} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(fragment))
+
+    {:ok, _} =
+      Content.update_source(source, %{acquisition_metadata: %{"material_origins" => [url]}})
+
+    assert %{materials: [_], material_errors: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(feed_item("fallback", url <> "/fallback"))
+             )
+
+    assert {_, []} = output_rss()
+  end
+
+  defp feed_item(id, url, date \\ nil) do
+    publication = if date, do: "<pubDate>#{date}</pubDate>", else: ""
+    "<item><guid>#{id}</guid><title>Results</title><link>#{url}</link>#{publication}</item>"
+  end
+
+  defp rss_transport(items) do
+    fn _ ->
+      {:ok, %{status: 200, headers: %{}, body: "<rss><channel>#{items}</channel></rss>"}}
+    end
+  end
+
+  defp output_rss do
+    xml = build_conn() |> get("/feeds/earnings.rss") |> response(200)
+
+    assert {:ok, entries} =
+             Lens.Ingestion.Parser.parse(xml, LensWeb.Endpoint.url() <> "/feeds/earnings.rss")
+
+    {xml, entries}
+  end
+
+  defp source(url, metadata \\ %{}) do
     {:ok, source} =
       Content.create_source(%{
         endpoint_url: url <> "/feed",
         ingestion_mode: "earnings_updates",
         poll_interval_seconds: 300,
-        acquisition_metadata: %{"material_origins" => [url]}
+        acquisition_metadata: Map.put(metadata, "material_origins", [url])
       })
 
     source

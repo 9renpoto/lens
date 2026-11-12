@@ -48,13 +48,11 @@ defmodule LensWeb.EarningsFeedControllerTest do
     extraction
   end
 
-  defp path(target_id), do: "/feeds/targets/#{target_id}/earnings.rss"
-
-  defp read(target_id) do
+  defp read() do
     conn =
       build_conn()
       |> Plug.Conn.put_req_header("accept", "application/rss+xml")
-      |> get(path(target_id))
+      |> get("/feeds/earnings.rss")
 
     assert Plug.Conn.get_resp_header(conn, "content-type") == [
              "application/rss+xml; charset=utf-8"
@@ -84,10 +82,8 @@ defmodule LensWeb.EarningsFeedControllerTest do
     item |> value("description") |> Floki.parse_fragment!() |> Floki.text(sep: "")
   end
 
-  test "an existing target with no eligible releases has a valid empty RSS channel", %{
-    target: target
-  } do
-    xml = read(target.id)
+  test "the service feed has a valid empty RSS channel without eligible items" do
+    xml = read()
     assert items(xml) == []
 
     for tag <- ["title", "link", "description"],
@@ -96,10 +92,9 @@ defmodule LensWeb.EarningsFeedControllerTest do
     assert {_, []} = :xmerl_scan.string(:binary.bin_to_list(xml), quiet: true)
   end
 
-  test "invalid and unknown targets return not found" do
-    for id <- ["invalid", Ecto.UUID.generate()] do
-      assert build_conn() |> get(path(id)) |> json_response(404) == %{"error" => "not_found"}
-    end
+  test "the former target-specific URL is unavailable", %{target: target} do
+    conn = get(build_conn(), "/feeds/targets/#{target.id}/earnings.rss")
+    assert response(conn, 404)
   end
 
   test "the full stored text, generated title and matching original link are readable", %{
@@ -112,7 +107,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
         String.duplicate("Complete text. ", 50)
 
     extract(retained.original.id, text)
-    xml = read(target.id)
+    xml = read()
     assert [item] = items(xml)
     assert value(item, "title") == "Synthetic Issuer & <group> 2030年3月期 第1四半期 決算短信"
     assert value(item, "guid") == "urn:uuid:" <> retained.release.id
@@ -123,7 +118,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
              LensWeb.Endpoint.url() <> "/api/earnings/originals/" <> retained.original.id
 
     refute value(item, "pubDate")
-    assert xml == read(target.id)
+    assert xml == read()
     assert {_, []} = :xmerl_scan.string(:binary.bin_to_list(xml), quiet: true)
     parsed = Floki.parse_fragment!(value(item, "description"))
     assert Floki.find(parsed, "script") == []
@@ -136,7 +131,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
     assert response(original, 200) == "%PDF-synthetic-full-text"
   end
 
-  test "only the selected issuer's confirmed releases with successful text are published", %{
+  test "confirmed releases with successful text are published across targets", %{
     target: target
   } do
     included = retain(target, "included")
@@ -163,9 +158,13 @@ defmodule LensWeb.EarningsFeedControllerTest do
       for schema <- [Acquisition, Original, Release, Extraction],
           do: Repo.aggregate(schema, :count)
 
-    assert [item] = items(read(target.id))
-    assert value(item, "guid") == "urn:uuid:" <> included.release.id
-    assert plain_body(item) == "Included text"
+    entries = items(read())
+
+    assert MapSet.new(Enum.map(entries, &value(&1, "guid"))) ==
+             MapSet.new(["urn:uuid:" <> included.release.id, "urn:uuid:" <> other.release.id])
+
+    assert MapSet.new(Enum.map(entries, &plain_body/1)) ==
+             MapSet.new(["Included text", "Other issuer"])
 
     assert counts ==
              for(
@@ -186,7 +185,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
 
     assert first.original.id == second.original.id
     extract(first.original.id, "Shared text")
-    xml = read(target.id)
+    xml = read()
     entries = items(xml)
     assert length(entries) == 2
 
@@ -197,7 +196,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
              LensWeb.Endpoint.url() <> "/api/earnings/originals/" <> first.original.id
            ]
 
-    assert xml == read(target.id)
+    assert xml == read()
   end
 
   test "existing text selection changes content and original link under the same release GUID", %{
@@ -207,10 +206,10 @@ defmodule LensWeb.EarningsFeedControllerTest do
     extract(old.original.id, "Old successful text")
     newer = retain(target, "newer", at: 60)
     assert newer.release.id == old.release.id
-    assert [item] = items(read(target.id))
+    assert [item] = items(read())
     assert plain_body(item) == "Old successful text"
     extract(newer.original.id, "New successful text")
-    assert [updated] = items(read(target.id))
+    assert [updated] = items(read())
     assert value(updated, "guid") == value(item, "guid")
     assert plain_body(updated) == "New successful text"
 
@@ -218,7 +217,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
              LensWeb.Endpoint.url() <> "/api/earnings/originals/" <> newer.original.id
 
     extract(old.original.id, "Late extraction of old original")
-    assert [current] = items(read(target.id))
+    assert [current] = items(read())
     assert plain_body(current) == "New successful text"
   end
 
@@ -226,7 +225,7 @@ defmodule LensWeb.EarningsFeedControllerTest do
     retained = retain(target, "control")
     text = "First page\fSecond page\r\nTail"
     extract(retained.original.id, text)
-    xml = read(target.id)
+    xml = read()
     assert {_, []} = :xmerl_scan.string(:binary.bin_to_list(xml), quiet: true)
     assert [item] = items(xml)
     assert plain_body(item) == text
@@ -238,14 +237,14 @@ defmodule LensWeb.EarningsFeedControllerTest do
     assert first.release.id == second.release.id
     assert first.original.id == second.original.id
     extract(first.original.id, "Repeated acquisition text")
-    assert [item] = items(read(target.id))
+    assert [item] = items(read())
     assert value(item, "guid") == "urn:uuid:" <> first.release.id
   end
 
   test "the renderer emits publication dates only for complete timestamps" do
     entry = %{
-      id: "00000000-0000-4000-8000-000000000001",
-      original_id: "00000000-0000-4000-8000-000000000002",
+      link: "http://localhost/original.pdf",
+      guid: "urn:uuid:00000000-0000-4000-8000-000000000001",
       title: "Synthetic title",
       content: "Synthetic text",
       published_at: nil
@@ -263,10 +262,10 @@ defmodule LensWeb.EarningsFeedControllerTest do
     assert value(item, "pubDate") == "Tue, 01 Jan 2030 00:02:03 GMT"
   end
 
-  test "OpenAPI documents the target-scoped RSS route" do
+  test "OpenAPI documents only the service RSS route" do
     document = LensWeb.ApiSpec.spec() |> Jason.encode!() |> Jason.decode!()
-    operation = document["paths"]["/feeds/targets/{target_id}/earnings.rss"]["get"]
+    operation = document["paths"]["/feeds/earnings.rss"]["get"]
     assert operation["responses"]["200"]["content"]["application/rss+xml"]
-    assert Enum.any?(operation["parameters"], &(&1["name"] == "target_id" and &1["required"]))
+    refute Map.has_key?(document["paths"], "/feeds/targets/{target_id}/earnings.rss")
   end
 end

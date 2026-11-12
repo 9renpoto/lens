@@ -2,34 +2,24 @@ defmodule LensWeb.EarningsFeedController do
   use LensWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias Lens.{Analysis, Earnings.Feed}
-  alias LensWeb.ApiSchemas.ErrorResponse
+  alias Lens.Earnings.Feed
   alias OpenApiSpex.Schema
 
   tags(["Earnings"])
 
   operation :show,
-    summary: "Read retained earnings as an RSS 2.0 feed",
-    parameters: [
-      target_id: [in: :path, required: true, schema: %Schema{type: :string, format: :uuid}]
-    ],
+    summary: "Read acquired earnings information as a service RSS 2.0 feed",
     responses: [
-      ok: {"RSS feed", "application/rss+xml", %Schema{type: :string}},
-      not_found: {"Target not found", "application/json", ErrorResponse}
+      ok: {"RSS feed", "application/rss+xml", %Schema{type: :string}}
     ]
 
-  def show(conn, %{"target_id" => id}) do
-    case Analysis.fetch_target(id) do
-      {:ok, target} ->
-        xml = target.security_code |> Feed.entries() |> Feed.render(LensWeb.Endpoint.url())
+  def show(conn, _params) do
+    base_url = LensWeb.Endpoint.url()
+    xml = base_url |> Feed.entries() |> Feed.render(base_url)
 
-        conn
-        |> put_resp_content_type("application/rss+xml")
-        |> put_resp_header("cache-control", "no-store")
-        |> send_resp(:ok, xml)
-
-      :error ->
-        conn |> put_status(:not_found) |> json(%{error: "not_found"})
-    end
+    conn
+    |> put_resp_content_type("application/rss+xml")
+    |> put_resp_header("cache-control", "no-store")
+    |> send_resp(:ok, xml)
   end
 end

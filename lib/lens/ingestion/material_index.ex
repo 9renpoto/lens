@@ -101,7 +101,7 @@ defmodule Lens.Ingestion.MaterialIndex do
 
              :ok
            end,
-           mode: :savepoint
+           mode: :transaction
          ) do
       {:ok, :ok} -> :ok
       _ -> {:error, :indexing, :persistence_failed}
