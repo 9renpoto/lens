@@ -19,6 +19,9 @@ The items present when a subscription is first successfully observed, distinguis
 **Material revision**:
 A retained version of derived HTML text and source references, or a PDF original and its extraction results, related to earlier or later versions of the same material.
 
+**Output RSS item**:
+An entry in the service feed representing one successfully processed input update or one confirmed earnings release.
+
 **Recovery point**:
 A consistent state of retained originals and their acquisition and extraction history that can be recovered together.
 
@@ -48,6 +51,9 @@ The two backups that jointly represent one recovery point. Neither alone is suff
 
 **Material revision（資料の改訂版）**:
 同じ資料の前後の版と関連付けられた、HTML抽出本文・出典参照、またはPDF原本・抽出結果の保存版。
+
+**Output RSS item（出力 RSS 項目）**:
+サービス共通フィードで、処理に成功した入力更新1件か、識別確定済みの決算リリース1件を表す項目。
 
 **Recovery point（復旧時点）**:
 保持原本とその取得・抽出履歴を一緒に復旧できる、整合した状態。

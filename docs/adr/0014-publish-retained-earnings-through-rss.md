@@ -2,130 +2,104 @@
 status: accepted
 ---
 
-# Publish retained earnings information through RSS
+# Publish acquired earnings information through one service RSS feed
 
-Expose retained earnings information for the selected issuer through
-one local RSS feed so the operator can read the stored result before deciding what
-would make it more useful. Use successful extractions and retained
-originals. The release boundary and implementation work belong in
-[#185](https://github.com/9renpoto/lens/issues/185) and
-[#186](https://github.com/9renpoto/lens/issues/186).
+Expose one read-only RSS 2.0 feed per Lens service. All sources share the same
+subscription URL. A single feed lets an operator receive acquired information
+quickly and review the evidence afterward. Consider splitting the feed when
+the volume or variety of information warrants it.
 
-For the release observation, perform one operator-approved bounded manual
-collection and extraction using the current disposable schema, following the
-[validation procedure](../reference/earnings-value-validation.md), then inspect
-that newly retained result through RSS. Reusing records from an older database
-is not a prerequisite. Follow [ADR 0010](0010-defer-backups-for-disposable-development-data.md)
-without adding older-schema upgrade or data-copy tooling. Keep publisher-condition
-review, actual target configuration and observation evidence private. This
-explicit preparation run does not change the read-only feed contract.
+## Automatic publication
 
-Publish one item per confirmed earnings release for the selected issuer that
-has a successful acquisition and an existing successful extraction. Reuse the
-existing per-release selection of successful extracted text. Include the
-release's existing generated title, the selected full extracted text and a link
-to that text's retained original PDF. Unconfirmed originals are outside feed
-eligibility; feed retrieval does not confirm release identities or invent
-fallback titles. These conditions reuse existing identity and extraction data
-without editorial selection for usefulness. The generated title is a display
-label, not a claim to reproduce the publisher's original title. Preserve the
-stored extracted text as readable text through RSS escaping, without adding a
-summary or interpretation.
+Use the input feed and material acquisition path in
+[ADR 0017](0017-build-earnings-search-from-feed-updates.md). Start with one
+registered feed source whose `html_selector` identifies the intended HTML body.
+Publish one item for each new or changed input item after acquisition and
+extraction yield non-empty text from the one element matching that selector.
+A missing or ambiguous match, a failed acquisition, or missing required text
+is a processing failure under ADR 0017 and produces no RSS item. Human review
+takes place after notification. Evaluating the usefulness of the evidence is a
+separate activity.
 
-Identify each item by the release UUID, using `urn:uuid:<release-id>` as its GUID
-with `isPermaLink="false"`. If one retained original backs multiple eligible
-releases, publish a separate item for each release with a different GUID, even
-when the selected text and PDF link are shared. Selecting another retained
-original or successful extraction for the same release updates that item's
-content and original link while retaining its GUID. Such an update does not
-guarantee a new-item notification in the consumer. Repeated reads do not generate
-new item identities.
+Include the input item's title, the extracted text, and the source URL for the
+extracted body. Preserve readable text through RSS escaping. Each successfully
+published input update has its own stable GUID. Each detected change that meets
+the publication conditions produces a new item and GUID even when the extracted
+text and source URL are unchanged. Repeated polls of unchanged input and reads
+of the output feed preserve the published items and GUIDs. Earlier successful
+items remain available when later versions succeed or fail.
 
-Set item `pubDate` only when existing publisher metadata specifies the publication
-date, time and timezone, allowing an [RSS 2.0](https://www.rssboard.org/rss-2-0-11)
-RFC 822 date-time without inventing missing components. Omit this optional element
-for missing or date-only metadata such as `published_on`. Do not infer midnight
-or a timezone, or substitute acquisition time.
+## Retained releases
 
-Feed retrieval reads retained data without fetching publisher material or
-starting extraction. Keep the feed and original links within the application's
-existing private/local access boundary. The consumer must be able to reach both
-Lens and the retained-original endpoint; this decision does not introduce public
-internet exposure or new authentication mechanisms.
+Include confirmed earnings releases with successful acquisitions and
+extractions in the same feed. Each release keeps its generated title, selected
+full extracted text, link to the corresponding retained PDF, and
+`urn:uuid:<release-id>` GUID. Selecting another successful extraction for the
+same release updates its content and original link under the same GUID.
+An item from an input update and an item from a confirmed release may both be
+present when they refer to the same material.
 
-Consumer verification checks that the stored text is readable, the original link
-opens the corresponding retained PDF, and repeated reads preserve item identity.
-Usefulness can be discussed after reading the actual result; it is not a release
-success criterion. Manual candidate authoring or editorial selection,
-recurring or expanded collection or extraction, summaries, interpretations,
-comparisons, a new reading UI and downstream notification/read-state management
-are outside this boundary.
+## Publication and replacement boundary
 
-## Replacement of the manual-registration decision
+Set `pubDate` only when publisher metadata supplies the date, time, and timezone
+required by [RSS 2.0](https://www.rssboard.org/rss-2-0-11). Use opaque GUIDs with
+`isPermaLink="false"`. Reading the feed uses retained data. Acquisition and
+extraction run independently of feed reads. Keep the feed and retained originals
+inside the existing private access boundary. Consumers own polling,
+notification delivery, and read state.
 
-The agreed revision of 2026-10-23 replaces this record's earlier decision to
-register manually authored investigation candidates. Human-authored input can
-bypass the collected information entirely and cannot establish that Lens makes
-its existing collection readable. Reusing retained material makes that result
-observable before investing in ways to add value. The broader investigation-
-candidate concept remains a separate product hypothesis.
+Replace the target-specific RSS implementation with the service feed. Consumers
+use the service URL for new subscriptions. The replacement ships without an
+endpoint compatibility layer or a migration for old subscriptions, published
+items, or consumer notification history. Reuse existing retained release data
+where compatible. If a breaking change requires a reset of disposable data,
+follow [ADR 0010](0010-defer-backups-for-disposable-development-data.md). Affected
+disposable data may be truncated when the existing schema remains usable.
 
 <details>
 <summary>日本語</summary>
 
-# 保存済みの決算情報をRSSで公開する
+# 取得した決算情報をサービス共通の RSS で公開する
 
-保存した検証対象企業の決算情報をローカル単一RSSフィードで取得可能にし、
-運用者が保存済みの結果を読んでから、何を改善すると役立つかを判断できるようにする。
-成功した抽出結果と保存原本を使う。リリース境界と実装作業は
-[#185](https://github.com/9renpoto/lens/issues/185)と
-[#186](https://github.com/9renpoto/lens/issues/186)で管理する。
+Lens のサービスごとに、読み取り専用の RSS 2.0 フィードを1つ提供する。すべての取得先で
+購読 URL を共有する。単一のフィードにすることで、運用者は取得した情報を早く受け取り、
+その後に根拠を確認できる。情報の量や種類が増え、必要になった段階でフィードの分割を検討する。
 
-リリースの観測では、[検証手順](../reference/earnings-value-validation.md)に従い、
-運用者が承認した上限付きの手動収集・抽出を現行の破棄可能なスキーマで1回行い、
-新しく保存した結果をRSSで確認する。旧DBの記録再利用を前提にしない。
-[ADR 0010](0010-defer-backups-for-disposable-development-data.md)に従い、旧スキーマの
-更新・データコピー用ツールを追加しない。発行元条件の確認、実際の対象設定、観測証跡は
-非公開に置く。この明示的な準備実行によって、フィード取得の読み取り専用契約は変えない。
+## 自動掲載
 
-成功した取得記録と既存の成功した抽出結果を持つ、検証対象企業の識別確定済み
-決算リリースごとに項目を作る。既存のリリース単位の成功した抽出本文の選択を再利用し、
-そのリリースの既存の生成済み表題、選択した抽出本文の全文、その本文に対応する保存原本
-PDFへのリンクを含める。識別未確定の原本はフィードの対象外とし、フィード取得時に
-リリース識別を確定したり代替表題を作り出したりしない。これらの条件は既存の識別・抽出
-データを使うものであり、有用性による公開対象の選別は行わない。生成済み表題は表示用の
-名前であり、発行元の原題を再現したものとは扱わない。RSSのエスケープを通じて保存済み
-抽出本文を読めるテキストとして維持し、要約や解釈は追加しない。
+[ADR 0017](0017-build-earnings-search-from-feed-updates.md) の入力フィードと資料取得の
+経路を使う。最初は、目的の HTML 本文を `html_selector` で指定した登録済みフィード取得先1件を扱う。
+入力項目の新着・変更ごとに、取得・抽出によって指定セレクタに一致する1要素から空でない本文を
+取得できた場合に、出力項目を1件作る。一致なし、複数一致、取得失敗、必要な本文の欠落は
+ADR 0017 に従って処理失敗として扱い、RSS 項目を作らない。人によるレビューは通知後に行う。
+根拠の有用性の評価は別途扱う。
 
-項目はリリースのUUIDで識別し、GUIDを`urn:uuid:<release-id>`、
-`isPermaLink="false"`とする。同じ保存原本が複数の対象リリースに対応する場合は、
-本文やPDFリンクを共有していても、リリースごとに異なるGUIDを持つ項目を出力する。
-同じリリースについて別の保存原本や成功した抽出結果を選択した場合は、項目の内容と
-原本リンクを更新し、GUIDを維持する。この更新が購読側の新着通知を発生させることは
-保証しない。反復取得によって新しい項目識別子を生成しない。
+入力項目の表題、抽出本文、その本文の出典 URL を含める。RSS のエスケープによって本文を
+読める状態に保つ。掲載に成功した入力更新ごとに、固有で安定した GUID を割り当てる。
+入力フィード上で検知した変更が掲載条件を満たした場合は、抽出本文と出典 URL が同じでも、
+新しい項目と GUID を作る。変更のない入力の再取得や出力 RSS の再読では、掲載済みの項目と GUID を維持する。
+後の版の処理結果にかかわらず、以前に掲載に成功した項目は残す。
 
-項目の`pubDate`は、発行元の公表日・時刻・タイムゾーンが既存データにあり、
-不足する要素を作り出さずに[RSS 2.0](https://www.rssboard.org/rss-2-0-11)の
-RFC 822日時として表現できる場合だけ出力する。情報がない場合や`published_on`のように
-日付だけの場合、この任意要素は省略する。午前0時やタイムゾーンを推測したり、
-取得日時で代用したりしない。
+## 保存済みリリース
 
-フィード取得は保存済みデータを読み取り、発行元からの取得や本文抽出を起動しない。
-フィードと原本リンクはアプリの既存の非公開・ローカルアクセス境界内に置く。
-購読側はLensと保存原本エンドポイントの両方へ接続できる必要があり、この判断で
-インターネットへの一般公開や新しい認証機構は導入しない。
+取得と抽出に成功した識別確定済みの決算リリースも同じフィードに含める。リリースごとに、
+既存の生成済み表題、選択した抽出本文の全文、対応する保存原本 PDF へのリンク、
+`urn:uuid:<release-id>` の GUID を維持する。同じリリースで別の成功抽出結果を選択した場合は、
+同じ GUID のまま本文と原本リンクを更新する。同じ資料を指す入力更新の項目と確定済み
+リリースの項目が、両方掲載される場合がある。
 
-購読側での検証では、保存済み本文を読めること、原本リンクから対応する保存済みPDFを
-開けること、反復取得で項目識別子を維持することを確認する。有用性は実際の結果を
-読んだ後に議論できるが、リリースの成功条件にはしない。手動候補作成や人間による
-公開対象の選別、定期的または範囲を拡大した収集・抽出、要約・解釈・比較、閲覧UIの新設、
-後続の通知配信・既読状態の管理は、この境界に含めない。
+## 公開と置き換えの境界
 
-## 手動登録の判断の置き換え
+`pubDate` は、発行元のメタデータに [RSS 2.0](https://www.rssboard.org/rss-2-0-11) が
+要求する日付・時刻・タイムゾーンが揃う場合だけ設定する。GUID は識別子として扱い、
+`isPermaLink="false"` を設定する。フィード取得では保存済みデータを読む。資料の取得・抽出は
+フィードの読み取りから独立して実行する。フィードと保存原本は既存の非公開のアクセス境界内に置く。
+購読側が定期確認、通知配信、既読状態を管理する。
 
-2026-10-23に合意した改訂により、この記録の従来の手動調査候補登録の判断を置き換える。
-人間が作成した入力は収集済み情報を使わずに成立するため、Lensの既存の収集結果を
-読めることを確かめられない。保存済み資料の再利用により、価値の付加方法へ投資する前に
-その結果を観測可能にする。より広い調査候補の概念は、別のプロダクト仮説として維持する。
+対象別の RSS 実装をサービス共通フィードに置き換える。購読側はサービス URL を使って新規に
+購読する。旧エンドポイントの互換層や、旧購読・掲載項目・通知履歴の移行処理は設けない。
+互換性のある保存済みリリースデータは再利用する。破壊的変更で破棄可能なデータの初期化が
+必要な場合は [ADR 0010](0010-defer-backups-for-disposable-development-data.md) に従う。
+現行スキーマを引き続き使える場合は、影響する破棄可能なデータを `TRUNCATE` してよい。
 
 </details>
