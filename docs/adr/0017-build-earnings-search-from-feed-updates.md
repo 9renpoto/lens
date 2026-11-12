@@ -86,10 +86,11 @@ applicable. [ADR 0005](0005-store-pdfs-in-rustfs.md) governs retained PDFs, and
 govern disposable data and preservation guarantees. Keeping revisions does not
 introduce backup or restore guarantees.
 
-[ADR 0014](0014-publish-retained-earnings-through-rss.md) governs output RSS from
-retained earnings. Reading that feed continues to read stored results without
-starting acquisition or extraction. Input update detection and output feed
-eligibility are separate contracts.
+[ADR 0014](0014-publish-retained-earnings-through-rss.md) governs publication
+of eligible acquired updates and confirmed releases in the service RSS feed.
+Acquisition and extraction provide the retained evidence used by publication.
+Reading the output feed uses stored results. Input update detection, material
+revisions for search, and output item identity have separate rules.
 
 Historical backfill, failed-material reprocessing, content-sufficiency analysis,
 Excel, XBRL, OCR and subscriptions such as recruitment information are outside
@@ -161,9 +162,10 @@ PDF原本・検索登録結果を区別する。フィードで検知できた�
 [ADR 0010](0010-defer-backups-for-disposable-development-data.md)を適用する。改訂版の保持は
 バックアップや復元の保証を導入するものではない。
 
-[ADR 0014](0014-publish-retained-earnings-through-rss.md)は保存済み決算情報のRSS出力を扱う。
-出力フィードの読み取りは引き続き保存結果を読み、取得・抽出を開始しない。
-入力の更新検知と、出力フィードの対象条件は別の契約とする。
+[ADR 0014](0014-publish-retained-earnings-through-rss.md) は、掲載条件を満たした取得済みの
+入力更新と確定済みリリースをサービス共通 RSS に掲載する契約を定める。取得・抽出は掲載に使う
+根拠を保存し、出力フィードの読み取りは保存済みの結果を使う。入力の更新検知、検索用の資料の改訂版、
+出力項目の識別には、それぞれのルールを適用する。
 
 過去分の遡及取得、失敗資料の再処理、内容の充足判定、Excel・XBRL・OCR、採用情報などの購読は
 今回の決算情報の範囲に含めない。将来の購読分野が決算固有の判定を引き継ぐ必要がないよう、
