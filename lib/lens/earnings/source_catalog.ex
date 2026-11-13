@@ -27,7 +27,10 @@ defmodule Lens.Earnings.SourceCatalog do
         do: from([s, _t] in query, where: s.enabled == true),
         else: query
 
-    Repo.all(query)
+    case Keyword.fetch(opts, :source_id) do
+      {:ok, id} -> Repo.all(from(s in query, where: s.id == ^id))
+      :error -> Repo.all(query)
+    end
   end
 
   def for_issuer(issuer_code), do: Enum.filter(all(), &(&1.issuer_code == issuer_code))

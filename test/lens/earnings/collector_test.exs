@@ -1,7 +1,20 @@
 defmodule Lens.Earnings.CollectorTest do
   use Lens.DataCase
+  import Phoenix.ConnTest
   alias Lens.Analysis
-  alias Lens.Earnings.{Acquisition, Collector, HTTPCheck, Original, RustFS, Sources}
+  alias Lens.Earnings.{Acquisition, Collector, HTTPCheck, Original, Processing, RustFS, Sources}
+
+  @endpoint LensWeb.Endpoint
+  @fixture_pdf File.read!("test/fixtures/selected-earnings.pdf")
+  @fixture_lines [
+    "Earnings release",
+    "Issuer: SYNTHETIC_ISSUER_A",
+    "Fiscal year end: 2030-03-31",
+    "Reporting period: Q1"
+  ]
+
+  def extract(@fixture_pdf, _options),
+    do: {:ok, %{text: Enum.join(@fixture_lines, "\n"), version: "fixture"}}
 
   setup do
     objects = start_supervised!({Agent, fn -> %{} end})
@@ -36,6 +49,138 @@ defmodule Lens.Earnings.CollectorTest do
     }
 
     %{client: client}
+  end
+
+  test "acquires only the selected listing PDF and publishes its confirmed extraction", %{
+    client: client
+  } do
+    pdf = server(@fixture_pdf, "/selected.pdf") <> "?edition=2"
+
+    archive =
+      Enum.map_join(1..201, fn number ->
+        ~s(<a href="http://localhost:1/archive-#{number}.pdf">Archive</a>)
+      end)
+
+    listing = server(archive <> ~s(<a href="#{pdf}">Selected</a>), "/results")
+    {target, source} = selection_source(listing, "SYNTHETIC_ISSUER_A")
+    assert {:ok, _} = Sources.create(target, %{listing_url: "http://localhost:1/other"})
+
+    run = fn ->
+      assert {:ok, %{checks: [listing_check, candidate], errors: [], stopped: nil} = result} =
+               Collector.run_selected(source.id, pdf, rustfs: client, max_operations: 2)
+
+      assert result.budget.requests == 2
+      assert candidate.metadata["listing_check_id"] == listing_check.id
+      assert candidate.metadata["url"] == pdf
+      Repo.get!(Acquisition, candidate.acquisition_id)
+    end
+
+    acquisition = run.()
+    assert acquisition.release_id == nil
+
+    assert Lens.Earnings.original_bytes(acquisition.original_id, rustfs: client) ==
+             {:ok, @fixture_pdf}
+
+    extraction_options =
+      if :os.type() == {:unix, :linux},
+        do: [rustfs: client],
+        else: [rustfs: client, extractor: __MODULE__]
+
+    assert {:ok, %{status: "succeeded", text: text}} =
+             Processing.extract(acquisition.original_id, extraction_options)
+
+    for line <- @fixture_lines, do: assert(text =~ line)
+
+    identity = %{fiscal_year_end: ~D[2030-03-31], period: "q1", category: "earnings_release"}
+    assert {:ok, confirmed} = Lens.Earnings.confirm_identity(acquisition.acquisition_id, identity)
+
+    xml = build_conn() |> get("/feeds/targets/#{target.id}/earnings.rss") |> response(200)
+
+    assert {:ok, {"rss", [{"version", "2.0"}], [{"channel", [], children}]}} =
+             Saxy.SimpleForm.parse_string(xml)
+
+    assert [item] = for({"item", _, fields} <- children, do: fields)
+    assert {"guid", [{"isPermaLink", "false"}], ["urn:uuid:" <> confirmed.release_id]} in item
+
+    assert {"link", [],
+            [LensWeb.Endpoint.url() <> "/api/earnings/originals/" <> acquisition.original_id]} in item
+
+    assert {"description", [], [description]} = List.keyfind(item, "description", 0)
+    assert description |> Floki.parse_fragment!() |> Floki.text() == text
+
+    rerun = run.()
+    assert rerun.acquisition_id != acquisition.acquisition_id
+    assert rerun.original_id == acquisition.original_id
+
+    assert {:ok, %{release_id: release_id}} =
+             Lens.Earnings.confirm_identity(rerun.acquisition_id, identity)
+
+    assert release_id == confirmed.release_id
+    assert xml == build_conn() |> get("/feeds/targets/#{target.id}/earnings.rss") |> response(200)
+  end
+
+  test "missing or ambiguous selections stop before requesting any PDF", %{client: client} do
+    pdf = server("%PDF-selected", "/selected.pdf")
+
+    for {html, reason} <- [
+          {~s(<a href="#{pdf}?other=1">Different URL</a>), :selected_pdf_not_found},
+          {~s(<a href="#{pdf}">One</a><a href="#{pdf}">Two</a>), :ambiguous_selected_pdf}
+        ] do
+      {_, source} = selection_source(server(html, "/results"))
+
+      assert {:ok, %{stopped: ^reason, checks: [%{kind: "listing"}], budget: %{requests: 1}}} =
+               Collector.run_selected(source.id, pdf, rustfs: client)
+    end
+
+    assert Repo.aggregate(Acquisition, :count) == 0
+  end
+
+  test "selected collection stops on a URL policy denial or a redirect", %{client: client} do
+    other = server("%PDF-other", "/other.pdf")
+    pdf = server({302, [{"Location", other}], ""}, "/selected.pdf")
+    listing = server(~s(<a href="#{pdf}">Selected</a>), "/results")
+    {_, source} = selection_source(listing)
+
+    for {options, requests, failure} <- [
+          {[allowed_url?: &(&1 == listing)], 1, "url_not_allowed"},
+          {[], 2, "redirect_limit"}
+        ] do
+      assert {:ok,
+              %{
+                stopped: :selected_pdf_fetch_failed,
+                checks: [%{kind: "listing"}, %{failure_reason: ^failure}],
+                budget: %{requests: ^requests}
+              }} = Collector.run_selected(source.id, pdf, [rustfs: client] ++ options)
+    end
+
+    assert Repo.aggregate(Original, :count) == 0
+  end
+
+  test "selected collection rejects unknown and disabled sources before HTTP", %{client: client} do
+    {_, source} = selection_source(server("", "/results"))
+    assert {:ok, _} = Sources.update(source, %{enabled: false})
+
+    for id <- [source.id, Ecto.UUID.generate(), "invalid"] do
+      assert {:error, :enabled_source_not_found} =
+               Collector.run_selected(id, "https://publisher.invalid/selected.pdf",
+                 rustfs: client
+               )
+    end
+
+    assert Repo.aggregate(HTTPCheck, :count) == 0
+  end
+
+  defp selection_source(listing, issuer_code \\ "SYNTHETIC_#{System.unique_integer([:positive])}") do
+    {:ok, target} =
+      Analysis.create_target(%{
+        security_code: issuer_code,
+        display_name: "Synthetic Issuer",
+        market: "synthetic",
+        sector: "synthetic"
+      })
+
+    {:ok, source} = Sources.create(target, %{listing_url: listing})
+    {target, source}
   end
 
   test "acquires published external links without classifying and preserves disabled-source history",

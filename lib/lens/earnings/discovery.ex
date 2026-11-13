@@ -31,6 +31,11 @@ defmodule Lens.Earnings.Discovery do
 
   def links(_, _, _), do: {:error, :invalid_html}
 
+  @doc "Find one exact resolved PDF URL and reject multiple matching anchors."
+  def select(listing_url, html, pdf_url) do
+    do_links(listing_url, html, {:selected, pdf_url})
+  end
+
   defp do_links(listing_url, html, mode) do
     cond do
       byte_size(html) > @max_listing_bytes ->
@@ -56,13 +61,20 @@ defmodule Lens.Earnings.Discovery do
           listing_url
         )
 
-      if mode == :complete and state.count > @max_links,
-        do: {:error, :too_many_links},
-        else: {:ok, Enum.reverse(state.links)}
+      link_result(state)
     else
       _ -> {:error, :invalid_html}
     end
   end
+
+  defp link_result(%{mode: {:selected, _}, links: []}), do: {:error, :selected_pdf_not_found}
+  defp link_result(%{mode: {:selected, _}, links: [link]}), do: {:ok, link}
+  defp link_result(%{mode: {:selected, _}}), do: {:error, :ambiguous_selected_pdf}
+
+  defp link_result(%{mode: :complete, count: count}) when count > @max_links,
+    do: {:error, :too_many_links}
+
+  defp link_result(%{links: links}), do: {:ok, Enum.reverse(links)}
 
   defp walk(nodes, state, listing_url) do
     Enum.reduce_while(nodes, state, fn node, acc ->
@@ -88,7 +100,7 @@ defmodule Lens.Earnings.Discovery do
   defp visit({"a", attrs, children} = node, state, listing_url) do
     with {"href", href} <- List.keyfind(attrs, "href", 0),
          {:ok, url, comparison_url} <- resolve_pdf(listing_url, href),
-         false <- MapSet.member?(state.seen, comparison_url) do
+         true <- include_link?(state, url, comparison_url) do
       link = %{
         href: href,
         url: url,
@@ -115,8 +127,14 @@ defmodule Lens.Earnings.Discovery do
   defp visit({_, _, children}, state, listing_url), do: walk(children, state, listing_url)
   defp visit(_, state, _listing_url), do: state
 
+  defp include_link?(%{mode: {:selected, pdf_url}}, url, _), do: url == pdf_url
+
+  defp include_link?(%{seen: seen}, _, comparison_url),
+    do: not MapSet.member?(seen, comparison_url)
+
   defp limit_reached?(%{mode: :complete, count: count}), do: count > @max_links
   defp limit_reached?(%{mode: {:prefix, max_links}, count: count}), do: count >= max_links
+  defp limit_reached?(%{mode: {:selected, _}, count: count}), do: count >= 2
 
   defp resolve_pdf(listing_url, href) do
     with {:ok, target} <- URI.new(String.trim(href)),

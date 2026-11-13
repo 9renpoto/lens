@@ -22,3 +22,14 @@ image = canvas.Canvas(str(root / "earnings-image.pdf"), invariant=1)
 image.drawImage(ImageReader(Image.new("RGB", (100, 100), "navy")), 72, 650, 100, 100)
 image.showPage()
 image.save()
+
+selected = canvas.Canvas(str(root / "selected-earnings.pdf"), invariant=1)
+for index, line in enumerate([
+    "Earnings release",
+    "Issuer: SYNTHETIC_ISSUER_A",
+    "Fiscal year end: 2030-03-31",
+    "Reporting period: Q1",
+]):
+    selected.drawString(72, 750 - 18 * index, line)
+selected.showPage()
+selected.save()
