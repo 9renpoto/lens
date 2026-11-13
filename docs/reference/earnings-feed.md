@@ -56,6 +56,23 @@ The checker verifies RSS parsing, unique GUIDs, and stable repeated reads. It
 checks retained text through the relevant Lens detail API and verifies retained
 PDF links for release items.
 
+## Reproduce scheduled notification delivery
+
+From a source checkout with dependencies installed and a disposable local
+PostgreSQL test database configured, run:
+
+```sh
+mix test test/lens/ingestion/rss_notification_test.exs
+```
+
+The test uses one loopback HTTP source and establishes an empty baseline. The
+Lens scheduler polls the source after a synthetic article is added. A test
+consumer reads the Lens RSS endpoint and sends one HTTP notification per unseen
+GUID to a loopback receiver. The receiver checks the delivered text and URL
+against the retained evidence API. After another item appears whose linked page
+lacks the required article, the feed still contains only the successful item and
+the receiver gets no additional notification.
+
 <details>
 <summary>日本語</summary>
 
@@ -107,5 +124,20 @@ MIX_ENV=test mix run --no-start scripts/check_earnings_feed.exs "$BASE_URL"
 
 スクリプトは RSS のパース、GUID の一意性、繰り返し読み取った際の安定性を確認する。
 対応する Lens の詳細 API で保存本文を照合し、リリース項目の保存 PDF リンクを検証する。
+
+## 定期取得から通知の着信までを再現する
+
+依存関係を導入し、使い捨てのローカル PostgreSQL テストデータベースを設定した
+ソースチェックアウトで実行する。
+
+```sh
+mix test test/lens/ingestion/rss_notification_test.exs
+```
+
+ループバック HTTP の取得先1件で空の初回基準を確立する。合成記事の追加後に Lens の
+スケジューラが取得先をポーリングする。テスト用購読側は Lens の RSS エンドポイントを読み、
+未受信の GUID ごとにループバックの受信先へ HTTP 通知を1件送る。着信した本文と URL を
+保存済みの根拠 API と照合する。必要な記事本文を欠くページを指す項目を追加しても、
+出力 RSS には成功した項目だけが残り、追加の通知は届かない。
 
 </details>
