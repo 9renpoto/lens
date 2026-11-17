@@ -20,17 +20,7 @@ Operators use the target registry to manage configured issuers.
 - `PATCH /api/targets/:id`: Update target attributes.
 - `POST /api/targets/:id/deactivate`: Non-destructively deactivate a target.
 
-Historical index membership has been retired. The former
-`/api/targets/:target_id/memberships` routes and their detail operations return
-404. Target responses omit `memberships`. Remove `as_of` from list requests.
-Clients still sending that parameter receive the full, unfiltered registry.
-See [database initialization](deployment.md#database-initialization) for the
-schema transition.
-
-## Retired earnings listing-source API
-
-`/api/targets/:target_id/earnings-sources` and its detail operations are removed.
-Use `/api/sources` to register feeds and `/api/targets` to manage analysis targets.
+Register feeds through `/api/sources`. See [source operations](operations.md).
 
 ## Retained earnings RSS
 
@@ -84,15 +74,7 @@ GitHub Actions経由で公開するようGitHub Pagesを設定すると、リフ
 - `PATCH /api/targets/:id`: 分析対象の属性を更新する。
 - `POST /api/targets/:id/deactivate`: 分析対象を非破壊的に無効化する。
 
-指数の所属履歴を廃止した。旧 `/api/targets/:target_id/memberships` ルートと詳細操作は
-404 を返す。対象の応答から `memberships` を削除した。一覧リクエストから `as_of` を
-削除する。このパラメータを送信し続けるクライアントには絞り込みなしで台帳全体を返す。
-スキーマの移行手順は [DB 初期化](deployment.md#database-initialization) を参照する。
-
-## 廃止した決算一覧取得先 API
-
-`/api/targets/:target_id/earnings-sources` とその詳細操作は廃止した。
-フィードの登録には `/api/sources`、分析対象の管理には `/api/targets` を使う。
+フィードは `/api/sources` で登録する。[取得先の操作](operations.md) を参照する。
 
 ## 保存済み決算情報のRSS
 
