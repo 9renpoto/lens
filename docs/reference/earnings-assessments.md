@@ -7,8 +7,8 @@ without classifying PDFs or changing a release's identity.
 
 ## Candidate and provenance
 
-A candidate ID is the UUID of a successful PDF `HTTPCheck` from the registered
-[candidate collector](earnings-collector.md). The check must reference a
+A candidate ID is the UUID of a retained successful PDF `HTTPCheck` from the
+former registered-source collection path. The check must reference a
 successful acquisition with an original, and its retained `metadata.source_id`
 and `metadata.target_id` must match the source's fixed target. Each assessment
 stores these IDs and the HTTP check ID. Follow the check's `acquisition_id` to
@@ -75,7 +75,7 @@ after source changes and identity confirmation, and database immutability.
 
 ## 候補と出典
 
-候補IDは、登録型の[候補収集](earnings-collector.md)が記録した取得成功PDFの`HTTPCheck`のUUIDである。確認記録は原本のある取得成功記録を参照し、保持した`metadata.source_id`と`metadata.target_id`が取得先の固定対象と一致しなければならない。各判定はこれらのIDとHTTP確認IDを保存する。確認記録の`acquisition_id`から取得原本と不変のURL・日時の事実を追跡できる。取得先URLの変更や収集停止は、その事実や判定履歴を書き換えない。
+候補IDは、旧登録取得先の収集経路で記録された取得成功PDFの`HTTPCheck`のUUIDである。確認記録は原本のある取得成功記録を参照し、保持した`metadata.source_id`と`metadata.target_id`が取得先の固定対象と一致しなければならない。各判定はこれらのIDとHTTP確認IDを保存する。確認記録の`acquisition_id`から取得原本と不変のURL・日時の事実を追跡できる。取得先URLの変更や収集停止は、その事実や判定履歴を書き換えない。
 
 別の候補テーブルや識別確認待ち台帳は作らない。登録取得先の出典がない過去の取得記録は、この契約では判定できない。出典の捏造や自動補完は行わない。
 

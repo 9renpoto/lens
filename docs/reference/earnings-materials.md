@@ -70,8 +70,7 @@ Direct PDF responses also work for URLs without a `.pdf` suffix. Store and verif
 bytes in RustFS before recording the original and the material observation.
 Identical bytes reuse the existing `earnings_originals` reference; observations
 retain their independent source/item/HTTP provenance. No issuer, acquisition
-identity or release identity is invented to satisfy the registered collector's
-assessment contract. The subscription observation supplies the acquisition facts.
+identity or release identity is invented to satisfy the existing assessment contract. The subscription observation supplies the acquisition facts.
 
 Successful observations are append-only `feed_materials` rows. HTML rows hold
 text and no original reference; PDF rows hold an original reference and no byte
@@ -152,7 +151,7 @@ SHA-256、取得日時、取得前後のURL、取得先・項目のsnapshot、�
 PDFはフィードの明示的な添付・項目リンク・選択本文内のリンクから特定する。`.pdf`で終わらない
 URLでも、PDF応答を直接取得できる。RustFSへバイト列を保存・検証してから原本と資料観測を記録する。
 同じバイト列は既存の`earnings_originals`参照を再利用し、観測ごとに取得先・項目・HTTP来歴を保つ。
-登録済みCollectorの判定契約を満たすために発行元・取得識別・リリース識別を捏造しない。
+既存の判定契約を満たすために発行元・取得識別・リリース識別を捏造しない。
 購読の資料観測自体が取得事実を記録する。
 
 成功した観測は追記専用の`feed_materials`行となる。HTML行は本文を保持して原本参照を持たず、

@@ -11,10 +11,10 @@ allows collection configuration to change without code changes or deployment.
 
 ## Registration and collection boundary
 
-Automatic earnings subscription discovery follows
-[ADR 0017](0017-build-earnings-search-from-feed-updates.md). The listing-page
-registration and bounded collector below describe the manual acquisition path;
-they do not define a separate automatic subscription update detector.
+Subscription acquisition follows
+[ADR 0017](0017-build-earnings-search-from-feed-updates.md). Listing-source
+registration remains available for existing provenance; it does not start
+acquisition.
 
 A source has a fixed target, a listing-page URL and independent enablement.
 Target activity does not control source enablement. New sources default to
@@ -23,10 +23,8 @@ within a target. Registration neither starts collection nor establishes a
 document's issuer, kind or reporting identity.
 
 Keep publisher-condition review in the operator procedure. It supplies no
-application approval state or permission inferred from registration. Collection
-uses a bounded run and an explicit URL policy for initial requests and redirects,
-including published links on external document hosts. Apply transport and size
-bounds independently of document assessment.
+application approval state or permission inferred from registration. Apply
+transport and size bounds independently of document assessment.
 
 ## Assessment boundary
 
@@ -56,8 +54,7 @@ guides and task state in GitHub issues.
 ## 登録と収集の境界
 
 決算購読の自動更新検知には[ADR 0017](0017-build-earnings-search-from-feed-updates.md)を適用する。
-以下の一覧ページ登録と上限付き収集は手動取得の経路を記述し、独立した自動購読の更新検知を
-定義しない。
+一覧取得先の登録は既存の出典情報のために利用可能であり、取得を開始しない。
 
 取得先は固定の対象、一覧ページURL、独立した有効状態を持つ。
 対象のactiveは取得先の有効状態を制御しない。新規取得先は有効を既定とし、
@@ -65,9 +62,7 @@ guides and task state in GitHub issues.
 登録だけでは収集を開始せず、資料の発行元・種類・対象期間を確定しない。
 
 公開元の条件確認は運用手順に置く。アプリ内の承認状態や、登録による取得許可の
-推定は導入しない。収集は上限付きの実行と明示的なURLポリシーを使い、
-初期リクエストと各リダイレクト先、公開された外部ホスト上の資料リンクにも適用する。
-通信・サイズの上限は資料判定と独立して適用する。
+推定は導入しない。通信・サイズの上限は資料判定と独立して適用する。
 
 ## 判定の境界
 

@@ -80,8 +80,8 @@ newly invented project goal.
 | Attention | Selected targets, sources, and search conditions | Interest-based priorities, extending into related areas |
 | Value evidence | Run the search/original comparison and discuss usefulness | Discover a connection the user had not made and wants to investigate |
 
-Lens supports bounded manual collection, Japanese search, and exact-original
-comparison for one issuer through the [validation procedure](../reference/earnings-value-validation.md).
+Lens supports Japanese search and exact-original
+comparison through the [validation procedure](../reference/earnings-value-validation.md).
 These operations help inspect retained material; they do not by themselves
 establish the discovery value described here.
 
@@ -204,8 +204,8 @@ LensはCollect → Preserve → Search → Discoverを掲げる。
 | 注意の向け先 | 選んだ対象・情報源・検索条件 | 関心に沿った優先度と関連領域への広がり |
 | 価値の証拠 | 検索・原本照合を実行し有用性を議論する | 自分では結びつけられず、調べたいと思える関係への気づき |
 
-Lensは[検証手順](../reference/earnings-value-validation.md)を通じて、1社の
-上限付き手動収集、日本語検索、正確な原本照合を提供する。保存資料を確かめるための
+Lensは[検証手順](../reference/earnings-value-validation.md)を通じて、
+日本語検索と正確な原本照合を提供する。保存資料を確かめるための
 操作であり、それだけでは今回の発見価値を証明しない。
 
 RSS公開の設計では、保存した検証対象企業の決算情報を、既存の生成済み表題・

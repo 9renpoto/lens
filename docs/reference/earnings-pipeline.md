@@ -1,48 +1,6 @@
-# Earnings discovery and identity reference
+# Earnings identity reference
 
-This describes discovery and identity foundations. The [registered candidate collector](earnings-collector.md) connects bounded discovery, acquisition and history independently of assessment. `SourceCatalog` reads registered listing sources and current issuer information from `analysis_targets`; sources default to enabled independently of target activity. `Identity` derives the issuer, fiscal year-end and reporting period from explicit PDF text; there is no fixed issuer list or fiscal-month map. The [registration interface](https://9renpoto.github.io/lens/) follows [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md). Registering or enabling a source does not authorize HTTP acquisition.
-
-## Listing discovery
-
-`Lens.Earnings.Discovery.links/2` parses listing HTML with Floki and resolves
-actual PDF anchor hrefs against the final response URL supplied by the caller.
-It does not generate filenames, run scripts, read anchor-looking strings inside
-scripts/comments, or honor an unreviewed HTML `<base>` override. Relative and
-protocol-relative links are resolved; absolute published URLs retain their
-spelling. HTML entities are decoded by the parser. Links must use HTTP(S), have
-no embedded credentials, and have a `.pdf` path (case insensitive). A filename
-in a query parameter alone is insufficient. Discovery preserves links for old
-periods, changed URLs, and corrections rather than silently excluding them.
-It does not infer identity from a filename or decide which documents to fetch.
-
-Each output includes `href` (the decoded attribute), `url` (resolved original
-URL), `comparison_url`, `listing_url`, `anchor_text`, and preceding `headings`
-as `{level, text}` pairs. A new heading clears older headings at that level and
-below it. These are observed context, not confirmed release identity. Comparison
-normalizes scheme/host, default ports, and fragments, retaining the path/query.
-Repeated comparison URLs collapse to their first observed provenance record.
-The caller must retain the complete listing response metadata separately.
-
-Inputs are capped at 2 MiB (2,097,152 bytes). More than 200 distinct PDF links
-returns `{:error, :too_many_links}` rather than a silently truncated result.
-Other explicit errors are `:listing_too_large`, `:invalid_html`, and
-`:invalid_listing_url`. These discovery limits are independent of the 20 MiB
-per-original acquisition limit. This function does no network access or storage.
-
-Discovered links are untrusted candidates. Before any acquisition, the collector
-must check source enablement and supply an explicit `allowed_url?` predicate to
-`Lens.Earnings.HTTP.fetch/2`. The transport applies that predicate to the initial
-URL and every redirect destination before contacting it; without a predicate,
-all URLs are rejected. Source registration and enablement are not URL-policy
-approval. `SourceCatalog` stores no document host/path policy and provides no
-route-authorization predicate. The [registered candidate collector](earnings-collector.md) supplies an explicit HTTP(S) URL policy for listing and external document URLs, and records candidate provenance without invoking identity classification. See its reference for run limits and policy customization.
-
-Tests compare the exact discovered URL sets from all bundled source fixtures and
-exercise HTML parsing, relative links, provenance, heading transitions,
-duplicate fragments, and input bounds. HTTP tests separately verify rejection
-without a policy and rejection of redirect destinations before contact. Reduced
-fixtures do not prove compatibility with a publisher's complete live page or
-permission to acquire/preserve its PDFs. No new live-source check is claimed.
+Identity assessment is independent of acquisition. See the [subscription guide](earnings-subscriptions.md) for feed updates and material acquisition.
 
 ## Identity assessment
 
@@ -69,50 +27,14 @@ otherwise complete identity. No dates are inferred from URLs or acquisition time
 Unrecognized layouts remain pending for operator review; this conservative
 parser is not a generic Japanese disclosure classifier.
 
-See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md), [run budgets](earnings-run-budget.md), and [fictional fixtures](../../test/fixtures/source_catalog/README.md).
+See [HTTP transport](earnings-http.md), [HTTP history](earnings-http-history.md), and [fictional fixtures](../../test/fixtures/source_catalog/README.md).
 
 <details>
 <summary>日本語</summary>
 
-# 決算資料の発見・識別の参照情報
+# 決算資料の識別の参照情報
 
-発見と識別の基盤関数を説明する。[登録候補の収集処理](earnings-collector.md)は、上限付きの発見・取得・履歴を判定と独立して接続する。`SourceCatalog`は登録済みの一覧取得先と現在の企業情報を`analysis_targets`から読み、取得先は対象のactiveと独立して有効が既定となる。`Identity`はPDF本文に明示された発行元・決算期末・対象期間を読み取り、固定の企業一覧や決算月マップを使わない。[登録インターフェース](https://9renpoto.github.io/lens/)は[ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md)に従う。取得先の登録や有効化はHTTP取得の許可を意味しない。
-
-## 一覧からの発見
-
-`Lens.Earnings.Discovery.links/2`はFlokiで一覧HTMLを解析し、実際のPDFアンカーhrefを
-呼び出し側が渡した最終応答URLから解決する。ファイル名の生成、スクリプト実行、
-スクリプトやコメント内のアンカー風文字列の解析、未検証のHTML `<base>`指定への追従は
-行わない。相対・プロトコル相対リンクは解決し、絶対URLの元の表記を保持する。
-HTML実体参照はパーサーで復号する。リンクはHTTP(S)、認証情報なし、パスが`.pdf`
-（大文字小文字を問わない）であることが必要。クエリー内のファイル名だけでは対象に
-しない。過去期・変更URL・訂正資料のリンクも保持し、黙って除外しない。
-ファイル名から識別情報を推測したり取得する資料を選択したりはしない。
-
-結果には`href`（復号した属性）、`url`（解決した元URL）、`comparison_url`、
-`listing_url`、`anchor_text`、直前の`headings`（`{level, text}`の組）を含む。
-新しい見出しで同じ階層以下の古い見出しを消す。これらは観察した文脈であり、確定した
-短信識別情報ではない。比較用にはスキーム・ホスト・既定ポート・フラグメントを
-正規化し、パスとクエリーを維持する。同じ比較URLは最初の出典情報にまとめる。
-一覧応答の完全なメタデータは呼び出し側が別途保持する。
-
-入力上限は2 MiB（2,097,152バイト）。異なるPDFリンクが200件を超えた場合は
-黙って切り詰めず`{:error, :too_many_links}`を返す。他の明示的なエラーは
-`:listing_too_large`・`:invalid_html`・`:invalid_listing_url`。
-この発見上限は原本取得の20 MiB上限とは別。この関数は通信や保存を行わない。
-
-発見リンクは未確認候補。収集側は取得前に取得先の有効状態を確認し、
-`Lens.Earnings.HTTP.fetch/2`へ明示的な`allowed_url?`判定を渡す必要がある。
-HTTP取得は初期URLと各リダイレクト先を、その先へ通信する前に判定し、判定が
-未指定なら全URLを拒否する。取得先の登録・有効化はURLポリシーの承認ではない。
-`SourceCatalog`は資料のホスト・パスポリシーを保持せず、経路の取得許可判定も提供しない。
-[登録候補の収集処理](earnings-collector.md)は、一覧と外部資料URLに明示的なHTTP(S) URLポリシーを適用し、識別判定を呼び出さず候補の出典を記録する。決算回に基づく初期選択、取得状態、日次実行、専用CLIは後続作業に残る。実行上限とポリシーの変更方法は収集処理の参照資料を確認する。
-
-テストは同梱されたすべての取得元固定データのリンク集合を完全比較し、HTML解析、相対リンク、
-出典保持、見出し遷移、フラグメント重複、入力上限を確認する。HTTPテストでは別途、
-ポリシー未指定時の拒否と、リダイレクト先への通信前の拒否を確認する。
-縮小した固定データだけで発行元の実ページ全体との互換性やPDF取得・保存の許可を
-実証したとは扱わない。新しい実サイト確認を行ったとは主張しない。
+識別判定は取得と独立している。フィードの更新と資料取得は[購読手順](earnings-subscriptions.md)を参照する。
 
 ## 識別の判定
 
@@ -136,6 +58,6 @@ HTTP取得は初期URLと各リダイレクト先を、その先へ通信する�
 URLや取得時刻から日付を推測しない。未対応のレイアウトは運用者の確認待ちとし、
 汎用の日本語開示分類器とは扱わない。
 
-[HTTP取得](earnings-http.md)、[HTTP履歴](earnings-http-history.md)、[実行予算](earnings-run-budget.md)、[架空の固定データ](../../test/fixtures/source_catalog/README.md)も参照する。
+[HTTP取得](earnings-http.md)、[HTTP履歴](earnings-http-history.md)、[架空の固定データ](../../test/fixtures/source_catalog/README.md)も参照する。
 
 </details>

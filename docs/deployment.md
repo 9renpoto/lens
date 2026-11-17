@@ -59,9 +59,7 @@ the following settings:
 
 If any RustFS variable is supplied, all four required values must be nonempty.
 Partial configuration or an invalid timeout fails startup; the storage client
-rejects other invalid configuration before collection. With no RustFS
-configuration, the collector returns `{:error, :not_configured}` before
-publisher requests.
+rejects other invalid configuration before use.
 
 PostgreSQL retains identity, acquisition history, and
 extraction/search data. RustFS retains new PDF bytes. Reads verify size and
@@ -70,8 +68,7 @@ publisher. A database dump does not contain RustFS-backed PDF bytes;
 preservation requirements are defined in [ADR 0005](adr/0005-store-pdfs-in-rustfs.md).
 
 
-Earnings collection is invoked manually; the feed scheduler does not schedule
-it. Follow the [bounded validation procedure](reference/earnings-value-validation.md).
+Feed subscriptions use the scheduler; see the [validation procedure](reference/earnings-value-validation.md).
 
 <a id="database-initialization"></a>
 
@@ -146,7 +143,7 @@ CI成功後にイメージを公開する。バージョン準備とタグ作成
 
 [ADR 0013](adr/0013-retire-interrupted-storage-recovery.md)に従い同期的な検証済み保存を使う。各原本は一つの不変のRustFS参照を保持する。破棄可能なデータの範囲では本番復元の保証は成立しない。
 
-登録済み取得先の決算収集には、用意済みのRustFSバケットと次の設定が必要。
+決算フィード資料の取得には、用意済みのRustFSバケットと次の設定が必要。
 
 | 変数 | 要件 | 説明 |
 | --- | --- | --- |
@@ -158,16 +155,15 @@ CI成功後にイメージを公開する。バージョン準備とタグ作成
 | `LENS_RUSTFS_TIMEOUT_MS` | 任意 | 1〜30000の整数。既定は30000。 |
 
 RustFS変数を一つでも渡す場合、必須の4変数すべてに空でない値が必要。
-不足設定・不正なtimeoutでは起動に失敗し、それ以外の不正設定は収集前に保存クライアントが拒否する。
-RustFS設定がなければ、Collectorは公開元への通信前に`{:error, :not_configured}`を返す。
+不足設定・不正なtimeoutでは起動に失敗し、それ以外の不正設定は使用前に保存クライアントが拒否する。
 
 PostgreSQLは識別・取得履歴・抽出／検索データを保持し、RustFSは新しいPDFバイト列を保持する。
 読取時にはサイズ・SHA-256を検証し、別backendへの暗黙のfallbackや公開元からの再取得は行わない。
 DB dumpはRustFS保存のPDFバイト列を含まない。
 保持要件は[ADR 0005](adr/0005-store-pdfs-in-rustfs.md)に定める。
 
-決算収集は手動で呼び出し、フィードのschedulerは定期実行しない。
-[上限付き検証手順](reference/earnings-value-validation.md)を参照する。
+フィード購読はスケジューラーで定期実行する。
+[検証手順](reference/earnings-value-validation.md)を参照する。
 
 ### DB初期化
 
