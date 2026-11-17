@@ -74,12 +74,13 @@ Feed subscriptions use the scheduler; see the [validation procedure](reference/e
 
 ### Database initialization
 
-The current schema removes the earnings listing-source registry and its
-assessment records. Recreate only explicitly disposable databases under
+The current schema removes `analysis_memberships`, the earnings listing-source
+registry, and its assessment records. Recreate only explicitly disposable databases under
 [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md), then
 register the required targets and feed sources again. Database recreation
-loses existing records and their original references. Keep databases that
-require those records on their existing schema.
+loses existing records, including target UUIDs and retained-original references.
+Update clients with the UUIDs returned when targets are registered again. Keep
+databases that require their existing records on their existing schema.
 
 
 Prepare the database before starting the application, using the same
@@ -175,10 +176,11 @@ DB dumpはRustFS保存のPDFバイト列を含まない。
 
 ### DB初期化
 
-現行スキーマでは決算一覧取得先の台帳とその判定記録を廃止した。
+現行スキーマでは `analysis_memberships` と、決算一覧取得先の台帳および判定記録を廃止した。
 [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) に従い、
 明示的に破棄可能な DB だけを再作成し、必要な分析対象とフィード取得先を再登録する。
-DB の再作成により既存記録と原本への参照は失われる。それらの記録が必要な DB は
+DB の再作成により、対象 UUID や保存済み原本への参照を含む既存記録は失われる。
+対象の再登録時に返る UUID でクライアントの設定を更新する。既存記録が必要な DB は
 既存スキーマのまま保持する。
 
 

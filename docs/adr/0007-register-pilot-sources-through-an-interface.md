@@ -10,6 +10,10 @@ identity. Review publisher conditions before enabling a feed and keep
 acquisition separate from identity and operator decisions. Feed acquisition
 follows [ADR 0017](0017-build-earnings-search-from-feed-updates.md).
 
+The issuer registry records company identifiers and operator-managed
+attributes. Historical index membership sits outside its scope because
+configured feed collection identifies issuers independently of index inclusion.
+
 Retire listing-source registration and the assessment workflow that depends on
 it together. The old assessment records rely on the retired listing-source
 registry for provenance. Keeping that registry would preserve a second source
@@ -28,6 +32,9 @@ in a supported database can still be read through the original API.
 登録によって公開元の許可や資料の識別は確定しない。フィードを有効にする前に
 公開元の条件を確認し、取得と識別・運用者判断を分離する。フィード取得には
 [ADR 0017](0017-build-earnings-search-from-feed-updates.md) を適用する。
+
+発行元台帳には企業の識別子と運用者が管理する属性を記録する。設定済みフィードの収集では
+指数への組み入れとは独立して発行元を識別するため、指数の所属履歴は台帳の対象外とする。
 
 一覧取得先の登録とそれに依存する判定処理を一緒に廃止する。旧判定記録の出典は
 廃止対象の一覧取得先台帳に依存している。この台帳を残すと、一覧取得の廃止後も

@@ -10,18 +10,22 @@ Pages is configured to publish through GitHub Actions.
 Configure this once in the repository settings: open **Settings → Pages** and
 set the source to **GitHub Actions**.
 
-## Target and Membership Management API
+## Analysis target API
 
-Operators can manage analysis targets and effective-dated Nikkei 225 membership intervals:
+Operators use the target registry to manage configured issuers.
 
-- `GET /api/targets`: List targets (supports optional `as_of=YYYY-MM-DD` query parameter for active membership lookup).
-- `GET /api/targets/:id`: Retrieve a target with its membership intervals.
+- `GET /api/targets`: List active and inactive targets in security-code order.
+- `GET /api/targets/:id`: Retrieve a target by its UUID.
 - `POST /api/targets`: Create an analysis target with security code, market, display name, sector, and optional tags.
 - `PATCH /api/targets/:id`: Update target attributes.
 - `POST /api/targets/:id/deactivate`: Non-destructively deactivate a target.
-- `GET /api/targets/:target_id/memberships`: List membership intervals for a target.
-- `POST /api/targets/:target_id/memberships`: Add an effective-dated membership interval for a target.
-- `PATCH /api/targets/:target_id/memberships/:id`: Update or close a membership interval while preserving its history.
+
+Historical index membership has been retired. The former
+`/api/targets/:target_id/memberships` routes and their detail operations return
+404. Target responses omit `memberships`. Remove `as_of` from list requests.
+Clients still sending that parameter receive the full, unfiltered registry.
+See [database initialization](deployment.md#database-initialization) for the
+schema transition.
 
 ## Retired earnings listing-source API
 
@@ -70,18 +74,20 @@ GitHub Actions経由で公開するようGitHub Pagesを設定すると、リフ
 
 リポジトリ設定の **Settings → Pages** でソースを **GitHub Actions** に設定してください。
 
-## 分析対象および所属期間管理API
+## 分析対象 API
 
-運用者は分析対象および適用期間付きの日経225所属期間を管理できます：
+運用者は対象台帳を使って設定対象の発行元を管理する。
 
-- `GET /api/targets`: 分析対象の一覧を取得します（`as_of=YYYY-MM-DD` クエリパラメータで指定日時点で有効な所属を抽出可能）。
-- `GET /api/targets/:id`: 指定された分析対象とその所属期間を取得します。
-- `POST /api/targets`: 証券コード、市場、表示名、セクター、タグを指定して分析対象を作成します。
-- `PATCH /api/targets/:id`: 分析対象の属性を更新します。
-- `POST /api/targets/:id/deactivate`: 分析対象を非破壊的に無効化します。
-- `GET /api/targets/:target_id/memberships`: 分析対象の所属期間一覧を取得します。
-- `POST /api/targets/:target_id/memberships`: 分析対象に適用期間付きの所属期間を追加します。
-- `PATCH /api/targets/:target_id/memberships/:id`: 履歴を保持したまま所属期間を更新または終了します。
+- `GET /api/targets`: 有効・無効の両方の分析対象を証券コード順で取得する。
+- `GET /api/targets/:id`: UUID で分析対象を取得する。
+- `POST /api/targets`: 証券コード、市場、表示名、セクター、任意のタグを指定して分析対象を作成する。
+- `PATCH /api/targets/:id`: 分析対象の属性を更新する。
+- `POST /api/targets/:id/deactivate`: 分析対象を非破壊的に無効化する。
+
+指数の所属履歴を廃止した。旧 `/api/targets/:target_id/memberships` ルートと詳細操作は
+404 を返す。対象の応答から `memberships` を削除した。一覧リクエストから `as_of` を
+削除する。このパラメータを送信し続けるクライアントには絞り込みなしで台帳全体を返す。
+スキーマの移行手順は [DB 初期化](deployment.md#database-initialization) を参照する。
 
 ## 廃止した決算一覧取得先 API
 
