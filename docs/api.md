@@ -23,11 +23,10 @@ Operators can manage analysis targets and effective-dated Nikkei 225 membership 
 - `POST /api/targets/:target_id/memberships`: Add an effective-dated membership interval for a target.
 - `PATCH /api/targets/:target_id/memberships/:id`: Update or close a membership interval while preserving its history.
 
-## Earnings source management API
+## Retired earnings listing-source API
 
-Register, list, inspect and partially update sources under `/api/targets/:target_id/earnings-sources`. Use the [generated OpenAPI reference](https://9renpoto.github.io/lens/) for request examples, enablement and URL validation. [ADR 0007](adr/0007-register-pilot-sources-through-an-interface.md) records current registration decisions. The existing `/api/sources` endpoints continue to manage feed sources.
-
-The feed-source API accepts `ingestion_mode` (`document` or `earnings_updates`) and returns the read-only `feed_baselined_at`. See [earnings subscriptions](reference/earnings-subscriptions.md) for baseline and update-signal behavior.
+`/api/targets/:target_id/earnings-sources` and its detail operations are removed.
+Use `/api/sources` to register feeds and `/api/targets` to manage analysis targets.
 
 ## Retained earnings RSS
 
@@ -84,11 +83,10 @@ GitHub Actions経由で公開するようGitHub Pagesを設定すると、リフ
 - `POST /api/targets/:target_id/memberships`: 分析対象に適用期間付きの所属期間を追加します。
 - `PATCH /api/targets/:target_id/memberships/:id`: 履歴を保持したまま所属期間を更新または終了します。
 
-## 決算取得先の管理API
+## 廃止した決算一覧取得先 API
 
-`/api/targets/:target_id/earnings-sources`配下で取得先の登録・一覧・詳細・部分更新を提供する。リクエスト例、有効状態、URL検証は[生成OpenAPIリファレンス](https://9renpoto.github.io/lens/)を参照する。現在の登録方針は[ADR 0007](adr/0007-register-pilot-sources-through-an-interface.md)に記録する。既存の`/api/sources`エンドポイントは引き続きフィード取得先を管理する。
-
-フィード取得先APIは`ingestion_mode`（`document`または`earnings_updates`）を受け付け、読み取り専用の`feed_baselined_at`を返す。基準と更新通知の挙動は[決算購読](reference/earnings-subscriptions.md)を参照する。
+`/api/targets/:target_id/earnings-sources` とその詳細操作は廃止した。
+フィードの登録には `/api/sources`、分析対象の管理には `/api/targets` を使う。
 
 ## 保存済み決算情報のRSS
 

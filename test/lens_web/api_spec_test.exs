@@ -1,16 +1,25 @@
 defmodule LensWeb.ApiSpecTest do
   use ExUnit.Case, async: true
 
-  test "earnings source creation and updates require a JSON request body" do
+  test "listing-source operations are absent from the router and OpenAPI" do
     document = LensWeb.ApiSpec.spec() |> Jason.encode!() |> Jason.decode!()
 
-    for {path, method} <- [
-          {"/api/targets/{target_id}/earnings-sources", "post"},
-          {"/api/targets/{target_id}/earnings-sources/{id}", "patch"}
+    refute Enum.any?(Map.keys(document["paths"]), &String.contains?(&1, "/earnings-sources"))
+
+    refute Enum.any?(
+             Map.keys(document["components"]["schemas"]),
+             &String.contains?(&1, "EarningsSource")
+           )
+
+    base = "/api/targets/#{Ecto.UUID.generate()}/earnings-sources"
+
+    for {method, path} <- [
+          {"GET", base},
+          {"POST", base},
+          {"GET", base <> "/id"},
+          {"PATCH", base <> "/id"}
         ] do
-      body = document["paths"][path][method]["requestBody"]
-      assert body["required"] == true
-      assert body["content"]["application/json"]["schema"]
+      assert Phoenix.Router.route_info(LensWeb.Router, method, path, "localhost") == :error
     end
   end
 

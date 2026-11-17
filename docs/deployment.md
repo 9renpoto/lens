@@ -21,7 +21,7 @@ The container runs as the unprivileged `lens` user, listens on
 
 - PostgreSQL 18 stores canonical records and derived search data.
 - RustFS stores earnings PDFs. PostgreSQL retains their metadata and acquisition history.
-- Configured feed and earnings sources must be reachable from the application.
+- Configured feed sources must be reachable from the application.
 - The unauthenticated HTTP API requires a private access boundary.
 
 Persistent storage is required for records and originals designated for
@@ -45,7 +45,7 @@ runtime secrets rather than committing their values.
 
 Use synchronous verified saves under [ADR 0013](adr/0013-retire-interrupted-storage-recovery.md). Each original retains one immutable RustFS reference. The disposable-data scope does not establish production restore guarantees.
 
-Registered-source earnings collection requires a provisioned RustFS bucket and
+Earnings PDF acquisition from feeds requires a provisioned RustFS bucket and
 the following settings:
 
 | Variable | Requirement | Description |
@@ -73,6 +73,14 @@ Feed subscriptions use the scheduler; see the [validation procedure](reference/e
 <a id="database-initialization"></a>
 
 ### Database initialization
+
+The current schema removes the earnings listing-source registry and its
+assessment records. Recreate only explicitly disposable databases under
+[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md), then
+register the required targets and feed sources again. Database recreation
+loses existing records and their original references. Keep databases that
+require those records on their existing schema.
+
 
 Prepare the database before starting the application, using the same
 image and `DATABASE_URL`:
@@ -120,7 +128,7 @@ CI成功後にイメージを公開する。バージョン準備とタグ作成
 
 - PostgreSQL 18は正となる記録と検索用データを保存する。
 - RustFSは決算PDFを保存する。PostgreSQLにはメタデータと取得履歴を保持する。
-- 設定したフィード・決算取得先へアプリから接続できる必要がある。
+- 設定したフィード取得先へアプリから接続できる必要がある。
 - 認証を持たないHTTP APIには非公開のアクセス境界が必要。
 
 保持対象とした記録・原本には永続保存が必要。
@@ -166,6 +174,13 @@ DB dumpはRustFS保存のPDFバイト列を含まない。
 [検証手順](reference/earnings-value-validation.md)を参照する。
 
 ### DB初期化
+
+現行スキーマでは決算一覧取得先の台帳とその判定記録を廃止した。
+[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) に従い、
+明示的に破棄可能な DB だけを再作成し、必要な分析対象とフィード取得先を再登録する。
+DB の再作成により既存記録と原本への参照は失われる。それらの記録が必要な DB は
+既存スキーマのまま保持する。
+
 
 同じイメージと`DATABASE_URL`を使い、アプリ起動前にDBを準備する。
 

@@ -2,80 +2,38 @@
 status: accepted
 ---
 
-# Register collection targets through an operator interface
+# Register analysis targets and feed sources through the operator API
 
-Operators choose analysis targets and register their earnings listing sources
-through APIs. Reuse `analysis_targets` as the security registry and associate
-multiple `earnings_sources` with each target. This avoids a second registry and
-allows collection configuration to change without code changes or deployment.
+Use `analysis_targets` as the issuer registry and `/api/sources` to configure
+feeds. Registration does not establish publisher permission or document
+identity. Review publisher conditions before enabling a feed and keep
+acquisition separate from identity and operator decisions. Feed acquisition
+follows [ADR 0017](0017-build-earnings-search-from-feed-updates.md).
 
-## Registration and collection boundary
-
-Subscription acquisition follows
-[ADR 0017](0017-build-earnings-search-from-feed-updates.md). Listing-source
-registration remains available for existing provenance; it does not start
-acquisition.
-
-A source has a fixed target, a listing-page URL and independent enablement.
-Target activity does not control source enablement. New sources default to
-enabled; operators can explicitly disable them. Reject duplicate listing URLs
-within a target. Registration neither starts collection nor establishes a
-document's issuer, kind or reporting identity.
-
-Keep publisher-condition review in the operator procedure. It supplies no
-application approval state or permission inferred from registration. Apply
-transport and size bounds independently of document assessment.
-
-## Assessment boundary
-
-Keep acquired originals and acquisition facts separate from automated document
-assessments and explicit operator decisions. Record an assessment's outcome,
-identity and supporting evidence using the shared assessment contract. Unknown
-or contradictory identity stays pending and does not block other candidates.
-Operator adoption must not invent missing identity, silently merge releases or
-rewrite acquisition facts. Use APIs as the operator interface; a web UI is not
-required by this decision.
-
-Configuration edits do not rewrite retained acquisition or assessment history.
-Use the [current schema initialization contract](0010-defer-backups-for-disposable-development-data.md)
-for disposable databases and [RustFS](0005-store-pdfs-in-rustfs.md) for PDFs.
-Keep exact API schemas in [OpenAPI](../api.md), procedures in the maintained
-guides and task state in GitHub issues.
+Retire listing-source registration and the assessment workflow that depends on
+it together. The old assessment records rely on the retired listing-source
+registry for provenance. Keeping that registry would preserve a second source
+model after listing acquisition has been retired. Initialize disposable
+databases from the current schema under
+[ADR 0010](0010-defer-backups-for-disposable-development-data.md). Old
+registrations and assessment records are not transferred. Retained originals
+in a supported database can still be read through the original API.
 
 <details>
 <summary>日本語</summary>
 
-# 操作インターフェースから収集対象を登録する
+# 分析対象とフィード取得先を運用者 API で登録する
 
-運用者は分析対象を選び、その決算資料の一覧取得先をAPIから登録する。
-銘柄台帳には`analysis_targets`を再利用し、各対象へ複数の`earnings_sources`を関連付ける。
-二つ目の台帳を作らず、コード変更や配備なしで収集設定を変更できるようにする。
+発行元台帳には `analysis_targets` を使い、フィードは `/api/sources` で設定する。
+登録によって公開元の許可や資料の識別は確定しない。フィードを有効にする前に
+公開元の条件を確認し、取得と識別・運用者判断を分離する。フィード取得には
+[ADR 0017](0017-build-earnings-search-from-feed-updates.md) を適用する。
 
-## 登録と収集の境界
-
-決算購読の自動更新検知には[ADR 0017](0017-build-earnings-search-from-feed-updates.md)を適用する。
-一覧取得先の登録は既存の出典情報のために利用可能であり、取得を開始しない。
-
-取得先は固定の対象、一覧ページURL、独立した有効状態を持つ。
-対象のactiveは取得先の有効状態を制御しない。新規取得先は有効を既定とし、
-明示的に無効化できる。同じ対象内の一覧URLの重複を拒否する。
-登録だけでは収集を開始せず、資料の発行元・種類・対象期間を確定しない。
-
-公開元の条件確認は運用手順に置く。アプリ内の承認状態や、登録による取得許可の
-推定は導入しない。通信・サイズの上限は資料判定と独立して適用する。
-
-## 判定の境界
-
-取得原本と取得事実を、自動の資料判定と明示的な運用者判断から分ける。
-共通の判定契約で結果・識別情報・根拠を記録する。不明・矛盾する識別は確認待ちにし、
-他の候補の処理を止めない。運用者の採用で不足する識別を作ったり、
-黙ってリリースを統合したり、取得事実を書き換えたりしない。
-運用者のインターフェースにはAPIを使い、この判断でWeb UIを必須としない。
-
-設定編集で保持した取得・判定履歴を書き換えない。破棄可能なDBには
-[現行スキーマの初期化契約](0010-defer-backups-for-disposable-development-data.md)、
-PDFには[RustFS](0005-store-pdfs-in-rustfs.md)を使う。
-正確なAPIスキーマは[OpenAPI](../api.md)、手順は維持するガイド、
-タスク状態はGitHub Issueに置く。
+一覧取得先の登録とそれに依存する判定処理を一緒に廃止する。旧判定記録の出典は
+廃止対象の一覧取得先台帳に依存している。この台帳を残すと、一覧取得の廃止後も
+二つ目の取得先モデルが残る。
+[ADR 0010](0010-defer-backups-for-disposable-development-data.md) に従い、破棄可能な
+DB を現行スキーマで初期化する。旧登録や判定記録は引き継がない。対応する DB に
+保存された原本は引き続き原本 API で参照できる。
 
 </details>
