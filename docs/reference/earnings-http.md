@@ -1,10 +1,15 @@
 # Earnings HTTP transport and operator storage API
 
-`Lens.Earnings.HTTP.fetch/2` provides the transport foundation for
-[#71](https://github.com/9renpoto/lens/issues/71). It performs no database writes,
-identity confirmation, scheduling, or extraction. [Source registration](https://9renpoto.github.io/lens/) and the [registered candidate collector](earnings-collector.md) are available. The collector checks source enablement and uses one shared run budget for a manual run; request cadence and daily scheduling remain follow-up work. Operators review acquisition conditions before enabling sources under [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md).
+`Lens.Earnings.HTTP.fetch/2` is a bounded transport layer. It does not perform
+identity confirmation, scheduling, or extraction. See [subscription material
+acquisition](earnings-materials.md) for the feed-driven path. Operators review
+publisher conditions before enabling sources.
 
-An explicit `allowed_url?` predicate is required by the transport. Without one, every URL is rejected before a request. The predicate is applied to the initial URL and each redirect destination before that destination is contacted. URLs must use HTTP(S), have a host, and contain no embedded credentials. `SourceCatalog` provides registered listings, not a document route-authorization predicate. The collector explicitly supplies a default policy accepting valid HTTP(S) URLs within 4096 bytes, including external document hosts, without restricting network addresses. Callers can supply a stricter policy. Registration alone is not a transport policy or evidence of publisher permission. See the collector reference for manual execution, policy customization and provenance persistence.
+An explicit `allowed_url?` predicate is required. Without one, every URL is
+rejected before a request. The predicate applies to the initial URL and every
+redirect destination before contact. URLs must use HTTP(S), have a host, and
+contain no embedded credentials. Registration is not a transport policy or
+evidence of publisher permission.
 
 Subscription acquisition uses `kind: :material` for responses that can be HTML or
 PDF. Known HTML response types have a 2 MiB streaming cap; otherwise the transport
@@ -24,8 +29,7 @@ See [material acquisition](earnings-materials.md) for retention and source assoc
   shorten this bound. Connection options stay fixed to reuse one Finch pool.
 - `max_redirects` accepts 0–3 and defaults to 3: at most four HTTP attempts per
   invocation. Redirects are followed explicitly, with policy checks before each
-  hop. There are zero automatic retries. The collector applies a shared run budget;
-  retry/backoff and request cadence remain follow-up work subject to publisher conditions.
+  hop. There are zero automatic retries.
 - Req streams each body chunk into a byte-counted accumulator. Oversized
   Content-Length is rejected, and actual chunks are checked even without that
   header. Error and redirect bodies are not retained. Automatic decompression
@@ -40,7 +44,7 @@ See [material acquisition](earnings-materials.md) for retention and source assoc
 Optional `headers` carry conditional validators such as `if-none-match` and
 `if-modified-since`. Successful response headers expose returned validators for
 future checks. The transport neither creates acquisition identifiers nor retries
-persistence; the collector must allocate one identifier per actual download and
+persistence; callers must allocate one identifier per actual download and
 reuse it only when retrying that same persistence operation.
 
 Cross-origin redirects retain only `accept`, `accept-language`, and `user-agent`
@@ -69,8 +73,7 @@ history are untouched because this layer does not write to storage.
 Tests use actual local TCP/HTTP responses for exact bytes, chunked size bounds,
 advertised size rejection, conditional headers, 304, HTTP errors, interrupted
 responses, denied/relative/looping redirects, total deadlines, caller termination,
-content encoding, and connection failure. No publisher is contacted. The collector connects this layer to acquisition history and manual bounded runs.
-Per-source concurrent-run exclusion, daily scheduling and capped retry/backoff remain follow-up work.
+content encoding, and connection failure. No publisher is contacted.
 
 ## Operator storage API (#160 / #73)
 
@@ -80,7 +83,7 @@ The original retrieval route remains behind the deployment's existing private op
 | --- | --- | --- |
 | `GET /api/earnings/originals/:id` | 200 `application/pdf` with exact verified retained bytes | 404 for malformed/unknown original IDs; 503 for known originals with unavailable storage |
 
-Storage-work listing/detail routes and their OpenAPI schemas are removed under [ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md). `GET /api/earnings/storage-work` and `GET /api/earnings/storage-work/:id` now return 404. There is no replacement recovery or retry API. Use the collector's explicit errors and acquisition outcomes when reviewing a failed save. Work identifiers are not original identifiers.
+Storage-work listing/detail routes and their OpenAPI schemas are removed under [ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md). `GET /api/earnings/storage-work` and `GET /api/earnings/storage-work/:id` now return 404. There is no replacement recovery or retry API. Review acquisition outcomes when investigating a failed save. Work identifiers are not original identifiers.
 
 The original route accepts `Accept: application/pdf`, `application/json` or `*/*`. Success is PDF and errors are JSON; callers should inspect the status and Content-Type. Other API routes retain their existing JSON negotiation. Read any retained original version by its original ID, including older versions. Verify byte size and SHA-256 through the selected backend before sending bytes. Do not refetch the publisher, fall back to a PostgreSQL copy when selected RustFS storage fails, allocate extraction attempts or mutate acquisition/history records.
 
@@ -97,10 +100,13 @@ The finite reason set is `not_found`, `integrity_error`, `original_unavailable`,
 
 # 決算HTTP取得と運用者向け保存API
 
-`Lens.Earnings.HTTP.fetch/2`は[#71](https://github.com/9renpoto/lens/issues/71)の取得基盤。
-DB書込・識別確定・日次実行・抽出は行わない。[取得先登録](https://9renpoto.github.io/lens/)と[登録候補の収集処理](earnings-collector.md)は利用できる。収集側は取得先の有効状態を確認し、手動の1回の実行で共有の実行上限を適用する。巡回間隔と日次実行は後続作業に残る。運用者は [ADR 0007](../adr/0007-register-pilot-sources-through-an-interface.md) に従い、取得先を有効にする前に取得条件を確認する。
+`Lens.Earnings.HTTP.fetch/2`は上限付き通信基盤であり、識別確定・日次実行・抽出は
+行わない。フィード経由の処理は[購読資料の取得](earnings-materials.md)を参照する。
+運用者は取得先を有効にする前に公開元の条件を確認する。
 
-HTTP取得には明示的な`allowed_url?`判定が必須で、未指定なら通信前に全URLを拒否する。初期URLと各リダイレクト先を通信前に判定する。URLはHTTP(S)、ホストあり、埋め込み認証情報なしを必須とする。`SourceCatalog`は登録一覧を提供するが、資料経路の取得許可判定は提供しない。収集側は4096バイト以内の有効なHTTP(S) URLを外部資料ホストも含めて許可する既定ポリシーを明示的に渡し、ネットワークアドレスは制限しない。呼び出し側はより厳しいポリシーを指定できる。登録だけでは取得ポリシーや発行元の許可の証跡にはならない。手動実行、ポリシーの変更、出典の永続化は収集処理の参照資料を確認する。
+明示的な`allowed_url?`判定が必須で、未指定なら通信前に全URLを拒否する。初期URLと
+各リダイレクト先を通信前に判定する。URLはHTTP(S)、ホストあり、埋め込み認証情報なしを
+必須とする。登録だけでは取得ポリシーや発行元の許可の証跡にはならない。
 
 購読資料の取得では、HTMLまたはPDFとなる応答に`kind: :material`を使用する。
 HTMLと分かる応答形式は転送中に2 MiB、それ以外は20 MiBで制限し、呼び出し側が分類と
@@ -117,7 +123,7 @@ HTML上限の適用を行う。保持と取得元の対応付けは[資料取得
   （単調時計のミリ秒値）で上限を短縮できる。接続設定を固定しFinchプールを再利用する。
 - `max_redirects`は0〜3、既定3で、呼び出しごとにHTTP試行は最大4回。
   各宛先の通信前に判定し、明示的にリダイレクトする。自動再試行は0回。
-  収集側は共有の実行上限を適用する。再試行・待機と巡回間隔は発行元条件に従う後続作業。
+
 - Reqの受信チャンクをバイト数付きで蓄積する。Content-Length超過を拒否し、
   ヘッダー欠落時も実チャンクの量を確認する。エラー・リダイレクト本文は保持しない。
   自動展開・本文変換を無効にし、identity圧縮方式を要求して他のContent-Encodingを
@@ -129,7 +135,7 @@ HTML上限の適用を行う。保持と取得元の対応付けは[資料取得
 
 `headers`には`if-none-match`・`if-modified-since`などの条件付き取得情報を渡せる。
 成功応答のヘッダーから次回用の検証子を参照できる。取得識別子の生成や保存再試行は
-行わない。収集側は実際のダウンロードごとに識別子を割り当て、その保存処理を
+行わない。呼び出し側は実際のダウンロードごとに識別子を割り当て、その保存処理を
 再試行する場合だけ同じ識別子を再利用する。
 
 別オリジンへのリダイレクトでは、呼び出し側のヘッダーのうち`accept`・
@@ -156,7 +162,7 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 実際のローカルTCP/HTTP応答で、正確なバイト列、チャンク量、申告サイズ超過、
 条件付きヘッダー、304、HTTP失敗、受信中断、拒否・相対・循環リダイレクト、
 全体期限、呼び出し元終了、圧縮方式、接続失敗を検証する。発行元には通信しない。
-収集側は取得履歴と上限付き手動実行へ接続している。取得先ごとの同時実行排他・日次実行・上限付き再試行と待機は後続作業。
+
 
 ## 運用者向け保存API（#160・#73）
 
@@ -166,7 +172,7 @@ Content-Encodingのidentity値は大文字・小文字を区別せず比較す�
 | --- | --- | --- |
 | `GET /api/earnings/originals/:id` | 200 `application/pdf`、検証済みの正確な保持バイト列 | 不正・不存在の原本IDは404。既知だが保存先が利用不可の原本は503 |
 
-[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md)に従い、保存作業の一覧・詳細ルートとOpenAPIスキーマを削除する。`GET /api/earnings/storage-work`と`GET /api/earnings/storage-work/:id`は404を返す。代替の復旧・再試行APIは提供しない。保存失敗の確認にはCollectorの明示的なエラーと取得結果を使う。作業識別子は原本識別子ではない。
+[ADR 0013](../adr/0013-retire-interrupted-storage-recovery.md)に従い、保存作業の一覧・詳細ルートとOpenAPIスキーマを削除する。`GET /api/earnings/storage-work`と`GET /api/earnings/storage-work/:id`は404を返す。代替の復旧・再試行APIは提供しない。保存失敗の調査には取得結果を使う。作業識別子は原本識別子ではない。
 
 原本ルートは`Accept: application/pdf`、`application/json`、`*/*`を受理する。成功はPDF、エラーはJSONなので、呼び出し側は状態コードとContent-Typeを確認する。他のAPIルートは既存のJSON形式交渉を維持する。過去版を含む保持原本を原本IDで取得できる。送信前に選択済みbackendでサイズ・SHA-256を検証する。公開元からの再取得、選択済みRustFSの失敗時のPostgreSQLコピーへのフォールバック、抽出試行の作成、取得・履歴の変更は行わない。
 

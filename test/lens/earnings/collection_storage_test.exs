@@ -1,18 +1,8 @@
 defmodule Lens.Earnings.CollectionStorageTest do
   use Lens.DataCase
-  alias Lens.Earnings.{Acquisition, HTTPCheck, HTTPHistory, RustFS, Sources}
+  alias Lens.Earnings.{Acquisition, HTTPCheck, HTTPHistory, RustFS}
 
   setup do
-    {:ok, target} =
-      Lens.Analysis.create_target(%{
-        security_code: "issuer-example-a",
-        market: "TSE",
-        display_name: "Example",
-        sector: "Test"
-      })
-
-    {:ok, source} = Sources.create(target, %{listing_url: "https://publisher.test/results"})
-
     {:ok, client} =
       RustFS.new(
         endpoint: "http://storage.test",
@@ -21,13 +11,15 @@ defmodule Lens.Earnings.CollectionStorageTest do
         secret_access_key: "test"
       )
 
+    source_id = Ecto.UUID.generate()
+
     attrs = %{
       check_id: Ecto.UUID.generate(),
       issuer_code: "issuer-example-a",
       kind: :pdf,
       url: "https://publisher.test/request.pdf",
       checked_at: DateTime.utc_now(),
-      metadata: %{source_id: source.id, anchor_text: "Results"},
+      metadata: %{source_id: source_id, anchor_text: "Results"},
       result: %{
         outcome: :success,
         final_url: "https://publisher.test/actual.pdf",
@@ -39,7 +31,7 @@ defmodule Lens.Earnings.CollectionStorageTest do
       }
     }
 
-    %{source: source, client: client, attrs: attrs}
+    %{source_id: source_id, client: client, attrs: attrs}
   end
 
   test "synchronous save verifies bytes before atomically recording the original and HTTP facts",
@@ -66,7 +58,7 @@ defmodule Lens.Earnings.CollectionStorageTest do
     }
 
     assert {:ok, check} = HTTPHistory.store(c.attrs, client)
-    assert check.metadata["source_id"] == c.source.id
+    assert check.metadata["source_id"] == c.source_id
     assert check.metadata["anchor_text"] == "Results"
     assert check.final_url == c.attrs.result.final_url
     assert check.checked_at == c.attrs.checked_at

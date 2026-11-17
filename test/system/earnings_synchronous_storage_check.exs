@@ -53,72 +53,22 @@ defmodule Lens.SynchronousStorageCheck do
     %{attrs: attrs, bytes: attrs.result.bytes}
   end
 
-  test "bounded collection stores verified originals and repeated runs preserve history", c do
-    alias Lens.Earnings.{Collector, HTTPCheck, Original, Sources}
+  test "repeated observations preserve history and reuse verified originals", c do
+    assert {:ok, first} = HTTPHistory.store(c.attrs, c.client)
+    first_acquisition = Repo.get!(Acquisition, first.acquisition_id)
+    assert Repo.get!(Original, first_acquisition.original_id).endpoint == c.client.endpoint
 
-    {:ok, listener} =
-      :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, ip: {127, 0, 0, 1}])
-
-    {:ok, {_, port}} = :inet.sockname(listener)
-    worker = spawn(fn -> serve_collection(listener, c.bytes) end)
-
-    on_exit(fn ->
-      :gen_tcp.close(listener)
-      Process.exit(worker, :kill)
-    end)
-
-    {:ok, target} =
-      Lens.Analysis.create_target(%{
-        security_code: "000159-" <> Ecto.UUID.generate(),
-        market: "TSE",
-        display_name: "Real collection",
-        sector: "Test"
-      })
-
-    {:ok, source} = Sources.create(target, %{listing_url: "http://127.0.0.1:#{port}/results"})
-    # The first sorted source consumes the bounded run; no publisher.invalid fixture is fetched.
-    assert {:ok, first} = Collector.run(rustfs: c.client, max_operations: 2)
-    assert first.budget.operations == 2
-    assert [%{kind: "pdf"} = check] = Enum.filter(first.checks, &(&1.kind == "pdf"))
-    assert check.metadata["source_id"] == source.id
-    acquisition = Repo.get!(Acquisition, check.acquisition_id)
-    assert acquisition.release_id == nil
-    assert Repo.get!(Original, acquisition.original_id).endpoint == c.client.endpoint
-
-    assert Lens.Earnings.original_bytes(acquisition.original_id, rustfs: c.client) ==
+    assert Lens.Earnings.original_bytes(first_acquisition.original_id, rustfs: c.client) ==
              {:ok, c.bytes}
 
-    assert {:ok, second} = Collector.run(rustfs: c.client, max_operations: 2)
-    assert [%{kind: "pdf"} = next] = Enum.filter(second.checks, &(&1.kind == "pdf"))
-    assert next.id != check.id
-    assert next.acquisition_id != check.acquisition_id
-    assert Repo.get!(Acquisition, next.acquisition_id).original_id == acquisition.original_id
-    {:ok, _} = Sources.update(source, %{enabled: false})
-    assert Repo.get!(HTTPCheck, check.id) == check
-    assert Repo.get!(Acquisition, acquisition.id) == acquisition
-  end
-
-  defp serve_collection(listener, bytes) do
-    case :gen_tcp.accept(listener) do
-      {:ok, socket} ->
-        {:ok, request} = :gen_tcp.recv(socket, 0, 2000)
-
-        body =
-          if String.starts_with?(request, "GET /report.pdf "),
-            do: bytes,
-            else: ~s(<a href="/report.pdf">Results</a>)
-
-        :gen_tcp.send(socket, [
-          "HTTP/1.1 200 OK\r\nContent-Length: #{byte_size(body)}\r\nConnection: close\r\n\r\n",
-          body
-        ])
-
-        :gen_tcp.close(socket)
-        serve_collection(listener, bytes)
-
-      _ ->
-        :ok
-    end
+    next = %{c.attrs | check_id: Ecto.UUID.generate()}
+    assert {:ok, second} = HTTPHistory.store(next, c.client)
+    second_acquisition = Repo.get!(Acquisition, second.acquisition_id)
+    assert first.id != second.id
+    assert first.acquisition_id != second.acquisition_id
+    assert second_acquisition.original_id == first_acquisition.original_id
+    assert Repo.get!(HTTPCheck, first.id) == first
+    assert Repo.get!(Acquisition, first_acquisition.id) == first_acquisition
   end
 
   test "failed save is explicit and a new observation can save without a recovery queue", c do

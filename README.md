@@ -82,7 +82,7 @@ curl --get http://127.0.0.1:4000/api/search --data-urlencode 'q=example'
 ```
 
 Register feeds using the [source operations guide](docs/operations.md#configure-and-inspect-sources).
-For earnings PDFs, follow the [bounded collection and original-comparison guide](docs/reference/earnings-value-validation.md).
+For earnings PDFs, follow the [search and original-comparison guide](docs/reference/earnings-value-validation.md).
 Keep the unauthenticated API behind a private access boundary; report
 vulnerabilities according to the [security policy](SECURITY.md).
 
@@ -104,7 +104,7 @@ for command behavior and limits.
 `mix phx.server`でローカルAPIを起動し、`GET /api/ready`で接続可能か確認する。
 `GET /api/search`の`q`に検索語を指定する。
 フィード登録は[取得先の運用手順](docs/operations.md#configure-and-inspect-sources)、
-決算PDFは[上限付き収集・原本照合手順](docs/reference/earnings-value-validation.md)を参照する。
+決算PDFは[検索・原本照合手順](docs/reference/earnings-value-validation.md)を参照する。
 認証を持たないAPIは非公開のアクセス境界内で使い、脆弱性は[セキュリティ方針](SECURITY.md)に従って報告する。
 
 CLIは既存の取得先ID・原本IDを指定して使う。

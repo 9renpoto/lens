@@ -78,10 +78,11 @@ and exception context.
 
 [ADR 0007](0007-register-pilot-sources-through-an-interface.md) governs target
 registration and the separation of acquisition, assessment and operator
-decisions. This decision defines the automatic subscription path; the bounded
-manual listing collector is not the subscription update detector. Reuse the
-existing target registry, source metadata and acquisition safeguards where
-applicable. [ADR 0005](0005-store-pdfs-in-rustfs.md) governs retained PDFs, and
+decisions. This decision defines the subscription acquisition path. Do not provide a
+manual listing-order collector or a command to acquire an operator-selected PDF.
+Feed ingestion can acquire PDFs from subsequent updates, and retained originals
+remain readable. Reuse the existing target registry, source metadata and
+acquisition safeguards where applicable. [ADR 0005](0005-store-pdfs-in-rustfs.md) governs retained PDFs, and
 [ADR 0010](0010-defer-backups-for-disposable-development-data.md) continues to
 govern disposable data and preservation guarantees. Keeping revisions does not
 introduce backup or restore guarantees.
@@ -156,8 +157,9 @@ PDF原本・検索登録結果を区別する。フィードで検知できた�
 ## 他の判断との関係
 
 [ADR 0007](0007-register-pilot-sources-through-an-interface.md)は対象登録と、取得・判定・
-運用者判断の分離を扱う。本判断は自動購読の経路を定義し、上限付き手動一覧収集を購読の更新
-検知には使わない。既存の対象台帳・取得先メタデータ・取得時の制約を適用可能な範囲で再利用する。
+運用者判断の分離を扱う。本判断は購読による取得経路を定義し、一覧順の手動収集や運用者が
+指定したPDFを取得するコマンドは設けない。フィード取り込みは後続の更新からPDFを取得でき、
+保存済み原本も引き続き参照できる。既存の対象台帳・取得先メタデータ・取得時の制約を適用可能な範囲で再利用する。
 保存PDFには[ADR 0005](0005-store-pdfs-in-rustfs.md)、破棄可能なデータと保持保証には引き続き
 [ADR 0010](0010-defer-backups-for-disposable-development-data.md)を適用する。改訂版の保持は
 バックアップや復元の保証を導入するものではない。
