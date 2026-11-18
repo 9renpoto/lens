@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Upgrade retained PostgreSQL databases with Ecto migrations
