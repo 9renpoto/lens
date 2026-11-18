@@ -4,17 +4,11 @@ status: accepted
 
 # Recreate disposable databases from the current schema
 
-Use disposable development/test databases and recreate them from the current
-schema definition when the schema changes. Keeping only the supported schema
-avoids maintaining compatibility, incremental migration history, rollback and
-data-transfer code for discarded designs.
-
-Keep the current indexes and relational constraints. Preserve original
-immutability, acquisition provenance and search structures. Initialize an empty database explicitly;
-initialization must not silently drop or overwrite an existing schema. Provide
-an explicit reset operation for disposable databases. Remove obsolete tables
-and columns from the schema rather than retaining compatibility structures.
-Do not provide an upgrade or data-copy path from older schemas.
+Use disposable development and test databases. Provide an explicit reset to
+recreate them from the supported schema. Initialization requires an empty
+database and retains the current relational constraints, immutability,
+acquisition provenance and search structures. The upgrade policy for retained
+databases is defined in [ADR 0018](0018-upgrade-postgresql-with-ecto-migrations.md).
 
 Database recreation loses registrations, retained database records and their
 relationships. Operators must recreate the configuration and data they need.
@@ -32,14 +26,10 @@ recreation does not supply backup integrity or restore evidence.
 
 # 破棄可能なDBを現行スキーマから再生成する
 
-開発・テストでは破棄可能なDBを使い、スキーマ変更時は現在のスキーマ定義から
-再生成する。サポート対象のスキーマだけを残すことで、破棄した設計のための互換性・
-差分migration履歴・ロールバック・データ移行コードを維持しない。
-
-現在のindex・外部キー・不変性／取得経緯の保護・検索構造は維持する。
-空DBを明示的に初期化し、初期化によって既存スキーマを黙って削除・上書きしない。
-破棄可能なDBには明示的なreset操作を用意する。互換構造を残さず、不要なテーブル・
-カラムをスキーマから削除する。旧スキーマからの更新・データコピー経路は提供しない。
+開発・テストでは破棄可能な DB を使い、対応スキーマから再生成するための
+明示的な reset 操作を用意する。初期化は空 DB を必要とし、現行の外部キーなどの制約、
+不変性、取得経緯、検索構造を維持する。データを保持する DB の更新方針は
+[ADR 0018](0018-upgrade-postgresql-with-ecto-migrations.md) に定める。
 
 DB再生成では登録設定・保持したDB記録・その関連を失う。必要な設定とデータは
 運用者が再作成する。この開発モデルは保持記録の継続性を提供せず、外部RustFSの
