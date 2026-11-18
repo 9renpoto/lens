@@ -29,8 +29,6 @@ defmodule Lens.Analysis.Target do
     field(:source_reference, :string)
     field(:verified_at, :utc_datetime_usec)
 
-    has_many(:memberships, Lens.Analysis.Membership, foreign_key: :target_id)
-
     timestamps(type: :utc_datetime_usec)
   end
 

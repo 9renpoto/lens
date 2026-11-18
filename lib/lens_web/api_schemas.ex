@@ -412,106 +412,6 @@ defmodule LensWeb.ApiSchemas do
     })
   end
 
-  defmodule MembershipAttributes do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "MembershipAttributes",
-      type: :object,
-      properties: %{
-        index_name: %Schema{
-          type: :string,
-          minLength: 1,
-          maxLength: 100,
-          pattern: "\\S",
-          default: "nikkei_225"
-        },
-        effective_from: %Schema{type: :string, format: :date},
-        effective_to: %Schema{type: :string, format: :date, nullable: true},
-        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
-        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
-      },
-      required: [:effective_from]
-    })
-  end
-
-  defmodule Membership do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "Membership",
-      type: :object,
-      properties: %{
-        id: %Schema{type: :string, format: :uuid},
-        target_id: %Schema{type: :string, format: :uuid},
-        index_name: %Schema{type: :string},
-        effective_from: %Schema{type: :string, format: :date},
-        effective_to: %Schema{type: :string, format: :date, nullable: true},
-        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
-        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
-      },
-      required: [:id, :target_id, :index_name, :effective_from]
-    })
-  end
-
-  defmodule CreateMembershipRequest do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "CreateMembershipRequest",
-      type: :object,
-      properties: %{membership: MembershipAttributes},
-      required: [:membership]
-    })
-  end
-
-  defmodule UpdateMembershipAttributes do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "UpdateMembershipAttributes",
-      type: :object,
-      properties: %{
-        effective_to: %Schema{type: :string, format: :date, nullable: true},
-        source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
-        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
-      }
-    })
-  end
-
-  defmodule UpdateMembershipRequest do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "UpdateMembershipRequest",
-      type: :object,
-      properties: %{membership: UpdateMembershipAttributes},
-      required: [:membership]
-    })
-  end
-
-  defmodule MembershipResponse do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "MembershipResponse",
-      type: :object,
-      properties: %{membership: Membership},
-      required: [:membership]
-    })
-  end
-
-  defmodule MembershipsResponse do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "MembershipsResponse",
-      type: :object,
-      properties: %{memberships: %Schema{type: :array, items: Membership}},
-      required: [:memberships]
-    })
-  end
-
   defmodule TargetAttributes do
     require OpenApiSpex
 
@@ -596,8 +496,7 @@ defmodule LensWeb.ApiSchemas do
         tags: %Schema{type: :array, items: %Schema{type: :string}},
         active: %Schema{type: :boolean},
         source_reference: %Schema{type: :string, maxLength: 1000, nullable: true},
-        verified_at: %Schema{type: :string, format: :"date-time", nullable: true},
-        memberships: %Schema{type: :array, items: Membership}
+        verified_at: %Schema{type: :string, format: :"date-time", nullable: true}
       },
       required: [:id, :security_code, :market, :display_name, :sector, :tags, :active]
     })

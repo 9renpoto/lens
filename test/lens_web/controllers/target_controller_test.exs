@@ -13,11 +13,11 @@ defmodule LensWeb.TargetControllerTest do
     Map.merge(
       %{
         security_code: "CODE-#{System.unique_integer([:positive])}",
-        market: "TSE Prime",
-        display_name: "Toyota Motor Corp (Synthetic)",
+        market: "Fictional Exchange",
+        display_name: "Example Components",
         sector: "Transportation Equipment",
         tags: ["automotive", "large-cap"],
-        source_reference: "EDINET filing #12345",
+        source_reference: "Synthetic issuer profile",
         verified_at: "2024-01-15T10:00:00Z"
       },
       custom
@@ -37,11 +37,12 @@ defmodule LensWeb.TargetControllerTest do
       assert_response_schema(response, "TargetResponse", ApiSpec.spec())
 
       assert target["security_code"] == attrs.security_code
-      assert target["market"] == "TSE Prime"
-      assert target["display_name"] == "Toyota Motor Corp (Synthetic)"
+      assert target["market"] == "Fictional Exchange"
+      assert target["display_name"] == "Example Components"
       assert target["sector"] == "Transportation Equipment"
       assert target["tags"] == ["automotive", "large-cap"]
       assert target["active"] == true
+      refute Map.has_key?(target, "memberships")
     end
 
     test "returns 422 for invalid attributes or duplicate security code" do
@@ -177,62 +178,39 @@ defmodule LensWeb.TargetControllerTest do
         assert properties.tags.items.maxLength == 50
       end
     end
-
-    test "documents membership index-name bounds" do
-      schema = Map.fetch!(ApiSpec.spec().components.schemas, "MembershipAttributes")
-
-      assert schema.properties.index_name.minLength == 1
-      assert schema.properties.index_name.maxLength == 100
-      assert schema.properties.index_name.pattern == "\\S"
-    end
   end
 
   describe "GET /api/targets" do
-    test "lists targets and supports as_of filter" do
-      attrs1 = valid_target_attrs()
-      attrs2 = valid_target_attrs()
+    test "lists active and inactive targets in security-code order" do
+      {:ok, inactive} =
+        Analysis.create_target(valid_target_attrs(%{security_code: "002-FICT", active: false}))
 
-      {:ok, t1} = Analysis.create_target(attrs1)
-      {:ok, t2} = Analysis.create_target(attrs2)
+      {:ok, active} = Analysis.create_target(valid_target_attrs(%{security_code: "001-FICT"}))
 
-      {:ok, _} =
-        Analysis.create_membership(t1, %{
-          effective_from: ~D[2020-01-01],
-          effective_to: ~D[2023-12-31]
-        })
+      response = build_conn() |> get("/api/targets") |> json_response(200)
+      assert_response_schema(response, "TargetsResponse", ApiSpec.spec())
 
-      {:ok, _} = Analysis.create_membership(t2, %{effective_from: ~D[2022-01-01]})
+      assert [%{"id" => active_id, "active" => true}, %{"id" => inactive_id, "active" => false}] =
+               response["targets"]
 
-      conn_all = build_conn() |> get("/api/targets")
-      response_all = json_response(conn_all, 200)
-      assert %{"targets" => targets_all} = response_all
-      assert length(targets_all) >= 2
-      assert_response_schema(response_all, "TargetsResponse", ApiSpec.spec())
-
-      conn_as_of = build_conn() |> get("/api/targets?as_of=2024-06-01")
-      response_as_of = json_response(conn_as_of, 200)
-      assert %{"targets" => targets_as_of} = response_as_of
-      assert_response_schema(response_as_of, "TargetsResponse", ApiSpec.spec())
-
-      codes = Enum.map(targets_as_of, & &1["security_code"])
-      refute attrs1.security_code in codes
-      assert attrs2.security_code in codes
+      assert active_id == active.id
+      assert inactive_id == inactive.id
+      refute Enum.any?(response["targets"], &Map.has_key?(&1, "memberships"))
     end
 
-    test "returns 422 for an invalid as_of value" do
-      conn = build_conn() |> get("/api/targets?as_of=not-a-date")
+    test "ignores the retired as_of query parameter" do
+      {:ok, target} = Analysis.create_target(valid_target_attrs())
 
-      response = json_response(conn, 422)
-      assert response["errors"]["as_of"] == ["is invalid"]
-      assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
+      response = build_conn() |> get("/api/targets?as_of=2024-06-01") |> json_response(200)
+      assert [%{"id" => id}] = response["targets"]
+      assert id == target.id
     end
   end
 
   describe "GET /api/targets/:id" do
-    test "shows target with memberships" do
-      attrs = valid_target_attrs()
+    test "shows the existing target identity without membership data" do
+      attrs = valid_target_attrs(%{security_code: "001-FICT"})
       {:ok, target} = Analysis.create_target(attrs)
-      {:ok, _m} = Analysis.create_membership(target, %{effective_from: ~D[2021-01-01]})
 
       conn = build_conn() |> get("/api/targets/#{target.id}")
       response = json_response(conn, 200)
@@ -241,7 +219,7 @@ defmodule LensWeb.TargetControllerTest do
 
       assert res_target["id"] == target.id
       assert res_target["security_code"] == attrs.security_code
-      assert length(res_target["memberships"]) == 1
+      refute Map.has_key?(res_target, "memberships")
     end
 
     test "returns 404 when target is not found" do
@@ -262,6 +240,9 @@ defmodule LensWeb.TargetControllerTest do
 
       response = json_response(conn, 200)
       assert %{"target" => updated} = response
+      assert updated["id"] == target.id
+      assert updated["security_code"] == target.security_code
+      refute Map.has_key?(updated, "memberships")
       assert updated["display_name"] == "New Name (Synthetic)"
       assert_response_schema(response, "TargetResponse", ApiSpec.spec())
 
@@ -284,200 +265,17 @@ defmodule LensWeb.TargetControllerTest do
       conn = build_conn() |> post("/api/targets/#{target.id}/deactivate")
       response = json_response(conn, 200)
       assert %{"target" => deactivated} = response
+      assert deactivated["id"] == target.id
+      assert deactivated["security_code"] == target.security_code
       assert deactivated["active"] == false
+      refute Map.has_key?(deactivated, "memberships")
+
+      fetched = build_conn() |> get("/api/targets/#{target.id}") |> json_response(200)
+      assert fetched["target"] == deactivated
       assert_response_schema(response, "TargetResponse", ApiSpec.spec())
 
       conn_404 = build_conn() |> post("/api/targets/#{missing_id()}/deactivate")
       assert json_response(conn_404, 404)["error"] == "not_found"
-    end
-  end
-
-  describe "Membership intervals endpoints" do
-    setup do
-      {:ok, target} = Analysis.create_target(valid_target_attrs())
-      %{target: target}
-    end
-
-    test "POST and GET /api/targets/:target_id/memberships and 404s", %{target: target} do
-      conn_create =
-        build_conn()
-        |> post("/api/targets/#{target.id}/memberships",
-          membership: %{
-            effective_from: "2020-01-01",
-            effective_to: "2023-12-31",
-            source_reference: "Official Review 2020"
-          }
-        )
-
-      response_create = json_response(conn_create, 201)
-      assert %{"membership" => membership} = response_create
-      assert membership["effective_from"] == "2020-01-01"
-      assert membership["effective_to"] == "2023-12-31"
-      assert membership["index_name"] == "nikkei_225"
-      assert_response_schema(response_create, "MembershipResponse", ApiSpec.spec())
-
-      conn_list = build_conn() |> get("/api/targets/#{target.id}/memberships")
-      response_list = json_response(conn_list, 200)
-      assert %{"memberships" => memberships} = response_list
-      assert length(memberships) == 1
-      assert_response_schema(response_list, "MembershipsResponse", ApiSpec.spec())
-
-      conn_list_404 = build_conn() |> get("/api/targets/#{missing_id()}/memberships")
-      assert json_response(conn_list_404, 404)["error"] == "not_found"
-
-      conn_create_404 =
-        build_conn()
-        |> post("/api/targets/#{missing_id()}/memberships",
-          membership: %{effective_from: "2020-01-01"}
-        )
-
-      assert json_response(conn_create_404, 404)["error"] == "not_found"
-    end
-
-    test "returns 422 when membership index_name contains only whitespace", %{target: target} do
-      response =
-        build_conn()
-        |> Plug.Conn.put_req_header("content-type", "application/json")
-        |> post(
-          "/api/targets/#{target.id}/memberships",
-          Jason.encode!(%{membership: %{index_name: "   ", effective_from: "2020-01-01"}})
-        )
-        |> json_response(422)
-
-      assert response["errors"]["index_name"] == ["can't be blank"]
-      assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
-    end
-
-    test "returns 422 when creating overlapping membership", %{target: target} do
-      {:ok, _} =
-        Analysis.create_membership(target, %{
-          effective_from: ~D[2020-01-01],
-          effective_to: ~D[2023-12-31]
-        })
-
-      conn =
-        build_conn()
-        |> post("/api/targets/#{target.id}/memberships",
-          membership: %{
-            effective_from: "2022-01-01",
-            effective_to: "2024-12-31"
-          }
-        )
-
-      response = json_response(conn, 422)
-      assert %{"errors" => errors} = response
-      assert errors["effective_from"] != nil
-      assert_response_schema(response, "ValidationErrorsResponse", ApiSpec.spec())
-    end
-
-    test "returns 422 for non-object membership attributes", %{target: target} do
-      create_response =
-        build_conn()
-        |> Plug.Conn.put_req_header("content-type", "application/json")
-        |> post(
-          "/api/targets/#{target.id}/memberships",
-          Jason.encode!(%{membership: []})
-        )
-        |> json_response(422)
-
-      assert create_response["errors"]["membership"] == ["must be an object"]
-      assert_response_schema(create_response, "ValidationErrorsResponse", ApiSpec.spec())
-
-      {:ok, membership} =
-        Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
-
-      update_response =
-        build_conn()
-        |> Plug.Conn.put_req_header("content-type", "application/json")
-        |> patch(
-          "/api/targets/#{target.id}/memberships/#{membership.id}",
-          Jason.encode!(%{membership: []})
-        )
-        |> json_response(422)
-
-      assert update_response["errors"]["membership"] == ["must be an object"]
-      assert_response_schema(update_response, "ValidationErrorsResponse", ApiSpec.spec())
-    end
-
-    test "PATCH rejects a blank effective_to without reopening a closed interval", %{
-      target: target
-    } do
-      {:ok, membership} =
-        Analysis.create_membership(target, %{
-          effective_from: ~D[2020-01-01],
-          effective_to: ~D[2023-12-31]
-        })
-
-      response =
-        build_conn()
-        |> Plug.Conn.put_req_header("content-type", "application/json")
-        |> patch(
-          "/api/targets/#{target.id}/memberships/#{membership.id}",
-          Jason.encode!(%{membership: %{effective_to: ""}})
-        )
-        |> json_response(422)
-
-      assert response["errors"]["effective_to"] != nil
-      assert {:ok, unchanged} = Analysis.fetch_membership(target.id, membership.id)
-      assert unchanged.effective_to == ~D[2023-12-31]
-    end
-
-    test "PATCH accepts null effective_to to reopen an interval", %{target: target} do
-      {:ok, membership} =
-        Analysis.create_membership(target, %{
-          effective_from: ~D[2020-01-01],
-          effective_to: ~D[2023-12-31]
-        })
-
-      response =
-        build_conn()
-        |> Plug.Conn.put_req_header("content-type", "application/json")
-        |> patch(
-          "/api/targets/#{target.id}/memberships/#{membership.id}",
-          Jason.encode!(%{membership: %{effective_to: nil}})
-        )
-        |> json_response(200)
-
-      assert response["membership"]["effective_to"] == nil
-    end
-
-    test "PATCH closes an open membership interval", %{target: target} do
-      {:ok, membership} =
-        Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
-
-      conn =
-        build_conn()
-        |> patch("/api/targets/#{target.id}/memberships/#{membership.id}",
-          membership: %{effective_to: "2024-09-30"}
-        )
-
-      response = json_response(conn, 200)
-      assert response["membership"]["effective_to"] == "2024-09-30"
-      assert_response_schema(response, "MembershipResponse", ApiSpec.spec())
-    end
-
-    test "PATCH ignores membership identity and interval-start fields", %{target: target} do
-      {:ok, other_target} = Analysis.create_target(valid_target_attrs())
-
-      {:ok, membership} =
-        Analysis.create_membership(target, %{effective_from: ~D[2020-01-01]})
-
-      conn =
-        build_conn()
-        |> patch("/api/targets/#{target.id}/memberships/#{membership.id}",
-          membership: %{
-            target_id: other_target.id,
-            index_name: "topix",
-            effective_from: "2021-01-01",
-            effective_to: "2024-09-30"
-          }
-        )
-
-      response = json_response(conn, 200)
-      assert response["membership"]["target_id"] == target.id
-      assert response["membership"]["index_name"] == "nikkei_225"
-      assert response["membership"]["effective_from"] == "2020-01-01"
-      assert response["membership"]["effective_to"] == "2024-09-30"
     end
   end
 

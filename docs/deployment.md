@@ -74,14 +74,6 @@ Feed subscriptions use the scheduler; see the [validation procedure](reference/e
 
 ### Database initialization
 
-The current schema removes the earnings listing-source registry and its
-assessment records. Recreate only explicitly disposable databases under
-[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md), then
-register the required targets and feed sources again. Database recreation
-loses existing records and their original references. Keep databases that
-require those records on their existing schema.
-
-
 Prepare the database before starting the application, using the same
 image and `DATABASE_URL`:
 
@@ -91,11 +83,12 @@ image and `DATABASE_URL`:
 ```
 
 Run these as separate commands. Preparation initializes an empty database from
-`priv/repo/schema.sql`, or verifies the current schema fingerprint. It rejects
-older schemas without changing their data. Recreate disposable databases explicitly
-when the schema changes; no upgrade or rollback path is provided.
+`priv/repo/schema.sql`. An initialized database must match the current schema
+fingerprint.
+Follow [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)
+to recreate explicitly disposable databases when the schema changes, then
+register the required targets and feed sources.
 Use one active application process because each process owns its feed scheduler.
-Changing the application image does not convert an existing database schema.
 
 | Endpoint | Meaning |
 | --- | --- |
@@ -175,13 +168,6 @@ DB dumpはRustFS保存のPDFバイト列を含まない。
 
 ### DB初期化
 
-現行スキーマでは決算一覧取得先の台帳とその判定記録を廃止した。
-[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) に従い、
-明示的に破棄可能な DB だけを再作成し、必要な分析対象とフィード取得先を再登録する。
-DB の再作成により既存記録と原本への参照は失われる。それらの記録が必要な DB は
-既存スキーマのまま保持する。
-
-
 同じイメージと`DATABASE_URL`を使い、アプリ起動前にDBを準備する。
 
 ```sh
@@ -190,11 +176,11 @@ DB の再作成により既存記録と原本への参照は失われる。そ�
 ```
 
 準備の終了後に常駐プロセスを起動する、別々のコマンドとして実行する。
-準備では`priv/repo/schema.sql`から空DBを初期化するか、現行スキーマのfingerprintを検証する。
-旧スキーマはデータを変更せず拒否する。スキーマ変更時は破棄可能なDBを明示的に再作成し、
-更新・ロールバック経路は提供しない。
+準備では `priv/repo/schema.sql` から空の DB を初期化する。初期化済みの DB は
+現行スキーマの fingerprint と一致する必要がある。
+スキーマ変更時は [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) に
+従って明示的に破棄可能な DB を再作成し、必要な分析対象とフィード取得先を登録する。
 各プロセスがフィードschedulerを持つため、有効なアプリプロセスは1つとする。
-アプリのイメージ変更では既存DBのスキーマを変換しない。
 
 | Endpoint | 意味 |
 | --- | --- |

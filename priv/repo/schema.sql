@@ -1,7 +1,5 @@
 -- Current application schema. Initialize only an empty database.
 
-CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
-
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 CREATE FUNCTION public.earnings_search_vector(input text) RETURNS tsvector
@@ -80,19 +78,6 @@ BEGIN
   RAISE EXCEPTION 'earnings release identity is immutable';
 END;
 $$;
-
-CREATE TABLE public.analysis_memberships (
-    id uuid NOT NULL,
-    target_id uuid NOT NULL,
-    index_name character varying(255) DEFAULT 'nikkei_225'::character varying NOT NULL,
-    effective_from date NOT NULL,
-    effective_to date,
-    source_reference text,
-    verified_at timestamp without time zone,
-    inserted_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    CONSTRAINT effective_to_must_be_on_or_after_effective_from CHECK (((effective_to IS NULL) OR (effective_to >= effective_from)))
-);
 
 CREATE TABLE public.analysis_targets (
     id uuid NOT NULL,
@@ -276,12 +261,6 @@ CREATE TABLE public.sources (
 
 ALTER TABLE ONLY public.earnings_extractions ALTER COLUMN id SET DEFAULT nextval('public.earnings_extractions_id_seq'::regclass);
 
-ALTER TABLE ONLY public.analysis_memberships
-    ADD CONSTRAINT analysis_memberships_no_overlapping_intervals EXCLUDE USING gist (target_id WITH =, index_name WITH =, daterange(effective_from, effective_to, '[]'::text) WITH &&);
-
-ALTER TABLE ONLY public.analysis_memberships
-    ADD CONSTRAINT analysis_memberships_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY public.analysis_targets
     ADD CONSTRAINT analysis_targets_pkey PRIMARY KEY (id);
 
@@ -311,10 +290,6 @@ ALTER TABLE ONLY public.source_runs
 
 ALTER TABLE ONLY public.sources
     ADD CONSTRAINT sources_pkey PRIMARY KEY (id);
-
-CREATE INDEX analysis_memberships_index_name_effective_from_effective_to_ind ON public.analysis_memberships USING btree (index_name, effective_from, effective_to);
-
-CREATE INDEX analysis_memberships_target_id_index ON public.analysis_memberships USING btree (target_id);
 
 CREATE UNIQUE INDEX analysis_targets_security_code_index ON public.analysis_targets USING btree (security_code);
 
@@ -363,9 +338,6 @@ CREATE TRIGGER earnings_http_checks_protected BEFORE INSERT OR DELETE OR UPDATE 
 CREATE TRIGGER earnings_originals_immutable BEFORE DELETE OR UPDATE ON public.earnings_originals FOR EACH ROW EXECUTE FUNCTION public.reject_earnings_original_mutation();
 
 CREATE TRIGGER earnings_releases_immutable BEFORE DELETE OR UPDATE ON public.earnings_releases FOR EACH ROW EXECUTE FUNCTION public.reject_earnings_release_mutation();
-
-ALTER TABLE ONLY public.analysis_memberships
-    ADD CONSTRAINT analysis_memberships_target_id_fkey FOREIGN KEY (target_id) REFERENCES public.analysis_targets(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.earnings_acquisitions
     ADD CONSTRAINT earnings_acquisitions_original_id_fkey FOREIGN KEY (original_id) REFERENCES public.earnings_originals(id);
