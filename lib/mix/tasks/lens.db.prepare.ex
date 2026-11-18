@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Lens.Db.Prepare do
-  @shortdoc "Initialize an empty database or verify the current schema"
+  @shortdoc "Initialize or migrate a supported database"
   use Mix.Task
 
   @impl true

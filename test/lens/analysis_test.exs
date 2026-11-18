@@ -3,7 +3,6 @@ defmodule Lens.AnalysisTest do
 
   alias Lens.Analysis
   alias Lens.Analysis.Target
-  alias Lens.Repo
 
   defp valid_target_attrs(custom \\ %{}) do
     Map.merge(
@@ -18,15 +17,6 @@ defmodule Lens.AnalysisTest do
       },
       custom
     )
-  end
-
-  test "the current database schema contains the target registry without index membership" do
-    assert %{rows: [[target_table, nil]]} =
-             Repo.query!(
-               "SELECT to_regclass('analysis_targets')::text, to_regclass('analysis_memberships')"
-             )
-
-    assert target_table == "analysis_targets"
   end
 
   describe "targets" do

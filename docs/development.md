@@ -18,10 +18,11 @@ when collecting earnings PDFs.
 
 ## Database setup
 
-`mix setup` creates an empty database and initializes `priv/repo/schema.sql`, or
-verifies its current fingerprint. When that definition changes, use
-`mix ecto.reset` to drop and recreate the configured disposable database, then
-register the configuration/data you need. No old-schema upgrade is provided.
+`mix setup` creates the database if needed and runs `mix lens.db.prepare` to
+initialize or upgrade it. Add schema changes as Ecto migrations in
+`priv/repo/migrations/`. See the [deployment guide](deployment.md#database-initialization)
+for the supported upgrade path. Use `mix ecto.reset` to drop and recreate an
+explicitly disposable database, then register the configuration and data you need.
 
 ## Before implementation
 
@@ -82,10 +83,10 @@ mix phx.server
 
 ## DBの準備
 
-`mix setup`は空DBを作成し、`priv/repo/schema.sql`から初期化するか、
-現行fingerprintを検証する。定義が変わった場合は`mix ecto.reset`で設定先の
-破棄可能なDBを削除・再作成し、必要な設定・データを登録し直す。
-旧スキーマの更新経路は提供しない。
+`mix setup` は必要に応じて DB を作成し、`mix lens.db.prepare` で初期化または更新する。
+スキーマ変更は `priv/repo/migrations/` に Ecto マイグレーションとして追加する。
+対応する更新経路は [デプロイガイド](deployment.md#database-initialization) を参照する。
+`mix ecto.reset` で明示的に破棄可能な DB を削除・再作成し、必要な設定とデータを登録し直す。
 
 ## 実装前
 

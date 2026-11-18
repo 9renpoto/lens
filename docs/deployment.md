@@ -72,7 +72,7 @@ Feed subscriptions use the scheduler; see the [validation procedure](reference/e
 
 <a id="database-initialization"></a>
 
-### Database initialization
+### Database preparation
 
 Prepare the database before starting the application, using the same
 image and `DATABASE_URL`:
@@ -82,12 +82,27 @@ image and `DATABASE_URL`:
 /app/bin/lens start
 ```
 
-Run these as separate commands. Preparation initializes an empty database from
-`priv/repo/schema.sql`. An initialized database must match the current schema
-fingerprint.
-Follow [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md)
-to recreate explicitly disposable databases when the schema changes, then
-register the required targets and feed sources.
+Run these as separate commands. Preparation initializes empty databases with
+Ecto migrations. It adopts an existing database with the supported legacy
+fingerprint and applies pending migrations. See [ADR 0018](adr/0018-upgrade-postgresql-with-ecto-migrations.md)
+for the baseline. The initial adoption preserves the legacy records, their
+constraints and the fingerprint that the previous release uses. Repeating
+preparation skips migrations already recorded in `schema_migrations`.
+
+If preparation fails, keep the previous release in service and use the error
+to identify the schema or migration that blocked the upgrade. Verify the
+database and release versions before retrying. A failed migration rolls back
+its own changes, and earlier successful migrations remain applied. Keep the
+existing database and its migration records intact while diagnosing the issue.
+
+If the release requires a manual migration, follow the procedure for that
+release. Verify a recoverable PostgreSQL backup and the corresponding RustFS
+objects before changing retained records. Rehearse the procedure and verify
+records and references on a restored copy. After the approved manual work,
+run preparation again and start the new release only after it succeeds. Use
+[ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) when
+recreating an explicitly disposable database.
+
 Use one active application process because each process owns its feed scheduler.
 
 | Endpoint | Meaning |
@@ -166,7 +181,7 @@ DB dumpはRustFS保存のPDFバイト列を含まない。
 フィード購読はスケジューラーで定期実行する。
 [検証手順](reference/earnings-value-validation.md)を参照する。
 
-### DB初期化
+### DB の準備
 
 同じイメージと`DATABASE_URL`を使い、アプリ起動前にDBを準備する。
 
@@ -175,11 +190,24 @@ DB dumpはRustFS保存のPDFバイト列を含まない。
 /app/bin/lens start
 ```
 
-準備の終了後に常駐プロセスを起動する、別々のコマンドとして実行する。
-準備では `priv/repo/schema.sql` から空の DB を初期化する。初期化済みの DB は
-現行スキーマの fingerprint と一致する必要がある。
-スキーマ変更時は [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) に
-従って明示的に破棄可能な DB を再作成し、必要な分析対象とフィード取得先を登録する。
+準備の終了後に常駐プロセスを起動する。両者は別々のコマンドとして実行する。
+準備では Ecto マイグレーションで空 DB を初期化する。対応する旧
+fingerprint を持つ既存 DB は Ecto の管理に引き継ぎ、未適用のマイグレーションを
+実行する。起点は [ADR 0018](adr/0018-upgrade-postgresql-with-ecto-migrations.md) を参照。
+最初の引き継ぎでは、旧版のデータと制約、および旧版が参照する fingerprint を保持する。
+準備を再実行すると、`schema_migrations` に記録済みのマイグレーションはスキップされる。
+
+準備に失敗したら旧版を稼働させたまま、エラーから更新を止めたスキーマや
+マイグレーションを特定する。DB とリリースのバージョンを確認してから再試行する。
+失敗したマイグレーションの変更はロールバックされ、それ以前に成功した変更は適用済みのまま残る。
+原因調査中は既存 DB とマイグレーション履歴を保持する。
+
+手動移行が必要なリリースでは、そのリリース固有の手順に従う。
+保持データを変更する前に、復旧可能な PostgreSQL バックアップと対応する RustFS
+オブジェクトを確認する。復元したコピーで手順を試し、記録と参照を検証する。
+承認された手動作業の完了後に準備を再実行し、成功してから新版を起動する。
+明示的に破棄可能な DB を再作成する場合は [ADR 0010](adr/0010-defer-backups-for-disposable-development-data.md) に従う。
+
 各プロセスがフィードschedulerを持つため、有効なアプリプロセスは1つとする。
 
 | Endpoint | 意味 |
