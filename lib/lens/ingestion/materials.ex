@@ -18,7 +18,7 @@ defmodule Lens.Ingestion.Materials do
 
   @spec acquire(map(), keyword()) :: %{materials: [Material.t()], errors: [map()]}
   def acquire(signal, options \\ []) do
-    source = Content.get_source!(signal.source_id)
+    source = signal.source_id |> Content.get_source!() |> Repo.preload(:earnings_issuer)
     timeout = Keyword.get(options, :timeout_ms, 30_000)
     maximum = Keyword.get(options, :max_materials, 8)
 
@@ -218,7 +218,8 @@ defmodule Lens.Ingestion.Materials do
                  original_id: original.id,
                  content_hash: original.sha256,
                  provenance: provenance
-               }),
+               })
+               |> snapshot_issuer(source.earnings_issuer),
              {:ok, material} <- Material.changeset(attrs) |> Repo.insert() do
           material
         else
@@ -230,6 +231,12 @@ defmodule Lens.Ingestion.Materials do
       {:error, reason} -> {:error, reason}
       _ -> {:error, :timeout}
     end
+  end
+
+  defp snapshot_issuer(attrs, nil), do: attrs
+
+  defp snapshot_issuer(attrs, issuer) do
+    put_in(attrs.source_snapshot["earnings_issuer_code"], issuer.security_code)
   end
 
   defp attributes(result, url, source, signal) do
