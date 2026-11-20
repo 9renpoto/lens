@@ -81,6 +81,7 @@ defmodule Lens.Ingestion.EarningsUpdates do
 
           if not baseline? and previous != fingerprint do
             signal = %{
+              update_id: Ecto.UUID.generate(),
               source_id: source.id,
               item_key: key,
               change: if(is_nil(previous), do: :new, else: :changed),
