@@ -31,6 +31,43 @@ defmodule LensWeb.SourceControllerTest do
     end
   end
 
+  test "binds a source to a registered company and rejects an unknown issuer" do
+    {:ok, issuer} =
+      Lens.Analysis.create_target(%{
+        security_code: "example-issuer",
+        display_name: "Example Company",
+        market: "Example Market",
+        sector: "Example Sector"
+      })
+
+    attrs = %{
+      endpoint_url: "https://feeds.example.test/pdf.xml",
+      poll_interval_seconds: 300,
+      ingestion_mode: "earnings_updates",
+      earnings_issuer_id: issuer.id
+    }
+
+    response = build_conn() |> post("/api/sources", %{source: attrs}) |> json_response(201)
+    assert response["source"]["earnings_issuer_id"] == issuer.id
+    assert_response_schema(response, "SourceResponse", ApiSpec.spec())
+
+    id = response["source"]["id"]
+
+    response =
+      build_conn()
+      |> patch("/api/sources/#{id}", %{source: %{earnings_issuer_id: Ecto.UUID.generate()}})
+      |> json_response(422)
+
+    assert response["errors"]["earnings_issuer_id"]
+
+    response =
+      build_conn()
+      |> patch("/api/sources/#{id}", %{source: %{earnings_issuer_id: nil}})
+      |> json_response(200)
+
+    assert Map.fetch!(response["source"], "earnings_issuer_id") == nil
+  end
+
   test "registration exposes current classifications without a legacy type" do
     source =
       build_conn()

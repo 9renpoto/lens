@@ -98,6 +98,7 @@ defmodule LensWeb.SourceController do
     Map.take(source, [
       :id,
       :ingestion_mode,
+      :earnings_issuer_id,
       :feed_baselined_at,
       :feed_format,
       :acquisition_kind,

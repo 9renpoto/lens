@@ -133,6 +133,25 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert Repo.get!(Original, id).byte_size == byte_size(@pdf)
   end
 
+  test "retains the configured issuer code in the PDF acquisition snapshot" do
+    {:ok, issuer} =
+      Lens.Analysis.create_target(%{
+        security_code: "example-issuer",
+        display_name: "Example Company",
+        market: "Example Market",
+        sector: "Example Sector"
+      })
+
+    url = server(fn _ -> pdf() end)
+    {:ok, source} = Content.update_source(source(url), %{earnings_issuer_id: issuer.id})
+
+    assert %{materials: [material], errors: []} =
+             Materials.acquire(signal(source, url <> "/report.pdf"), rustfs: storage())
+
+    assert material.source_snapshot["earnings_issuer_code"] == "example-issuer"
+    assert Repo.reload!(material).source_snapshot == material.source_snapshot
+  end
+
   test "explicit feed attachments are processed even when a listing cannot be associated" do
     url =
       server(fn
