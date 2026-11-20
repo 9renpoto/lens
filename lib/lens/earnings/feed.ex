@@ -8,7 +8,8 @@ defmodule Lens.Earnings.Feed do
   alias Lens.Repo
   alias Lens.Search.Earnings
 
-  def entries(base_url), do: release_entries(base_url) ++ update_entries()
+  def entries(base_url),
+    do: release_entries(base_url) ++ update_entries() ++ pdf_entries(base_url)
 
   defp release_entries(base_url) do
     Earnings.feed_query()
@@ -46,6 +47,27 @@ defmodule Lens.Earnings.Feed do
         title: entry["title"],
         content: text,
         link: link,
+        published_at: publication_time(entry["publisher_published_at"])
+      }
+    end)
+  end
+
+  defp pdf_entries(base_url) do
+    from(material in Material,
+      join: publication in "earnings_pdf_publications",
+      on: publication.material_id == material.id,
+      join: extraction in "feed_material_extractions",
+      on: extraction.material_id == publication.material_id,
+      order_by: [asc: material.acquired_at, asc: material.id],
+      select: {material.id, material.entry_snapshot, extraction.text, material.original_id}
+    )
+    |> Repo.all()
+    |> Enum.map(fn {id, entry, text, original_id} ->
+      %{
+        guid: "lens:pdf-update:" <> id,
+        title: entry["title"],
+        content: text,
+        link: base_url <> "/api/earnings/originals/" <> original_id,
         published_at: publication_time(entry["publisher_published_at"])
       }
     end)

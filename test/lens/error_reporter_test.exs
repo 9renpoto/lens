@@ -74,6 +74,16 @@ defmodule Lens.ErrorReporterTest do
     assert clean.modules == %{}
   end
 
+  test "publication diagnostics allow only categorical skip reasons" do
+    assert :ok = ErrorReporter.report(:publication, :issuer_mismatch)
+    assert_receive {:envelope, body}
+    assert body =~ "issuer_mismatch"
+
+    assert :ok = ErrorReporter.report(:publication, "synthetic-private-text")
+    assert_receive {:envelope, body}
+    refute body =~ "synthetic-private-text"
+  end
+
   test "reporting failures never escape into the ingestion caller" do
     Sentry.Test.Config.put(client: BrokenTransport)
     assert :ok = ErrorReporter.report(:indexing, {:error, :unavailable})

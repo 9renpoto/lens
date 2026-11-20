@@ -2,7 +2,7 @@ defmodule Lens.Ingestion.MaterialIndex do
   @moduledoc "Extract and index each acquired feed material independently."
   import Ecto.Query
   alias Lens.{Earnings, ErrorReporter, Repo}
-  alias Lens.Earnings.PDFExtractor
+  alias Lens.Earnings.{Identity, PDFExtractor}
   alias Lens.Ingestion.Material
   alias Lens.Search.Normalizer
 
@@ -22,8 +22,12 @@ defmodule Lens.Ingestion.MaterialIndex do
   defp index(material, options) do
     with {:ok, text} <- text(material, options),
          true <- valid_text?(text) || {:error, :extraction, :invalid_text},
-         :ok <- save(material, text) do
-      :ok
+         publication = pdf_publication(material, text),
+         :ok <- save(material, text, publication) do
+      case publication do
+        {:skip, reason} -> ErrorReporter.report(:publication, reason)
+        _ -> :ok
+      end
     end
   rescue
     _ -> {:error, :indexing, :processing_failed}
@@ -51,7 +55,7 @@ defmodule Lens.Ingestion.MaterialIndex do
 
   defp valid_text?(_), do: false
 
-  defp save(material, text) do
+  defp save(material, text, publication) do
     case Repo.transaction(
            fn ->
              Repo.insert_all(
@@ -99,7 +103,7 @@ defmodule Lens.Ingestion.MaterialIndex do
                )
              end
 
-             :ok
+             persist_publication(material, publication)
            end,
            mode: :transaction
          ) do
@@ -109,6 +113,43 @@ defmodule Lens.Ingestion.MaterialIndex do
   rescue
     _ -> {:error, :indexing, :persistence_failed}
   end
+
+  defp pdf_publication(
+         %Material{
+           kind: "pdf",
+           source_snapshot: %{"earnings_issuer_code" => issuer},
+           entry_snapshot: %{"update_id" => update_id}
+         },
+         text
+       )
+       when is_binary(update_id) do
+    case Identity.pdf_publication_eligibility(issuer, text) do
+      :ok -> {:publish, update_id}
+      {:error, reason} -> {:skip, reason}
+    end
+  end
+
+  defp pdf_publication(_, _), do: :disabled
+
+  defp persist_publication(material, {:publish, update_id}) do
+    Repo.insert_all(
+      "earnings_pdf_publications",
+      [
+        %{
+          material_id: Ecto.UUID.dump!(material.id),
+          update_id: Ecto.UUID.dump!(update_id),
+          reference_hash: :crypto.hash(:sha256, material.requested_url)
+        }
+      ],
+      conflict_target: [:update_id, :reference_hash],
+      on_conflict: :nothing,
+      log: false
+    )
+
+    :ok
+  end
+
+  defp persist_publication(_, _), do: :ok
 
   defp revision_hash(%Material{kind: "html"} = material) do
     :crypto.hash(

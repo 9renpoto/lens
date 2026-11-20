@@ -276,6 +276,7 @@ defmodule Lens.Ingestion.Materials do
           :publisher_published_at,
           :updated_at
         ])
+        |> Map.put(:update_id, Map.get(signal, :update_id))
         |> json_map()
     }
   end

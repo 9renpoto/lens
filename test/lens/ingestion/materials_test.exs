@@ -27,6 +27,10 @@ defmodule Lens.Ingestion.MaterialsTest do
     def extract(_, _), do: {:ok, %{text: "  ", version: "fixture"}}
   end
 
+  defmodule PDFNotificationExtractor do
+    def extract(_, options), do: {:ok, %{text: Keyword.fetch!(options, :pdf_text)}}
+  end
+
   setup do
     Sentry.Test.Config.put(dsn: nil)
     :ok
@@ -949,6 +953,88 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert {^changed_xml, _} = output_rss()
   end
 
+  test "publishes ordinary PDFs by detected update and preserves earlier notification GUIDs" do
+    url = server(fn _ -> pdf() end)
+    source = pdf_notification_source(url)
+    options = pdf_notification_options("決算短信\nコード番号 fixture-issuer\nFixture results.")
+
+    assert %{materials: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(feed_item("baseline", url <> "/old.pdf")),
+               materials: options
+             )
+
+    assert {_, []} = output_rss()
+
+    item = feed_item("one", url <> "/report.pdf", "Tue, 01 Jan 2030 09:02:03 +0900")
+
+    assert %{materials: [first], update_signals: [update], material_errors: []} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(item), materials: options)
+
+    assert {first_xml, [first_item]} = output_rss()
+    assert first_item.title == "Results"
+    assert first_item.content =~ "Fixture results."
+
+    assert String.ends_with?(
+             first_item.canonical_url,
+             "/api/earnings/originals/#{first.original_id}"
+           )
+
+    assert first_xml =~ "<pubDate>Tue, 01 Jan 2030 00:02:03 GMT</pubDate>"
+    refute first_item.source_entry_id == nil
+
+    assert %{materials: [retried], errors: []} = Materials.acquire(update, options)
+    assert [] = Lens.Ingestion.MaterialIndex.index_many([retried], options)
+    assert {^first_xml, _} = output_rss()
+
+    assert %{materials: []} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(item), materials: options)
+
+    assert {^first_xml, _} = output_rss()
+
+    changed = feed_item("one", url <> "/report.pdf", "Tue, 01 Jan 2030 09:03:03 +0900")
+
+    assert %{materials: [_], material_errors: []} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(changed), materials: options)
+
+    assert {_, [^first_item, later_item]} = output_rss()
+    assert later_item.source_entry_id != first_item.source_entry_id
+    assert Repo.aggregate(Release, :count) == 0
+  end
+
+  test "keeps ineligible PDF text searchable and reports a sanitized skip reason" do
+    Sentry.Test.Config.put(
+      dsn: "https://public@example.test/1",
+      send_result: :sync,
+      dedup_events: false,
+      client: ErrorTransport
+    )
+
+    url = server(fn _ -> pdf() end)
+    source = pdf_notification_source(url)
+    options = pdf_notification_options("決算短信\nコード番号 different-issuer\nPrivate fixture detail.")
+    Lens.Ingestion.ingest(source, transport: rss_transport(""))
+
+    assert %{materials: [material], material_errors: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(feed_item("one", url <> "/report.pdf")),
+               materials: options
+             )
+
+    assert {_, []} = output_rss()
+    assert {:ok, [%{id: id}]} = Lens.Search.search("fixture detail")
+    assert id == material.id
+
+    assert_receive {:sentry_envelope, body}
+    assert body =~ "publication"
+    assert body =~ "issuer_mismatch"
+    refute body =~ "different-issuer"
+    refute body =~ "fixture-issuer"
+    refute body =~ "Private fixture detail"
+    refute body =~ url
+    refute body =~ source.id
+  end
+
   test "omits failed required HTML and material acquired through the fallback scope" do
     url =
       server(fn
@@ -993,6 +1079,22 @@ defmodule Lens.Ingestion.MaterialsTest do
 
     assert {_, []} = output_rss()
   end
+
+  defp pdf_notification_source(url) do
+    {:ok, issuer} =
+      Lens.Analysis.create_target(%{
+        security_code: "fixture-issuer",
+        display_name: "Example Company",
+        market: "Example Market",
+        sector: "Example Sector"
+      })
+
+    {:ok, source} = Content.update_source(source(url), %{earnings_issuer_id: issuer.id})
+    source
+  end
+
+  defp pdf_notification_options(text),
+    do: [rustfs: storage(), extractor: PDFNotificationExtractor, pdf_text: text]
 
   defp feed_item(id, url, date \\ nil) do
     publication = if date, do: "<pubDate>#{date}</pubDate>", else: ""
