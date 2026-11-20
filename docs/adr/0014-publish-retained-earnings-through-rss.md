@@ -29,6 +29,25 @@ text and source URL are unchanged. Repeated polls of unchanged input and reads
 of the output feed preserve the published items and GUIDs. Earlier successful
 items remain available when later versions succeed or fail.
 
+## Automatic PDF publication
+
+Publish an ordinary earnings report PDF when a new or changed input item is
+detected, the associated original is retained, and extraction yields non-empty
+text. Bind each PDF publication source to one registered issuer company. Require
+explicit evidence in the PDF that its issuer code matches the configured
+issuer and that the document is an ordinary earnings report. Skip PDFs with insufficient
+or conflicting evidence, presentation materials, and standalone correction
+notices. Keep successfully extracted PDFs available to search and record
+sanitized reasons for omitted publications.
+
+Include the input item's title, extracted text, and a link to the retained PDF.
+Each eligible PDF in a detected input update gets its own stable, opaque GUID.
+Retries of the same publication and polls of unchanged input preserve that
+item and GUID. A later eligible input update produces a new item and leaves
+earlier items and originals available. Keep the acquisition time and original
+feed item references. Publication does not require a fiscal period identity
+or a link to an earlier version of the report.
+
 ## Retained releases
 
 Include confirmed earnings releases with successful acquisitions and
@@ -79,6 +98,20 @@ ADR 0017 に従って処理失敗として扱い、RSS 項目を作らない。�
 入力フィード上で検知した変更が掲載条件を満たした場合は、抽出本文と出典 URL が同じでも、
 新しい項目と GUID を作る。変更のない入力の再取得や出力 RSS の再読では、掲載済みの項目と GUID を維持する。
 後の版の処理結果にかかわらず、以前に掲載に成功した項目は残す。
+
+## PDF の自動掲載
+
+入力項目の新着・変更を検知し、関連 PDF の原本を保存でき、空でない本文を抽出できた場合に、
+通常の決算短信を掲載する。PDF を掲載する取得先には、登録済みの発行体（会社）を1社設定する。
+PDF 本文の発行体コードが設定と一致し、通常の決算短信であることが明確な場合に掲載する。
+根拠が不足・矛盾する PDF、決算説明資料、単独の訂正通知は掲載対象から外す。
+抽出に成功した PDF は検索可能な状態を保ち、掲載を見送った理由を識別情報なしで記録する。
+
+入力項目の表題、抽出本文、保存原本 PDF へのリンクを含める。検知した入力更新内の
+掲載対象 PDF ごとに固有で安定した GUID を割り当てる。同じ掲載処理の再試行や変更のない巡回では、
+項目と GUID を維持する。後から掲載条件を満たす入力更新を検知した場合は新しい項目を作り、
+過去の項目と原本を保持する。取得時刻と元のフィード項目への参照も保存する。
+掲載に決算期間の同定や過去の版との紐付けを必要としない。
 
 ## 保存済みリリース
 
