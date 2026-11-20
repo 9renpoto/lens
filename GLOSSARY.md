@@ -13,6 +13,10 @@ An indication that earnings information has been published or changed. It is dis
 **Source material**:
 The publisher page or attached files from which information needed for analysis is extracted. A source reference identifies where that material was found.
 
+**Issuer**:
+The company that issues an earnings report. A feed provider can carry an issuer's
+material.
+
 **Subscription baseline**:
 The items present when a subscription is first successfully observed, distinguished from subsequent new or changed items.
 
@@ -45,6 +49,9 @@ The two backups that jointly represent one recovery point. Neither alone is suff
 
 **Source material（取得元資料）**:
 分析に必要な情報を抽出する対象となる公開元ページまたは添付ファイル。出典参照は、その資料の取得元を示す。
+
+**Issuer（発行体）**:
+決算資料を発行する会社。フィード提供者は発行体の資料を配信することがある。
 
 **Subscription baseline（購読開始時の基準）**:
 購読を初めて正常に確認した時点に存在する項目の集合。以後の新着・変更項目と区別する。
