@@ -31,14 +31,16 @@ items remain available when later versions succeed or fail.
 
 ## Automatic PDF publication
 
-Publish an ordinary earnings report PDF when a new or changed input item is
-detected, the associated original is retained, and extraction yields non-empty
-text. Bind each PDF publication source to one registered issuer company. Require
-explicit evidence in the PDF that its issuer code matches the configured
-issuer and that the document is an ordinary earnings report. Skip PDFs with insufficient
-or conflicting evidence, presentation materials, and standalone correction
-notices. Keep successfully extracted PDFs available to search and record
-sanitized reasons for omitted publications.
+For PDF publication, configure a feed scoped to one registered issuer's
+earnings materials. Publish an item-associated PDF when the feed exposes a new
+or changed item, the original is retained, extraction yields non-empty text,
+and the issuer code in the PDF matches the configured issuer.
+
+A PDF can contain a complete report, part of a report, or a separate correction
+notice. Title and completeness are evidence for downstream aggregation. Give
+consumers the extracted text and retained original so they can classify
+materials using that evidence. Keep successfully extracted PDFs searchable and
+record sanitized reasons when the publication conditions fail.
 
 Include the input item's title, extracted text, and a link to the retained PDF.
 Each eligible PDF in a detected input update gets its own stable, opaque GUID.
@@ -101,11 +103,14 @@ ADR 0017 に従って処理失敗として扱い、RSS 項目を作らない。�
 
 ## PDF の自動掲載
 
-入力項目の新着・変更を検知し、関連 PDF の原本を保存でき、空でない本文を抽出できた場合に、
-通常の決算短信を掲載する。PDF を掲載する取得先には、登録済みの発行体（会社）を1社設定する。
-PDF 本文の発行体コードが設定と一致し、通常の決算短信であることが明確な場合に掲載する。
-根拠が不足・矛盾する PDF、決算説明資料、単独の訂正通知は掲載対象から外す。
-抽出に成功した PDF は検索可能な状態を保ち、掲載を見送った理由を識別情報なしで記録する。
+PDF 掲載用の取得先には、登録済みの発行体（会社）1社の決算資料を扱うフィードを設定する。
+入力項目の新着・変更を検知し、関連 PDF の原本を保存でき、空でない本文を抽出でき、
+PDF 本文の発行体コードが設定と一致した場合に掲載する。
+
+決算短信の全文、一部だけを含む資料、単独の訂正通知も扱う。表題と資料の完全性は
+集計側での判定に使う。購読側は抽出本文と保存原本を参照して資料を分類できる。
+抽出に成功した PDF は検索可能な状態を保ち、掲載条件を満たさなかった場合は
+その理由を識別情報なしで記録する。
 
 入力項目の表題、抽出本文、保存原本 PDF へのリンクを含める。検知した入力更新内の
 掲載対象 PDF ごとに固有で安定した GUID を割り当てる。同じ掲載処理の再試行や変更のない巡回では、
