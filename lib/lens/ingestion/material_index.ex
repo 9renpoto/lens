@@ -117,12 +117,14 @@ defmodule Lens.Ingestion.MaterialIndex do
   defp pdf_publication(
          %Material{
            kind: "pdf",
-           source_snapshot: %{"earnings_issuer_code" => issuer},
+           source_snapshot: source_snapshot,
            entry_snapshot: %{"update_id" => update_id}
          },
          text
        )
        when is_binary(update_id) do
+    issuer = Map.get(source_snapshot, "earnings_issuer_code")
+
     case Identity.pdf_publication_eligibility(issuer, text) do
       :ok -> {:publish, update_id}
       {:error, reason} -> {:skip, reason}

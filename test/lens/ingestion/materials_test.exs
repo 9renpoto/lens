@@ -1035,6 +1035,37 @@ defmodule Lens.Ingestion.MaterialsTest do
     refute body =~ source.id
   end
 
+  test "reports an unconfigured issuer for an extracted feed PDF" do
+    Sentry.Test.Config.put(
+      dsn: "https://public@example.test/1",
+      send_result: :sync,
+      dedup_events: false,
+      client: ErrorTransport
+    )
+
+    url = server(fn _ -> pdf() end)
+    source = source(url)
+    options = pdf_notification_options("Synthetic results without an issuer binding.")
+    Lens.Ingestion.ingest(source, transport: rss_transport(""))
+
+    assert %{materials: [material], material_errors: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(feed_item("one", url <> "/report.pdf")),
+               materials: options
+             )
+
+    assert {_, []} = output_rss()
+    assert {:ok, [%{id: id}]} = Lens.Search.search("synthetic results")
+    assert id == material.id
+
+    assert_receive {:sentry_envelope, body}
+    assert body =~ "publication"
+    assert body =~ "issuer_unconfigured"
+    refute body =~ "Synthetic results"
+    refute body =~ url
+    refute body =~ source.id
+  end
+
   test "omits failed required HTML and material acquired through the fallback scope" do
     url =
       server(fn
