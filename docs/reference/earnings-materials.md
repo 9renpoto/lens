@@ -44,6 +44,11 @@ requires one `article`, one matching `h1`, and at most one distinct PDF link;
 multiple historical PDFs are ambiguous. Ambiguous pages are not retained or
 crawled. Explicit feed PDF references can still succeed independently.
 
+To bind a source for PDF publication, set its optional `earnings_issuer_id` to
+the ID of a registered company from `/api/targets`. The source's acquired
+material records the configured issuer code for use when evaluating publication
+eligibility. Use `null` to remove the binding.
+
 Material identity uses the requested URL including query and fragment. Only when
 reviewed for that source, `material_identity_ignore_query_params` may list query
 parameter names to exclude and `material_identity_ignore_fragment` may be set to
@@ -128,6 +133,10 @@ HTMLだけの取得には保存クライアントは不要。
 単一の`article`、表題と一致する単一の`h1`、異なるPDFリンクが最大一つという条件を必須とする。
 過去分の複数PDFがあれば曖昧とする。曖昧なページは保持・巡回せず、フィードに明示された
 PDF参照は独立して取得できる。
+
+PDF 掲載のため取得先を発行体に紐付けるには、任意の `earnings_issuer_id` に
+`/api/targets` で登録した会社の ID を設定する。取得資料には掲載判定に使う設定済みの
+発行体コードが記録される。紐付けを解除するには `null` を指定する。
 
 資料の識別には取得前URLのクエリーとfragmentを含む全体を使用する。その取得先について確認した
 場合に限り、`material_identity_ignore_query_params`で除外するクエリーパラメータ名を指定し、

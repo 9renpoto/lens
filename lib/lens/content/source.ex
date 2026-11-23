@@ -15,6 +15,7 @@ defmodule Lens.Content.Source do
   @typedoc "A configured endpoint and its ingestion state."
   @type t :: %__MODULE__{
           id: binary() | nil,
+          earnings_issuer_id: binary() | nil,
           feed_format: String.t() | nil,
           acquisition_kind: String.t() | nil,
           publisher_authority: String.t() | nil,
@@ -44,6 +45,7 @@ defmodule Lens.Content.Source do
     field(:failure_count, :integer, default: 0)
     field(:metadata, :map, default: %{})
 
+    belongs_to(:earnings_issuer, Lens.Analysis.Target)
     has_many(:observations, Lens.Content.Observation)
 
     timestamps(type: :utc_datetime_usec)
@@ -53,6 +55,7 @@ defmodule Lens.Content.Source do
     source
     |> cast(attrs, [
       :ingestion_mode,
+      :earnings_issuer_id,
       :feed_format,
       :acquisition_kind,
       :publisher_authority,
@@ -93,6 +96,7 @@ defmodule Lens.Content.Source do
     |> validate_original_feed_url()
     |> validate_bounded_metadata(:metadata)
     |> validate_bounded_metadata(:acquisition_metadata)
+    |> foreign_key_constraint(:earnings_issuer_id)
     |> unique_constraint(:endpoint_url)
     |> check_constraint(:poll_interval_seconds,
       name: :poll_interval_seconds_must_be_positive

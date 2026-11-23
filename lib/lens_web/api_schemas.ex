@@ -90,6 +90,12 @@ defmodule LensWeb.ApiSchemas do
       type: :object,
       properties: %{
         ingestion_mode: %Schema{type: :string, enum: ["document", "earnings_updates"]},
+        earnings_issuer_id: %Schema{
+          type: :string,
+          format: :uuid,
+          nullable: true,
+          description: "Registered issuer for PDF notifications"
+        },
         feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
         acquisition_kind: %Schema{
           type: :string,
@@ -137,6 +143,12 @@ defmodule LensWeb.ApiSchemas do
       properties: %{
         id: %Schema{type: :string, format: :uuid},
         ingestion_mode: %Schema{type: :string, enum: ["document", "earnings_updates"]},
+        earnings_issuer_id: %Schema{
+          type: :string,
+          format: :uuid,
+          nullable: true,
+          description: "Registered issuer for PDF notifications"
+        },
         feed_format: %Schema{type: :string, enum: ["rss_2_0", "atom", "rss_1_0", "unknown"]},
         acquisition_kind: %Schema{
           type: :string,

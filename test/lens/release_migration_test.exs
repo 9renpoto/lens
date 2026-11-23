@@ -5,6 +5,7 @@ defmodule Lens.ReleaseMigrationTest do
 
   @baseline_version 20_261_118_000_000
   @next_version 20_261_118_000_001
+  @unknown_version 99_991_231_000_000
   @legacy_fingerprint "0A7C1A8DD186C16317163E76B5C4DF7D08CB19985015E2B001E52BC0BF33B620"
 
   defmodule MigrationRepo do
@@ -39,7 +40,7 @@ defmodule Lens.ReleaseMigrationTest do
   end
 
   test "standard migrations initialize an empty database and preserve the supported baseline" do
-    assert [@baseline_version] = Ecto.Migrator.run(MigrationRepo, :up, all: true)
+    assert [@baseline_version | _] = Ecto.Migrator.run(MigrationRepo, :up, all: true)
 
     assert query!("""
            SELECT
@@ -55,8 +56,9 @@ defmodule Lens.ReleaseMigrationTest do
   test "concurrent preparation initializes once and can be repeated" do
     preparations = for _ <- 1..2, do: Task.async(&Release.prepare/0)
     assert [:ok, :ok] = Task.await_many(preparations, 15_000)
+    assert [@baseline_version | _] = initial_versions = versions()
     assert :ok = Release.prepare()
-    assert versions() == [@baseline_version]
+    assert versions() == initial_versions
   end
 
   @tag :pending_migration
@@ -109,14 +111,15 @@ defmodule Lens.ReleaseMigrationTest do
 
   test "preparation rejects a migration version absent from this release" do
     assert :ok = Release.prepare()
+    initial_versions = versions()
 
     MigrationRepo.query!(
       "INSERT INTO public.schema_migrations (version) VALUES ($1)",
-      [@next_version]
+      [@unknown_version]
     )
 
     assert_raise RuntimeError, ~r/unknown Lens schema.*deployment guide/i, &Release.prepare/0
-    assert versions() == [@baseline_version, @next_version]
+    assert versions() == initial_versions ++ [@unknown_version]
   end
 
   @tag :pending_migration
