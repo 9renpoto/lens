@@ -33,3 +33,14 @@ for index, line in enumerate([
     selected.drawString(72, 750 - 18 * index, line)
 selected.showPage()
 selected.save()
+
+for name, title in [
+    ("first-poll-report", "決算短信"),
+    ("first-poll-supplement", "決算補足資料"),
+]:
+    document = canvas.Canvas(str(root / f"{name}.pdf"), invariant=1)
+    document.setFont("HeiseiKakuGo-W5", 14)
+    document.drawString(72, 750, title)
+    document.drawString(72, 710, "コード番号 fixture-issuer")
+    document.showPage()
+    document.save()
