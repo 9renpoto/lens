@@ -953,7 +953,7 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert {^changed_xml, _} = output_rss()
   end
 
-  test "publishes ordinary PDFs by detected update and preserves earlier notification GUIDs" do
+  test "publishes reports, corrections and supplements with stable per-update GUIDs" do
     url = server(fn _ -> pdf() end)
     source = pdf_notification_source(url)
     options = pdf_notification_options("決算短信\nコード番号 fixture-issuer\nFixture results.")
@@ -993,12 +993,35 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert {^first_xml, _} = output_rss()
 
     changed = feed_item("one", url <> "/report.pdf", "Tue, 01 Jan 2030 09:03:03 +0900")
+    correction = pdf_notification_options("一部訂正に関するお知らせ\nコード番号 fixture-issuer")
 
     assert %{materials: [_], material_errors: []} =
-             Lens.Ingestion.ingest(source, transport: rss_transport(changed), materials: options)
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(changed),
+               materials: correction
+             )
 
     assert {_, [^first_item, later_item]} = output_rss()
     assert later_item.source_entry_id != first_item.source_entry_id
+    assert later_item.content =~ "一部訂正に関するお知らせ"
+
+    attachment = feed_item("two", url <> "/supplement.pdf")
+    supplement = pdf_notification_options("決算補足資料\nコード番号 fixture-issuer")
+
+    assert %{materials: [_], material_errors: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(attachment),
+               materials: supplement
+             )
+
+    assert {_, [^first_item, ^later_item, supplement_item]} = output_rss()
+    assert supplement_item.content =~ "決算補足資料"
+
+    refute supplement_item.source_entry_id in [
+             first_item.source_entry_id,
+             later_item.source_entry_id
+           ]
+
     assert Repo.aggregate(Release, :count) == 0
   end
 

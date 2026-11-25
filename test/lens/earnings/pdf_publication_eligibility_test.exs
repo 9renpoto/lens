@@ -9,7 +9,7 @@ defmodule Lens.Earnings.PDFPublicationEligibilityTest do
     assert Identity.from_text("example-issuer", text).status == :pending_confirmation
   end
 
-  test "rejects PDFs without a single matching issuer and ordinary-report evidence" do
+  test "requires a single matching issuer code" do
     heading = "2030年3月期 決算短信"
     issuer = "コード番号 example-issuer"
 
@@ -22,17 +22,18 @@ defmodule Lens.Earnings.PDFPublicationEligibilityTest do
                heading <> "\n" <> issuer <> "\nコード番号 other-issuer"
              )
 
-    for title <- ["決算説明資料", "決算補足資料", "「2030年3月期 決算短信」の一部訂正に関するお知らせ"] do
-      assert {:error, :unsupported_document} =
-               Identity.pdf_publication_eligibility("example-issuer", title <> "\n" <> issuer)
-    end
+    assert {:error, :issuer_unverified} =
+             Identity.pdf_publication_eligibility("example-issuer", heading)
   end
 
-  test "presentation headings conflict with ordinary-report evidence" do
-    text = "2030年3月期 決算説明資料\n2030年3月期 決算短信\nコード番号 example-issuer"
-
-    assert {:error, :unsupported_document} =
-             Identity.pdf_publication_eligibility("example-issuer", text)
+  test "accepts issuer evidence across PDF titles and with no title" do
+    for title <- ["決算説明資料", "決算補足資料", "「2030年3月期 決算短信」の一部訂正に関するお知らせ", ""] do
+      assert :ok =
+               Identity.pdf_publication_eligibility(
+                 "example-issuer",
+                 title <> "\nコード番号 example-issuer"
+               )
+    end
   end
 
   test "requires a configured company" do

@@ -3,8 +3,6 @@ defmodule Lens.Earnings.Identity do
 
   @issuer_evidence ~r/コード\s*番号\s*[:：]?\s*([^\s()〔〕]{1,50})(?=[\s()〔〕]|$)/u
 
-  @presentation_heading ~r/^[ \t]*(?:[0-9]{4}[ \t]*年[^\r\n]*?)?決算(?:説明会?|補足(?:説明)?)資料[ \t]*\r?$/mu
-
   @doc "Read explicit PDF identity fields. Missing or contradictory identity stays pending."
   def from_text(issuer, text)
       when is_binary(text) and is_binary(issuer) and byte_size(issuer) > 0 do
@@ -43,7 +41,7 @@ defmodule Lens.Earnings.Identity do
 
   def from_text(_, _), do: {:error, :unsupported_issuer}
 
-  @doc "Check the configured issuer and ordinary report evidence needed for PDF publication."
+  @doc "Check that extracted issuer evidence matches the issuer configured for PDF publication."
   def pdf_publication_eligibility(nil, _text), do: {:error, :issuer_unconfigured}
 
   def pdf_publication_eligibility(issuer, text) when is_binary(issuer) and is_binary(text) do
@@ -53,8 +51,7 @@ defmodule Lens.Earnings.Identity do
     cond do
       is_nil(code) -> {:error, :issuer_unverified}
       code != String.normalize(issuer, :nfkc) -> {:error, :issuer_mismatch}
-      not Regex.match?(@presentation_heading, text) and ordinary_report?(text) -> :ok
-      true -> {:error, :unsupported_document}
+      true -> :ok
     end
   end
 
@@ -62,20 +59,6 @@ defmodule Lens.Earnings.Identity do
     Regex.scan(@issuer_evidence, text, capture: :all_but_first)
     |> Enum.map(&hd/1)
     |> unique_value()
-  end
-
-  defp ordinary_report?(text) do
-    case category(text) do
-      "earnings_release" ->
-        true
-
-      nil ->
-        Regex.match?(~r/^[ \t]*決算短信[ \t]*\r?$(?!\n\s*(?:の|を|に|ご参照|参照))/mu, text) and
-          not unsupported_correction_heading?(text)
-
-      _ ->
-        false
-    end
   end
 
   defp title_fields([year, month, quarter, interim]) do
