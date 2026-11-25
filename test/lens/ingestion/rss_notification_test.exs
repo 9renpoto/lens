@@ -2,6 +2,7 @@ defmodule Lens.Ingestion.RSSNotificationTest do
   use Lens.DataCase, async: false
 
   alias Lens.Content
+  alias Lens.Earnings.RustFS
   alias Lens.Ingestion.{Parser, Scheduler}
 
   @evidence "Synthetic operating result"
@@ -44,10 +45,7 @@ defmodule Lens.Ingestion.RSSNotificationTest do
         acquisition_metadata: %{"material_origins" => [fixture_url], "html_selector" => "article"}
       })
 
-    :ok = :sys.resume(Scheduler)
-
-    try do
-      send(Scheduler, :poll)
+    with_scheduler(fn ->
       baseline = await_poll(source.id)
       assert baseline.feed_baselined_at
 
@@ -74,11 +72,176 @@ defmodule Lens.Ingestion.RSSNotificationTest do
       assert {^seen, []} = poll_consumer(feed_url, fixture_url, seen)
       assert [%{source_entry_id: ^guid}] = read_feed(feed_url)
       refute_received {:notification, _}
+    end)
+  end
+
+  @tag skip: not match?({:unix, :linux}, :os.type())
+  test "a new source publishes the first feed item's PDFs to the RSS subscriber" do
+    report = File.read!("test/fixtures/first-poll-report.pdf")
+    supplement = File.read!("test/fixtures/first-poll-supplement.pdf")
+    phase = start_supervised!({Agent, fn -> :initial end})
+    owner = self()
+
+    fixture_url =
+      serve(:fixture, fn conn, _options ->
+        base_url = "http://" <> hd(Plug.Conn.get_req_header(conn, "host"))
+
+        case conn.request_path do
+          "/input.xml" ->
+            rss = pdf_input_feed(base_url, Agent.get(phase, & &1))
+            respond(conn, "application/rss+xml", rss)
+
+          path ->
+            send(owner, {:material_requested, path})
+            bytes = if path == "/report.pdf", do: report, else: supplement
+            respond(conn, "application/pdf", bytes)
+        end
+      end)
+
+    configure_pdf_storage()
+    lens_url = serve(:lens, LensWeb.Endpoint)
+    configure_output_origin(lens_url)
+    feed_url = lens_url <> "/feeds/earnings.rss"
+    assert read_feed(feed_url) == []
+
+    assert %{status: 201, body: %{"target" => %{"id" => issuer_id}}} =
+             Req.post!(lens_url <> "/api/targets",
+               json: %{
+                 target: %{
+                   security_code: "fixture-issuer",
+                   display_name: "Example Issuer",
+                   market: "Example Market",
+                   sector: "Example Sector"
+                 }
+               },
+               retry: false
+             )
+
+    assert %{status: 201, body: %{"source" => %{"id" => source_id}}} =
+             Req.post!(lens_url <> "/api/sources",
+               json: %{
+                 source: %{
+                   endpoint_url: fixture_url <> "/input.xml",
+                   earnings_issuer_id: issuer_id,
+                   ingestion_mode: "earnings_updates",
+                   poll_interval_seconds: 1,
+                   acquisition_metadata: %{"material_origins" => [fixture_url]}
+                 }
+               },
+               retry: false
+             )
+
+    with_scheduler(fn ->
+      initial = await_poll(source_id)
+      assert initial.feed_baselined_at
+      assert_receive {:material_requested, "/report.pdf"}
+      assert_receive {:material_requested, "/supplement.pdf"}
+      refute_received {:material_requested, "/baseline.pdf"}
+
+      entries = read_feed(feed_url)
+      assert length(entries) == 2
+      initial_guids = MapSet.new(entries, & &1.source_entry_id)
+      assert MapSet.size(initial_guids) == 2
+
+      originals =
+        Map.new(entries, fn entry ->
+          assert entry.title == "first"
+          assert "lens:pdf-update:" <> _ = entry.source_entry_id
+          assert String.starts_with?(entry.entry_url, lens_url <> "/api/earnings/originals/")
+          label = if entry.content =~ "決算補足資料", do: :supplement, else: :report
+          assert %{status: 200, body: bytes} = Req.get!(entry.entry_url, retry: false)
+          {label, bytes}
+        end)
+
+      assert originals == %{report: report, supplement: supplement}
+
+      unchanged = await_poll(source_id, initial.last_success_at)
+      assert read_feed(feed_url) == entries
+      refute_received {:material_requested, _}
+
+      Agent.update(phase, fn _ -> :later end)
+      assert_receive {:material_requested, "/later.pdf"}, 5_000
+      await_poll(source_id, unchanged.last_success_at)
+
+      updated_entries = read_feed(feed_url)
+      assert length(updated_entries) == 3
+      assert Enum.all?(entries, &(&1 in updated_entries))
+
+      assert [%{title: "later", entry_url: original_url}] =
+               Enum.reject(updated_entries, &MapSet.member?(initial_guids, &1.source_entry_id))
+
+      assert %{status: 200, body: ^supplement} = Req.get!(original_url, retry: false)
+      refute_received {:material_requested, _}
+    end)
+  end
+
+  defp with_scheduler(run) do
+    :ok = :sys.resume(Scheduler)
+
+    try do
+      send(Scheduler, :poll)
+      run.()
     after
       :ok = Supervisor.terminate_child(Lens.Supervisor, Scheduler)
       {:ok, pid} = Supervisor.restart_child(Lens.Supervisor, Scheduler)
       :ok = :sys.suspend(pid)
     end
+  end
+
+  defp pdf_input_feed(url, phase) do
+    first =
+      """
+      <item><guid>first</guid><title>first</title><link>#{url}/report.pdf</link>
+      <enclosure url="#{url}/supplement.pdf" type="application/pdf"/></item>
+      """
+
+    baseline =
+      "<item><guid>baseline</guid><title>baseline</title><link>#{url}/baseline.pdf</link></item>"
+
+    later = "<item><guid>later</guid><title>later</title><link>#{url}/later.pdf</link></item>"
+    items = if phase == :later, do: [later, first, baseline], else: [first, baseline]
+    "<rss version=\"2.0\"><channel>#{items}</channel></rss>"
+  end
+
+  defp configure_pdf_storage do
+    objects = start_supervised!({Agent, fn -> %{} end}, id: :pdf_objects)
+
+    endpoint =
+      serve(:pdf_storage, fn conn, _options ->
+        key = conn.request_path
+
+        case conn.method do
+          "PUT" ->
+            assert Plug.Conn.get_req_header(conn, "if-none-match") == ["*"]
+            {:ok, bytes, conn} = Plug.Conn.read_body(conn)
+
+            status =
+              Agent.get_and_update(objects, fn stored ->
+                status = if Map.has_key?(stored, key), do: 412, else: 200
+                {status, Map.put_new(stored, key, bytes)}
+              end)
+
+            Plug.Conn.send_resp(conn, status, "")
+
+          "GET" ->
+            case Agent.get(objects, &Map.fetch(&1, key)) do
+              {:ok, bytes} -> respond(conn, "application/pdf", bytes)
+              :error -> Plug.Conn.send_resp(conn, 404, "")
+            end
+        end
+      end)
+
+    previous = Application.fetch_env!(:lens, RustFS)
+    Application.put_env(:lens, RustFS, Keyword.put(previous, :endpoint, endpoint))
+    on_exit(fn -> Application.put_env(:lens, RustFS, previous) end)
+  end
+
+  defp configure_output_origin(url) do
+    endpoint = LensWeb.Endpoint
+    previous = Application.fetch_env!(:lens, endpoint)
+    origin = url |> URI.parse() |> Map.take([:scheme, :host, :port]) |> Map.to_list()
+    :ok = endpoint.config_change([{endpoint, Keyword.put(previous, :url, origin)}], [])
+    on_exit(fn -> endpoint.config_change([{endpoint, previous}], []) end)
   end
 
   defp serve(id, plug) do
