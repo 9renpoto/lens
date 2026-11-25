@@ -1,3 +1,61 @@
+## v0.4.0 (2026-11-25)
+<!-- Release notes generated using configuration in .github/release.yml at 8977933cfd7f4372538daa081f7782f07c7b9432 -->
+
+## What's Changed
+### :boom: Type: Breaking Change
+* Publish acquired updates through the service RSS feed by @9renpoto in https://github.com/9renpoto/lens/pull/272
+* Remove manual earnings PDF collection by @9renpoto in https://github.com/9renpoto/lens/pull/286
+* Retire earnings listing sources and legacy assessments by @9renpoto in https://github.com/9renpoto/lens/pull/287
+* Remove historical index membership from target management by @9renpoto in https://github.com/9renpoto/lens/pull/289
+### :bug: Type: Bug
+* Publish issuer-matched earnings PDFs across document types by @9renpoto in https://github.com/9renpoto/lens/pull/309
+### :memo: Documentation
+* docs: define feed-driven earnings ingestion by @9renpoto in https://github.com/9renpoto/lens/pull/239
+* Define the service-wide RSS publication contract by @9renpoto in https://github.com/9renpoto/lens/pull/271
+* Propose Ecto migrations for PostgreSQL upgrades by @9renpoto in https://github.com/9renpoto/lens/pull/291
+* Define event-based RSS publication for earnings PDFs by @9renpoto in https://github.com/9renpoto/lens/pull/297
+* Accept partial earnings PDFs for downstream classification by @9renpoto in https://github.com/9renpoto/lens/pull/303
+* Define first-poll PDF publication by @9renpoto in https://github.com/9renpoto/lens/pull/308
+### :rocket: Type: Feature
+* feat: compare configurable assessment models through Ollama by @9renpoto in https://github.com/9renpoto/lens/pull/231
+* feat: add sanitized Sentry ingestion error reporting by @9renpoto in https://github.com/9renpoto/lens/pull/240
+* feat: detect new and changed earnings feed items by @9renpoto in https://github.com/9renpoto/lens/pull/241
+* feat: acquire earnings material with source references by @9renpoto in https://github.com/9renpoto/lens/pull/243
+* Index acquired earnings feed materials by @9renpoto in https://github.com/9renpoto/lens/pull/248
+* Preserve feed material revisions by @9renpoto in https://github.com/9renpoto/lens/pull/249
+* Collect one operator-selected earnings PDF for RSS by @9renpoto in https://github.com/9renpoto/lens/pull/266
+* Establish the supported PostgreSQL schema as an Ecto migration by @9renpoto in https://github.com/9renpoto/lens/pull/294
+* Adopt supported PostgreSQL schemas during release preparation by @9renpoto in https://github.com/9renpoto/lens/pull/295
+* Configure issuer binding and PDF publication eligibility by @9renpoto in https://github.com/9renpoto/lens/pull/300
+* Publish eligible earnings PDFs with stable update GUIDs by @9renpoto in https://github.com/9renpoto/lens/pull/301
+* Publish PDFs from the first earnings feed item on enrollment by @9renpoto in https://github.com/9renpoto/lens/pull/310
+### Other Changes
+* build(deps): bump zizmorcore/zizmor-action from 0.6.2 to 0.7.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/244
+* build(deps): bump reviewdog/action-actionlint from 1.80.0 to 1.80.4 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/246
+* build(deps): bump debian from bookworm-20261005-slim to bookworm-20261020-slim by @dependabot[bot] in https://github.com/9renpoto/lens/pull/257
+* build(deps): bump reviewdog/action-actionlint from 1.80.4 to 1.80.6 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/255
+* build(deps): bump docker/login-action from 4.6.0 to 4.7.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/256
+* build(deps): bump bandit from 1.12.5 to 1.14.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/253
+* build(deps): bump zizmorcore/zizmor-action from 0.7.1 to 0.8.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/251
+* build(deps-dev): bump castore from 1.0.21 to 1.0.22 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/252
+* build(deps): bump phoenix from 1.8.15 to 1.8.16 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/254
+* build(deps): bump zizmorcore/zizmor-action from 0.8.0 to 0.8.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/258
+* build(deps): bump crate-ci/typos from 1.51.1 to 1.52.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/262
+* build(deps): bump sentry from 14.0.0 to 14.0.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/263
+* build(deps): bump debian from bookworm-20261020-slim to bookworm-20261027-slim by @dependabot[bot] in https://github.com/9renpoto/lens/pull/264
+* build(deps): bump floki from 0.38.4 to 0.38.5 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/261
+* build(deps): bump reviewdog/action-actionlint from 1.80.6 to 1.81.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/260
+* build(deps): bump saxy from 1.6.1 to 1.7.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/259
+* Verify scheduled RSS notification delivery by @9renpoto in https://github.com/9renpoto/lens/pull/273
+* build(deps): bump reviewdog/action-actionlint from 1.81.1 to 1.83.0 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/282
+* build(deps): bump peter-evans/create-pull-request from 8.1.1 to 8.1.2 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/284
+* build(deps): bump reviewdog/action-actionlint from 1.83.0 to 1.84.1 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/307
+* build(deps-dev): bump dialyxir from 1.4.8 to 1.4.9 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/305
+* build(deps): bump crate-ci/typos from 1.52.0 to 1.52.2 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/306
+* build(deps): bump peter-evans/create-pull-request from 8.1.2 to 8.1.3 by @dependabot[bot] in https://github.com/9renpoto/lens/pull/304
+
+
+**Full Changelog**: https://github.com/9renpoto/lens/compare/v0.3.0...v0.4.0
 ## v0.3.0 (2026-10-25)
 <!-- Release notes generated using configuration in .github/release.yml at b784b91fa5e6630aed46f694affb52bcc1d5822b -->
 
