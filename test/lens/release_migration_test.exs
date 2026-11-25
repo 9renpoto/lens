@@ -5,6 +5,7 @@ defmodule Lens.ReleaseMigrationTest do
 
   @baseline_version 20_261_118_000_000
   @next_version 20_261_118_000_001
+  @pdf_publication_version 20_261_120_000_001
   @unknown_version 99_991_231_000_000
   @legacy_fingerprint "0A7C1A8DD186C16317163E76B5C4DF7D08CB19985015E2B001E52BC0BF33B620"
 
@@ -51,6 +52,29 @@ defmodule Lens.ReleaseMigrationTest do
            """) == [[true, true, true, true]]
 
     assert [] = Ecto.Migrator.run(MigrationRepo, :up, all: true)
+  end
+
+  test "preparation does not mark previously registered sources for initial PDF publication" do
+    Ecto.Migrator.run(MigrationRepo, :up, to: @pdf_publication_version)
+
+    query!("""
+    WITH issuer AS (
+      INSERT INTO public.analysis_targets
+        (id, security_code, market, display_name, sector, inserted_at, updated_at)
+      VALUES (gen_random_uuid(), 'ZZ99', 'Example Market', 'Example Issuer', 'Example Sector', now(), now())
+      RETURNING id
+    )
+    INSERT INTO public.sources
+      (id, ingestion_mode, endpoint_url, poll_interval_seconds, earnings_issuer_id, inserted_at, updated_at)
+    SELECT gen_random_uuid(), 'earnings_updates', 'https://feeds.example.test/earnings.xml',
+           300, id, now(), now()
+    FROM issuer
+    """)
+
+    assert :ok = Release.prepare()
+
+    assert query!("SELECT initial_pdf_pending, feed_baselined_at FROM public.sources") ==
+             [[false, nil]]
   end
 
   test "concurrent preparation initializes once and can be repeated" do

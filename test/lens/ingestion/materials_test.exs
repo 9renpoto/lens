@@ -960,7 +960,7 @@ defmodule Lens.Ingestion.MaterialsTest do
 
     assert %{materials: []} =
              Lens.Ingestion.ingest(source,
-               transport: rss_transport(feed_item("baseline", url <> "/old.pdf")),
+               transport: rss_transport(""),
                materials: options
              )
 
@@ -1023,6 +1023,115 @@ defmodule Lens.Ingestion.MaterialsTest do
            ]
 
     assert Repo.aggregate(Release, :count) == 0
+  end
+
+  test "initial PDF publication follows feed order and baselines the other entries" do
+    url = server(fn _ -> pdf() end)
+    source = pdf_notification_source(url)
+    options = pdf_notification_options("コード番号 fixture-issuer\nFixture results.")
+
+    first =
+      feed_item("first", url <> "/correction.pdf", "Tue, 01 Jan 2030 09:00:00 +0900")
+      |> String.replace(
+        "</item>",
+        ~s(<enclosure url="#{url}/supplement.pdf" type="application/pdf"/></item>)
+      )
+
+    second = feed_item("second", url <> "/report.pdf", "Wed, 02 Jan 2030 09:00:00 +0900")
+
+    assert %{materials: materials, material_errors: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(first <> second),
+               materials: options
+             )
+
+    assert_receive {:request, "/correction.pdf"}
+    assert_receive {:request, "/supplement.pdf"}
+    refute_received {:request, "/report.pdf"}
+
+    assert {initial_xml, entries} = output_rss()
+    assert length(entries) == 2
+    assert length(Enum.uniq_by(entries, & &1.source_entry_id)) == 2
+
+    assert Enum.sort(Enum.map(entries, &URI.parse(&1.canonical_url).path)) ==
+             Enum.sort(Enum.map(materials, &"/api/earnings/originals/#{&1.original_id}"))
+
+    assert %{materials: [], update_signals: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(second <> first),
+               materials: options
+             )
+
+    assert {^initial_xml, _} = output_rss()
+
+    changed = feed_item("second", url <> "/revised.pdf")
+
+    assert %{materials: [_], update_signals: [%{change: :changed}]} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(changed <> first),
+               materials: options
+             )
+
+    assert {_, [_, _, _]} = output_rss()
+  end
+
+  test "initial PDF publication stops at an ineligible first item" do
+    url = server(fn _ -> pdf() end)
+    source = pdf_notification_source(url)
+    options = pdf_notification_options("コード番号 different-issuer\nFixture results.")
+    entries = feed_item("first", url <> "/first.pdf") <> feed_item("second", url <> "/second.pdf")
+
+    assert %{materials: [_]} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(entries), materials: options)
+
+    assert_receive {:request, "/first.pdf"}
+    refute_received {:request, "/second.pdf"}
+    assert {_, []} = output_rss()
+
+    assert %{materials: [], update_signals: []} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(entries), materials: options)
+  end
+
+  test "initial PDF processing can acquire an HTML page while publishing only its PDF" do
+    url =
+      server(fn
+        "/release" -> html("<article><p>Fixture results.</p></article>")
+        "/report.pdf" -> pdf()
+      end)
+
+    source = pdf_notification_source(url, %{"html_selector" => "article"})
+    options = pdf_notification_options("コード番号 fixture-issuer\nFixture results.")
+
+    item =
+      feed_item("first", url <> "/release")
+      |> String.replace(
+        "</item>",
+        ~s(<enclosure url="#{url}/report.pdf" type="application/pdf"/></item>)
+      )
+
+    assert %{materials: [%{kind: "html"}, %{kind: "pdf"}], material_errors: []} =
+             Lens.Ingestion.ingest(source, transport: rss_transport(item), materials: options)
+
+    assert {_, [%{source_entry_id: "lens:pdf-update:" <> _}]} = output_rss()
+  end
+
+  test "changing a registered source endpoint does not publish the replacement baseline" do
+    url = server(fn _ -> pdf() end)
+    source = pdf_notification_source(url)
+    options = pdf_notification_options("コード番号 fixture-issuer\nFixture results.")
+
+    assert %{update_signals: []} = Lens.Ingestion.ingest(source, transport: rss_transport(""))
+
+    {:ok, source} = Content.update_source(source, %{endpoint_url: url <> "/replacement"})
+
+    assert %{materials: [], update_signals: []} =
+             Lens.Ingestion.ingest(source,
+               transport: rss_transport(feed_item("history", url <> "/history.pdf")),
+               materials: options
+             )
+
+    refute_received {:request, "/history.pdf"}
+    assert {_, []} = output_rss()
   end
 
   test "keeps ineligible PDF text searchable and reports a sanitized skip reason" do
@@ -1134,7 +1243,7 @@ defmodule Lens.Ingestion.MaterialsTest do
     assert {_, []} = output_rss()
   end
 
-  defp pdf_notification_source(url) do
+  defp pdf_notification_source(url, metadata \\ %{}) do
     {:ok, issuer} =
       Lens.Analysis.create_target(%{
         security_code: "fixture-issuer",
@@ -1143,8 +1252,7 @@ defmodule Lens.Ingestion.MaterialsTest do
         sector: "Example Sector"
       })
 
-    {:ok, source} = Content.update_source(source(url), %{earnings_issuer_id: issuer.id})
-    source
+    source(url, metadata, %{earnings_issuer_id: issuer.id})
   end
 
   defp pdf_notification_options(text),
@@ -1170,14 +1278,19 @@ defmodule Lens.Ingestion.MaterialsTest do
     {xml, entries}
   end
 
-  defp source(url, metadata \\ %{}) do
+  defp source(url, metadata \\ %{}, attrs \\ %{}) do
     {:ok, source} =
-      Content.create_source(%{
-        endpoint_url: url <> "/feed",
-        ingestion_mode: "earnings_updates",
-        poll_interval_seconds: 300,
-        acquisition_metadata: Map.put(metadata, "material_origins", [url])
-      })
+      Content.create_source(
+        Map.merge(
+          %{
+            endpoint_url: url <> "/feed",
+            ingestion_mode: "earnings_updates",
+            poll_interval_seconds: 300,
+            acquisition_metadata: Map.put(metadata, "material_origins", [url])
+          },
+          attrs
+        )
+      )
 
     source
   end

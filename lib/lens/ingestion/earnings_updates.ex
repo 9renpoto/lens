@@ -1,5 +1,5 @@
 defmodule Lens.Ingestion.EarningsUpdates do
-  @moduledoc "Persists a subscription baseline and emits only feed-visible updates."
+  @moduledoc "Persists subscription baselines and emits feed-visible updates and initial PDF items."
 
   import Ecto.Query
   alias Lens.Content.Source
@@ -21,6 +21,7 @@ defmodule Lens.Ingestion.EarningsUpdates do
       current
       |> Ecto.Changeset.change(
         feed_baselined_at: current.feed_baselined_at || observed_at,
+        initial_pdf_pending: false,
         etag: Map.get(headers, "etag"),
         last_modified: Map.get(headers, "last-modified"),
         last_attempt_at: observed_at,
@@ -36,6 +37,9 @@ defmodule Lens.Ingestion.EarningsUpdates do
 
   defp observe_entries(source, entries, baseline?) do
     indexed = Enum.with_index(entries)
+
+    publish_first_pdf_item? =
+      baseline? and source.initial_pdf_pending and not is_nil(source.earnings_issuer_id)
 
     conflicting =
       indexed
@@ -79,12 +83,20 @@ defmodule Lens.Ingestion.EarningsUpdates do
             conflict_target: [:source_id, :item_key]
           )
 
-          if not baseline? and previous != fingerprint do
+          if previous != fingerprint and
+               (not baseline? or (publish_first_pdf_item? and index == 0)) do
+            change =
+              cond do
+                baseline? -> :initial_pdf
+                is_nil(previous) -> :new
+                true -> :changed
+              end
+
             signal = %{
               update_id: Ecto.UUID.generate(),
               source_id: source.id,
               item_key: key,
-              change: if(is_nil(previous), do: :new, else: :changed),
+              change: change,
               entry: entry
             }
 

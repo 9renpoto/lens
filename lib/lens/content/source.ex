@@ -27,6 +27,7 @@ defmodule Lens.Content.Source do
   schema "sources" do
     field(:ingestion_mode, :string, default: "document")
     field(:feed_baselined_at, :utc_datetime_usec)
+    field(:initial_pdf_pending, :boolean, default: false)
     field(:feed_format, :string, default: "unknown")
     field(:acquisition_kind, :string, default: "unknown")
     field(:publisher_authority, :string, default: "unknown")
