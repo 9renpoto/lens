@@ -30,6 +30,8 @@ defmodule Lens.Earnings.Feed do
       join: extraction in "feed_material_extractions",
       on: extraction.material_id == material.id,
       where: material.kind == "html",
+      where:
+        fragment("?->>'update_kind' IS DISTINCT FROM 'initial_pdf'", material.entry_snapshot),
       # Configured selectors record a selector without the title-matching fallback marker.
       where:
         fragment(

@@ -3,7 +3,7 @@ defmodule Lens.ErrorReporter do
 
   @stage_atoms ~w(discovery acquisition association extraction indexing publication)a
   @stages Enum.map(@stage_atoms, &Atom.to_string/1)
-  @publication_reason_atoms ~w(issuer_unconfigured issuer_unverified issuer_mismatch unsupported_document)a
+  @publication_reason_atoms ~w(issuer_unconfigured issuer_unverified issuer_mismatch)a
   @publication_reasons Enum.map(@publication_reason_atoms, &Atom.to_string/1)
   @failure_kinds ~w(error exception)
 

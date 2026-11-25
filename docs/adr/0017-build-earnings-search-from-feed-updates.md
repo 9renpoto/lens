@@ -14,10 +14,18 @@ Track implementation scope in [#232](https://github.com/9renpoto/lens/issues/232
 
 ## Discovery boundary
 
-Use the first successful feed read as a baseline without acquiring or indexing
-its existing items. Process subsequent new items and changes visible in the
-feed. Preserve the baseline and observed item identity/content across application
-restarts so ordinary polling does not repeatedly acquire unchanged material.
+Record the items from the first successful feed read as the subscription
+baseline. For a newly registered PDF publication source, pass the first item in
+feed order, when present, through the existing PDF acquisition and publication
+path. Record the remaining items only for later comparison. Feed order gives
+operators a simple way to verify the path after registration. Revisit this
+choice if initial publications produce enough noise to justify filtering by
+publication date or material type. Other sources use the first read only to
+establish the baseline.
+
+Process subsequent new items and changes visible in the feed. Preserve the
+baseline and observed item identity/content across application restarts so
+ordinary polling does not repeatedly acquire unchanged material.
 Feed visibility bounds detection: a change only to a linked page or attachment
 is not detected unless the feed exposes a corresponding change. Do not promise
 complete discovery of items that disappear between polls.
@@ -80,9 +88,10 @@ and exception context.
 registration and the separation of acquisition, assessment and operator
 decisions. This decision defines the subscription acquisition path. Do not provide a
 manual listing-order collector or a command to acquire an operator-selected PDF.
-Feed ingestion can acquire PDFs from subsequent updates, and retained originals
-remain readable. Reuse the existing target registry, source metadata and
-acquisition safeguards where applicable. [ADR 0005](0005-store-pdfs-in-rustfs.md) governs retained PDFs, and
+Feed ingestion can acquire PDFs on the first poll and from subsequent updates,
+and retained originals remain readable. Reuse the existing target registry,
+source metadata and acquisition safeguards where applicable.
+[ADR 0005](0005-store-pdfs-in-rustfs.md) governs retained PDFs, and
 [ADR 0010](0010-defer-backups-for-disposable-development-data.md) continues to
 govern disposable data and preservation guarantees. Keeping revisions does not
 introduce backup or restore guarantees.
@@ -111,7 +120,12 @@ later subscription domains do not have to inherit earnings-specific assessment.
 
 ## 更新検知の境界
 
-最初に成功したフィード取得を基準とし、その時点の既存項目は資料取得・検索登録しない。
+最初に成功したフィード取得の項目を購読開始時の基準として記録する。新規登録したPDF掲載用の
+取得先で項目がある場合、フィードの並び順の先頭1項目を既存のPDF取得・掲載処理に渡す。
+残りの項目は以後の比較用に記録する。フィードの並び順を使うことで、運用者は登録後に取得から
+掲載までの経路を簡単に確認できる。初回掲載のノイズが増えた時点で、公開日や資料種別による
+絞り込みを検討する。ほかの取得先では、初回取得は比較基準の確立に使う。
+
 以後の新着と、フィード上で確認できる変更を処理する。基準と観測した項目の識別・内容を
 アプリ再起動後も保持し、通常のポーリングで変更のない資料を繰り返し取得しない。
 検知範囲はフィードに現れる情報に制限される。リンク先本文や添付だけの変更は、フィードに
@@ -158,7 +172,7 @@ PDF原本・検索登録結果を区別する。フィードで検知できた�
 
 [ADR 0007](0007-register-pilot-sources-through-an-interface.md)は対象登録と、取得・判定・
 運用者判断の分離を扱う。本判断は購読による取得経路を定義し、一覧順の手動収集や運用者が
-指定したPDFを取得するコマンドは設けない。フィード取り込みは後続の更新からPDFを取得でき、
+指定したPDFを取得するコマンドは設けない。フィード取り込みは初回巡回や後続の更新からPDFを取得でき、
 保存済み原本も引き続き参照できる。既存の対象台帳・取得先メタデータ・取得時の制約を適用可能な範囲で再利用する。
 保存PDFには[ADR 0005](0005-store-pdfs-in-rustfs.md)、破棄可能なデータと保持保証には引き続き
 [ADR 0010](0010-defer-backups-for-disposable-development-data.md)を適用する。改訂版の保持は

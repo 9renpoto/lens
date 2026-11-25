@@ -32,9 +32,10 @@ items remain available when later versions succeed or fail.
 ## Automatic PDF publication
 
 For PDF publication, configure a feed scoped to one registered issuer's
-earnings materials. Publish an item-associated PDF when the feed exposes a new
-or changed item, the original is retained, extraction yields non-empty text,
-and the issuer code in the PDF matches the configured issuer.
+earnings materials. Apply the same publication conditions to the first item
+processed on the initial poll under ADR 0017 and to subsequent new or changed
+items. Publish each associated PDF whose original is retained, whose extraction
+yields non-empty text, and whose issuer code matches the configured issuer.
 
 A PDF can contain a complete report, part of a report, or a separate correction
 notice. Title and completeness are evidence for downstream aggregation. Give
@@ -104,8 +105,9 @@ ADR 0017 に従って処理失敗として扱い、RSS 項目を作らない。�
 ## PDF の自動掲載
 
 PDF 掲載用の取得先には、登録済みの発行体（会社）1社の決算資料を扱うフィードを設定する。
-入力項目の新着・変更を検知し、関連 PDF の原本を保存でき、空でない本文を抽出でき、
-PDF 本文の発行体コードが設定と一致した場合に掲載する。
+ADR 0017 に従って初回巡回で処理する先頭項目と、以後の新着・変更項目に同じ掲載条件を適用する。
+関連 PDF の原本を保存でき、空でない本文を抽出でき、PDF 本文の発行体コードが設定と一致する
+PDF をすべて掲載する。
 
 決算短信の全文、一部だけを含む資料、単独の訂正通知も扱う。表題と資料の完全性は
 集計側での判定に使う。購読側は抽出本文と保存原本を参照して資料を分類できる。

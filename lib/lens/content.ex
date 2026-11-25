@@ -55,9 +55,14 @@ defmodule Lens.Content do
   @spec create_source(attributes()) :: {:ok, Source.t()} | {:error, %Ecto.Changeset{}}
   def create_source(attrs) do
     attrs = schedule_initial_fetch(attrs)
+    changeset = Source.changeset(%Source{}, attrs)
 
-    %Source{}
-    |> Source.changeset(attrs)
+    initial_pdf_pending =
+      Ecto.Changeset.get_field(changeset, :ingestion_mode) == "earnings_updates" and
+        not is_nil(Ecto.Changeset.get_field(changeset, :earnings_issuer_id))
+
+    changeset
+    |> Ecto.Changeset.put_change(:initial_pdf_pending, initial_pdf_pending)
     |> Repo.insert()
   end
 
