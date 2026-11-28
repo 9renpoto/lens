@@ -3,6 +3,7 @@ defmodule Lens.Earnings.AssessmentExperiment.Ollama do
   @derive {Inspect, only: [:model, :timeout_ms]}
   @enforce_keys [:endpoint, :model, :timeout_ms, :request]
   defstruct [:endpoint, :model, :timeout_ms, :request, :think]
+  @type t :: %__MODULE__{}
 
   @fields ~w(document_kind issuer_code fiscal_year_end period)
   @kinds ~w(earnings_release correction earnings_presentation other unknown mixed)
@@ -84,13 +85,14 @@ defmodule Lens.Earnings.AssessmentExperiment.Ollama do
     end
   end
 
-  def classify(client, text) when is_binary(text) and byte_size(text) in 1..12_000 do
+  def chat_json(client, messages, format, options)
+      when is_list(messages) and is_map(format) and is_map(options) do
     body = %{
       model: client.model,
       stream: false,
-      format: schema(),
-      options: contract(client)["options"],
-      messages: [%{role: "system", content: @prompt}, %{role: "user", content: text}]
+      format: format,
+      options: options,
+      messages: messages
     }
 
     body = if is_nil(client.think), do: body, else: Map.put(body, :think, client.think)
@@ -98,7 +100,18 @@ defmodule Lens.Earnings.AssessmentExperiment.Ollama do
     with {:ok, response} <- request(client, :post, "/api/chat", json: body),
          %{"done" => true, "done_reason" => "stop", "message" => %{"content" => content}}
          when is_binary(content) <- response,
-         {:ok, result} when is_map(result) <- Jason.decode(content),
+         {:ok, result} when is_map(result) <- Jason.decode(content) do
+      {:ok, result}
+    else
+      {:error, reason} when is_atom(reason) -> {:error, reason}
+      _ -> {:error, :invalid_output}
+    end
+  end
+
+  def classify(client, text) when is_binary(text) and byte_size(text) in 1..12_000 do
+    messages = [%{role: "system", content: @prompt}, %{role: "user", content: text}]
+
+    with {:ok, result} <- chat_json(client, messages, schema(), contract(client)["options"]),
          true <- valid_prediction?(Map.take(result, @fields)),
          true <- Enum.sort(Map.keys(result)) == Enum.sort(["evidence" | @fields]),
          evidence when is_map(evidence) <- result["evidence"],
