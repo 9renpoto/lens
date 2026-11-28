@@ -1,21 +1,39 @@
 # Local earnings brief
 
 Render a short, readable brief from one operator-prepared disclosure record
-without starting the Lens application, collection, PostgreSQL, or a local model.
+without starting the Lens application, collection, or PostgreSQL.
 See [ADR 0019](../adr/0019-generate-local-earnings-brief-from-cited-facts.md).
 
 ## Run
 
-From the repository root with dependencies installed, run the fictional example:
+### Facts and local-model hypothesis
+
+Configure an Ollama endpoint and model (such as `gpt-oss:20b`) in your shell:
 
 ```sh
+LENS_OLLAMA_ENDPOINT=http://127.0.0.1:11434 \
+LENS_OLLAMA_MODEL=gpt-oss:20b \
 mix lens.earnings.brief test/fixtures/earnings/brief_example.json
 ```
 
-The command validates the input JSON object and prints the `## 開示ファクト`
-section containing the supplied resource movement, source citation, and verbatim
-excerpt. Missing or blank fields, unexpected keys, invalid JSON, and invalid
-`resource` or `status` values fail with an actionable error.
+Optional environment variables:
+
+- `LENS_OLLAMA_THINK`: `true`, `false`, or a model-supported level such as `low`.
+- `LENS_OLLAMA_TIMEOUT_MS`: per-request timeout in milliseconds (1–300000).
+
+Code renders `## 開示ファクト` directly from the validated input record. Only the
+validated facts and excerpt are sent to the configured local model, which drafts
+one job-demand hypothesis (`## 仕事の需要仮説（推測）`), one primary-source
+check (`## 一次情報での確認方法`), and an optional concrete next step
+(`## 任意の次の一歩`). If model configuration is missing/invalid or inference
+fails, the command prints the validated facts section together with a visible
+failure notice under `## 仕事の需要仮説（推測）` and exits non-zero.
+
+### Facts only (without a model)
+
+```sh
+mix lens.earnings.brief --facts-only test/fixtures/earnings/brief_example.json
+```
 
 ## Input record contract
 
@@ -38,21 +56,38 @@ fixtures and documentation examples must remain wholly fictional.
 
 # ローカル決算レポート
 
-Lens アプリ本体・収集・PostgreSQL・ローカルモデルを起動せずに、担当者が用意した
-1 件の開示レコードから短く読みやすいレポートを表示する。
+Lens アプリ本体・収集・PostgreSQL を起動せずに、担当者が用意した 1 件の開示レコードから
+短く読みやすいレポートを表示する。
 [ADR 0019](../adr/0019-generate-local-earnings-brief-from-cited-facts.md) を参照する。
 
 ## 実行
 
-依存関係を導入したリポジトリのルートから、架空データ例で実行する。
+### 開示ファクトとローカルモデルによる仮説生成
+
+シェルで Ollama の接続先とモデル名（例: `gpt-oss:20b`）を設定して実行する。
 
 ```sh
+LENS_OLLAMA_ENDPOINT=http://127.0.0.1:11434 \
+LENS_OLLAMA_MODEL=gpt-oss:20b \
 mix lens.earnings.brief test/fixtures/earnings/brief_example.json
 ```
 
-コマンドは入力 JSON オブジェクトを検証し、資源の動き・出典・原文抜粋を含む
-`## 開示ファクト` セクションを表示する。必須項目の欠落や空文字、未定義キー、
-不正な JSON、不正な `resource`・`status` 値は修正可能なエラーで失敗する。
+任意の環境変数:
+
+- `LENS_OLLAMA_THINK`: `true`・`false`、またはモデルが対応するレベル（例: `low`）。
+- `LENS_OLLAMA_TIMEOUT_MS`: 1 リクエストあたりのタイムアウト（ミリ秒、1〜300000）。
+
+`## 開示ファクト` は検証済みの入力レコードからコード側で直接表示する。モデルには
+検証済みファクトと抜粋のみを渡し、仕事の需要仮説 1 件（`## 仕事の需要仮説（推測）`）、
+一次情報での確認方法 1 件（`## 一次情報での確認方法`）、具体的な接点がある場合の
+任意の一歩（`## 任意の次の一歩`）を生成する。モデル設定の不備や推論失敗時は、
+検証済みの開示ファクトと失敗理由を並べて表示し、非 0 で終了する。
+
+### ファクトのみ表示（モデルなし）
+
+```sh
+mix lens.earnings.brief --facts-only test/fixtures/earnings/brief_example.json
+```
 
 ## 入力レコードの契約
 

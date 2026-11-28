@@ -25,6 +25,7 @@ defmodule Lens.Earnings.Brief do
   @required_fields ~w(excerpt resource activity action status source_locator)
   @resources %{"people" => "人", "capital" => "資金", "equipment" => "設備"}
   @statuses %{"actual" => "実施済み", "planned" => "計画"}
+  @directions %{"increase" => "需要増加", "decrease" => "需要減少"}
 
   @spec load_file(String.t()) :: {:ok, t()} | {:error, error_reason()}
   def load_file(path) when is_binary(path) do
@@ -71,6 +72,57 @@ defmodule Lens.Earnings.Brief do
     - 出典: #{brief.source_locator}
 
     #{quoted_excerpt}
+    """
+    |> String.trim_trailing()
+  end
+
+  @spec render(
+          t(),
+          {:ok, Lens.Earnings.Brief.Hypothesis.t()}
+          | {:error, Lens.Earnings.Brief.Hypothesis.error_reason()}
+        ) ::
+          String.t()
+  def render(%__MODULE__{} = brief, {:ok, %Lens.Earnings.Brief.Hypothesis{} = hypothesis}) do
+    next_step_section =
+      case hypothesis.next_step do
+        nil ->
+          ""
+
+        step ->
+          """
+
+
+          ## 任意の次の一歩
+
+          - #{step}
+          """
+          |> String.trim_trailing()
+      end
+
+    """
+    #{render_facts(brief)}
+
+    ## 仕事の需要仮説（推測）
+
+    - 根拠出典: #{brief.source_locator}
+    - 変化しうる仕事: #{hypothesis.work_type}
+    - 見込み方向: #{Map.fetch!(@directions, hypothesis.demand_direction)} (#{hypothesis.demand_direction})
+    - 理由: #{hypothesis.reason}
+
+    ## 一次情報での確認方法
+
+    - #{hypothesis.verification_step}#{next_step_section}
+    """
+    |> String.trim_trailing()
+  end
+
+  def render(%__MODULE__{} = brief, {:error, reason}) do
+    """
+    #{render_facts(brief)}
+
+    ## 仕事の需要仮説（推測）
+
+    - 生成失敗: #{Lens.Earnings.Brief.Hypothesis.format_error(reason)}
     """
     |> String.trim_trailing()
   end
